@@ -28,8 +28,8 @@ module tb_game_v2;
     wire [4:0]  hp, hp2;
     wire [3:0]  wave, shake_mag, p1_slash_t, p2_slash_t;
     wire [7:0]  cut_timer, eb_active_vec;
-    wire [10:0] px, dash_gx, cam_x, p2x, p2_dash_gx, blade0_x, blade1_x, pet_bx, p1_slash_x, p2_slash_x, lock_x, boss_x;
-    wire [9:0]  py, dash_gy, cam_y, p2y, p2_dash_gy, blade0_y, blade1_y, pet_by, p1_slash_y, p2_slash_y, lock_y, boss_y, laser_y;
+    wire [10:0] px, dash_gx, cam_x, p2x, p2_dash_gx, blade0_x, blade1_x, p2_blade0_x, p2_blade1_x, pet_bx, p1_slash_x, p2_slash_x, lock_x, boss_x;
+    wire [9:0]  py, dash_gy, cam_y, p2y, p2_dash_gy, blade0_y, blade1_y, p2_blade0_y, p2_blade1_y, pet_by, p1_slash_y, p2_slash_y, lock_y, boss_y, laser_y;
     wire        p2_mirror, p2_walk_frame, chrono_active, mirror, walk_frame, p1_nova, p2_nova;
     wire        pet_active, blades_active, aura_active, pet_b_act, lock_valid, boss_active, boss_locked, boss_enraged;
     wire [5:0]  exp, invuln_timer, p2_invuln;
@@ -64,7 +64,7 @@ module tb_game_v2;
     wire [4:0]       door_slide;
     wire [2:0]       quiz_gate;
     wire [1:0]       quiz_cursor, quiz_ans_slot;
-    wire [7:0]       boss_trans_t;
+    wire [7:0]       boss_trans_t, outfit_cut_t;
     wire             paused;
 
     game_engine_v2 u_engine (
@@ -88,6 +88,7 @@ module tb_game_v2;
         .combo_cnt(combo_cnt), .shake_mag(shake_mag), .p1_nova(p1_nova), .p2_nova(p2_nova),
         .pet_active(pet_active), .blades_active(blades_active), .aura_active(aura_active),
         .blade0_x(blade0_x), .blade0_y(blade0_y), .blade1_x(blade1_x), .blade1_y(blade1_y),
+        .p2_blade0_x(p2_blade0_x), .p2_blade0_y(p2_blade0_y), .p2_blade1_x(p2_blade1_x), .p2_blade1_y(p2_blade1_y),
         .pet_bx(pet_bx), .pet_by(pet_by), .pet_b_act(pet_b_act),
         .en_x_vec(en_x_vec), .en_y_vec(en_y_vec), .en_type_vec(en_type_vec),
         .en_alive_vec(en_alive_vec), .en_hp_vec(en_hp_vec), .en_tier_vec(en_tier_vec),
@@ -108,7 +109,7 @@ module tb_game_v2;
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
-        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused)
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused)
     );
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
@@ -142,6 +143,7 @@ module tb_game_v2;
         .combo_cnt(combo_cnt), .shake_mag(shake_mag), .p1_nova(p1_nova), .p2_nova(p2_nova),
         .pet_active(pet_active), .blades_active(blades_active), .aura_active(aura_active),
         .blade0_x(blade0_x), .blade0_y(blade0_y), .blade1_x(blade1_x), .blade1_y(blade1_y),
+        .p2_blade0_x(p2_blade0_x), .p2_blade0_y(p2_blade0_y), .p2_blade1_x(p2_blade1_x), .p2_blade1_y(p2_blade1_y),
         .pet_bx(pet_bx), .pet_by(pet_by), .pet_b_act(pet_b_act),
         .en_x_vec(en_x_vec), .en_y_vec(en_y_vec), .en_type_vec(en_type_vec),
         .en_alive_vec(en_alive_vec), .en_hp_vec(en_hp_vec), .en_tier_vec(en_tier_vec),
@@ -162,7 +164,7 @@ module tb_game_v2;
         .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
-        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -292,7 +294,8 @@ module tb_game_v2;
             $display("FAIL: Door approach did not trigger Logic Gate Quiz! rp=%d", room_phase); fail_cnt = fail_cnt + 1;
         end else $display("OK: Logic Gate Quiz triggered (gate=%d, ans_slot=%d)!", quiz_gate, quiz_ans_slot);
 
-        // Select correct answer & submit
+        // Wait out 30-frame anti-mash lockout, select correct answer & submit
+        repeat (32) step_frame();
         u_engine.quiz_cursor = quiz_ans_slot;
         j1_btn[2] = 1'b1; step_frame(); j1_btn[2] = 0;
         repeat (10) step_frame();
@@ -300,14 +303,14 @@ module tb_game_v2;
             $display("FAIL: Correct quiz answer did not slide door open! rp=%d slide=%d", room_phase, door_slide); fail_cnt = fail_cnt + 1;
         end else $display("OK: Quiz solved -> Sliding door opened (slide=%d)!", door_slide);
 
-        // Step through open door -> Slam + Wave 2 Banner!
+        // Step through open door -> Outfit Cutscene + Slam + Wave 2 Banner!
         u_engine.px = 11'd545; u_engine.py = 10'd224;
         repeat (3) step_frame();
-        if (wave !== 4'd2 || room_phase !== 3'd0 || door_slam_t == 0 || wave_banner_t == 0) begin
-            $display("FAIL: Entering door did not trigger Slam + Wave 2 Banner! wv=%d rp=%d slam=%d ban=%d", wave, room_phase, door_slam_t, wave_banner_t);
+        if (wave !== 4'd2 || room_phase !== 3'd0 || outfit_cut_t == 0 || door_slam_t == 0 || wave_banner_t == 0) begin
+            $display("FAIL: Entering door did not trigger Outfit Cutscene + Slam + Wave 2 Banner! wv=%d rp=%d cut=%d slam=%d ban=%d", wave, room_phase, outfit_cut_t, door_slam_t, wave_banner_t);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Entered door -> Door Slam ('PANG!') + Wave 2 Banner Slide-Out!");
-        repeat (95) step_frame();
+        end else $display("OK: Entered door -> Outfit Cutscene (t=%d) + Door Slam ('PANG!') + Wave 2 Banner!", outfit_cut_t);
+        repeat (220) step_frame();
 
         // 6. Final Boss (Wave 6): 3-Form Death -> Chuunibyou Quote + Portal Regrowth AT DEATH LOCATION -> Victory!
         u_engine.wave = 4'd6; u_engine.room_phase = 3'd1;

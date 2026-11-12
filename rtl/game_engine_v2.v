@@ -79,6 +79,8 @@ module game_engine_v2 (
     output wire        aura_active,
     output reg  [10:0] blade0_x = 0, blade1_x = 0, pet_bx = 0,
     output reg  [9:0]  blade0_y = 0, blade1_y = 0, pet_by = 0,
+    output reg  [10:0] p2_blade0_x = 0, p2_blade1_x = 0,
+    output reg  [9:0]  p2_blade0_y = 0, p2_blade1_y = 0,
     output reg         pet_b_act = 1'b0,
 
     // 16 Enemies (32x32 Sprites, 8 Types)
@@ -157,6 +159,7 @@ module game_engine_v2 (
     output reg  [1:0]  quiz_ans_slot = 2'd0,
     output reg  [6:0]  quiz_wrong_t  = 7'd0,
     output reg  [7:0]  boss_trans_t  = 8'd0,
+    output reg  [7:0]  outfit_cut_t  = 8'd0,
     output reg         paused        = 1'b0
 );
     localparam [2:0] ST_TITLE=3'd0, ST_CUTSCENE=3'd1, ST_PLAY=3'd2, ST_WIN=3'd3, ST_LOSE=3'd4;
@@ -213,7 +216,7 @@ module game_engine_v2 (
     assign blades_active = (game_state == ST_PLAY) && (stage >= 2'd2);
     assign aura_active   = (stage >= 2'd3);
     assign boss_locked   = (wave == FINAL_WAVE) && boss_active && (boss_hp > 0);
-    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 8'd125) : ((boss_kind == 2'd1) ? (boss_hp <= 8'd95) : (boss_hp <= 8'd70));
+    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 8'd95) : ((boss_kind == 2'd1) ? (boss_hp <= 8'd70) : (boss_hp <= 8'd50));
 
     reg [1:0] p1_combo_step = 2'd0, p2_combo_step = 2'd0;
     reg [5:0] p1_combo_rst = 6'd0, p2_combo_rst = 6'd0;
@@ -268,6 +271,7 @@ module game_engine_v2 (
     reg [5:0]  p1_stun_t = 6'd0, p2_stun_t = 6'd0;
     reg [2:0]  p1_boss_melee_cnt = 3'd0, p2_boss_melee_cnt = 3'd0;
     reg [6:0]  p1_bmelee_rst = 7'd0, p2_bmelee_rst = 7'd0;
+    reg [5:0]  quiz_lockout = 6'd0;
 
     reg [10:0] sp_x      [0:11];
     reg [9:0]  sp_y      [0:11];
@@ -462,8 +466,8 @@ module game_engine_v2 (
                     for (idx = 0; idx < 16; idx = idx + 1)
                         set_en(idx, 11'd205 + ((idx % 4) * 11'd95), 10'd100 + ((idx / 4) * 10'd72), idx[2:0] + sub, 2'd3, (sub >= 3'd2) ? 4'd15 : 4'd14, 10 + idx*3);
                 end
-                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 140 HP -> 190 HP -> 250 HP!)
-                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 8'd140;
+                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 105 HP -> 145 HP -> 190 HP!)
+                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 8'd105;
                 end
             endcase
         end
@@ -482,7 +486,8 @@ module game_engine_v2 (
             score_bcd <= 16'd0; chrono_energy <= 7'd100;
             wave <= 4'd1; wave_sub <= 3'd0; paused <= 1'b0; zone2_open <= 1'b0; zone3_open <= 1'b0;
             room_phase <= RP_BANNER; wave_banner_t <= 7'd90; door_slam_t <= 6'd45;
-            door_slide <= 5'd0; boss_trans_t <= 8'd0; quiz_wrong_t <= 6'd0;
+            door_slide <= 5'd0; boss_trans_t <= 8'd0; quiz_wrong_t <= 7'd0;
+            quiz_lockout <= 6'd0; outfit_cut_t <= 8'd0;
             quiz_cursor <= 2'd0; quiz_gate <= 3'd0; quiz_ans_slot <= 2'd0;
             mirror <= 1'b0; walk_frame <= 1'b0; p2_mirror <= 1'b0; p2_walk_frame <= 1'b0;
             dash_timer <= 0; dash_cd <= 0; invuln_timer <= 0; p2_invuln <= 0; evolve_flash <= 0;
@@ -494,7 +499,7 @@ module game_engine_v2 (
             lock_valid <= 0; fire_req <= 0; p2_fire_req <= 0;
             shrine_cd <= 0; sky_drop_timer <= 0; pet_fire_cd <= 0; pet_b_act <= 0;
             face_dx <= 3'sd1; face_dy <= 3'sd0; p2_face_dx <= 3'sd1; p2_face_dy <= 3'sd0;
-            boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 8'd140;
+            boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 8'd105;
             gun1_valid <= 1'b0; gun2_valid <= 1'b0; gun1_idx <= 5'd0; gun2_idx <= 5'd0;
             boss_ai_timer <= 0; laser_state <= 0; laser_timer <= 0;
 
@@ -635,6 +640,8 @@ module game_engine_v2 (
 
             blade0_x <= $signed({1'b0, px}) + cos_val; blade0_y <= $signed({1'b0, py}) + sin_val;
             blade1_x <= $signed({1'b0, px}) - cos_val; blade1_y <= $signed({1'b0, py}) - sin_val;
+            p2_blade0_x <= $signed({1'b0, p2x}) + cos_val; p2_blade0_y <= $signed({1'b0, p2y}) + sin_val;
+            p2_blade1_x <= $signed({1'b0, p2x}) - cos_val; p2_blade1_y <= $signed({1'b0, p2y}) - sin_val;
 
             case (step_state)
                 6'd0: if (tick) begin
@@ -671,21 +678,38 @@ module game_engine_v2 (
                         // Game paused via Joystick Start button: freeze engine cleanly!
                         step_state <= 6'd0;
                     end else if (room_phase == RP_QUIZ) begin
-                        // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR ----
-                        if (quiz_wrong_t > 0) quiz_wrong_t <= quiz_wrong_t - 7'd1;
-                        if (any_up_edge || any_left_edge) begin
-                            quiz_cursor <= quiz_cursor - 2'd1; sfx_pickup <= 1'b1;
-                        end else if (any_down_edge || any_right_edge) begin
-                            quiz_cursor <= quiz_cursor + 2'd1; sfx_pickup <= 1'b1;
-                        end else if (any_start_edge) begin
-                            if (quiz_cursor == quiz_ans_slot) begin
-                                room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
-                            end else begin
-                                quiz_wrong_t <= 7'd120; sfx_hit <= 1'b1; shake_mag <= 4'd6;
-                                quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
-                                quiz_ans_slot <= frame_cnt[1:0];
+                        // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR (Anti-Mash + Retake Replay!) ----
+                        if (quiz_lockout > 0) quiz_lockout <= quiz_lockout - 6'd1;
+                        if (quiz_wrong_t > 0) begin
+                            quiz_wrong_t <= quiz_wrong_t - 7'd1;
+                            if (quiz_wrong_t == 7'd1) begin
+                                // Wrong answer -> GO RETAKE! Replay current wave from start!
+                                px <= 11'd104; py <= 10'd224; mirror <= 1'b0;
+                                p2x <= 11'd104; p2y <= 10'd252; p2_mirror <= 1'b0;
+                                for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
+                                wave_sub <= 3'd0; door_slam_t <= 6'd45; door_slide <= 5'd0;
+                                wave_banner_t <= 7'd90; room_phase <= RP_BANNER;
+                            end
+                        end else if (quiz_lockout == 0) begin
+                            if (any_up_edge || any_left_edge) begin
+                                quiz_cursor <= quiz_cursor - 2'd1; sfx_pickup <= 1'b1;
+                            end else if (any_down_edge || any_right_edge) begin
+                                quiz_cursor <= quiz_cursor + 2'd1; sfx_pickup <= 1'b1;
+                            end else if (any_start_edge) begin
+                                if (quiz_cursor == quiz_ans_slot) begin
+                                    room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
+                                end else begin
+                                    quiz_wrong_t <= 7'd105; sfx_hit <= 1'b1; shake_mag <= 4'd6;
+                                    quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
+                                    quiz_ans_slot <= frame_cnt[1:0];
+                                end
                             end
                         end
+                    end else if (outfit_cut_t > 0) begin
+                        // ---- OUTFIT TRANSFORMATION CUTSCENE AFTER QUIZ PASS! ----
+                        outfit_cut_t <= outfit_cut_t - 8'd1;
+                        if (outfit_cut_t == 8'd60) begin sfx_evolve <= 1'b1; evolve_flash <= 5'd16; end
+                        step_state <= 6'd0;
                     end else begin
                         // ---- ST_PLAY (WAVE_BANNER / FIGHT / CLEAR_ARROW / DOOR_OPEN / BOSS_TRANS) ----
                         if (door_slam_t > 0)   door_slam_t   <= door_slam_t - 6'd1;
@@ -701,11 +725,11 @@ module game_engine_v2 (
                                 boss_trans_t <= boss_trans_t - 8'd1;
                                 if (boss_trans_t == 8'd1) begin
                                     if (boss_kind == 2'd0) begin
-                                        boss_kind <= 2'd1; boss_hp <= 8'd190; boss_active <= 1'b1;
+                                        boss_kind <= 2'd1; boss_hp <= 8'd145; boss_active <= 1'b1;
                                         boss_ai_timer <= 8'd0;
                                         room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
                                     end else if (boss_kind == 2'd1) begin
-                                        boss_kind <= 2'd2; boss_hp <= 8'd250; boss_active <= 1'b1;
+                                        boss_kind <= 2'd2; boss_hp <= 8'd190; boss_active <= 1'b1;
                                         boss_ai_timer <= 8'd0;
                                         room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
                                     end else begin
@@ -1043,10 +1067,11 @@ module game_engine_v2 (
                         if (pet_b_act) begin
                             if (pet_bx < 11'd24 || pet_bx > 11'd2020 || pet_by < 10'd24 || pet_by > 10'd1000) pet_b_act <= 0;
                             else begin pet_bx <= $signed({1'b0, pet_bx}) + pet_bvx; pet_by <= $signed({1'b0, pet_by}) + pet_bvy; end
-                        end else if (pet_fire_cd == 0 && best1_valid) begin
-                            pet_fire_cd <= 7'd65; pet_b_act <= 1'b1; pet_bx <= px - 11'd16; pet_by <= py - 10'd10;
-                            dx_diff = $signed({1'b0, best1_x}) - $signed({1'b0, px - 11'd16});
-                            dy_diff = $signed({2'b00, best1_y}) - $signed({2'b00, py - 10'd10});
+                        end else if (pet_fire_cd == 0 && ((p1_alive && best1_valid) || (!p1_alive && p2_alive && best2_valid))) begin
+                            pet_fire_cd <= 7'd65; pet_b_act <= 1'b1;
+                            pet_bx <= (p1_alive ? px : p2x) - 11'd16; pet_by <= (p1_alive ? py : p2y) - 10'd10;
+                            dx_diff = $signed({1'b0, p1_alive ? best1_x : best2_x}) - $signed({1'b0, (p1_alive ? px : p2x) - 11'd16});
+                            dy_diff = $signed({2'b00, p1_alive ? best1_y : best2_y}) - $signed({2'b00, (p1_alive ? py : p2y) - 10'd10});
                             pet_bvx <= (dx_diff > 12'sd12) ? 5'sd5 : ((dx_diff < -12'sd12) ? -5'sd5 : 5'sd0);
                             pet_bvy <= (dy_diff > 12'sd12) ? 5'sd5 : ((dy_diff < -12'sd12) ? -5'sd5 : 5'sd0);
                         end else if (pet_fire_cd > 0) pet_fire_cd <= pet_fire_cd - 7'd1;
@@ -1257,8 +1282,12 @@ module game_engine_v2 (
                                 if (!col_alive[col_slot_e]) begin col_alive[col_slot_e]<=1; col_x[col_slot_e]<=en_x[e_idx]; col_y[col_slot_e]<=en_y[e_idx]; col_type[col_slot_e]<=0; end
                             end else en_hp[e_idx] <= en_hp[e_idx] - 4'd1;
                         end else if (blades_active && frame_cnt[4:0] == 5'd0 && (
-                            ((blade0_x+14 > en_x[e_idx] && blade0_x < en_x[e_idx]+14) && (blade0_y+14 > en_y[e_idx] && blade0_y < en_y[e_idx]+14)) ||
-                            ((blade1_x+14 > en_x[e_idx] && blade1_x < en_x[e_idx]+14) && (blade1_y+14 > en_y[e_idx] && blade1_y < en_y[e_idx]+14)))) begin
+                            (p1_alive && (
+                                ((blade0_x+14 > en_x[e_idx] && blade0_x < en_x[e_idx]+14) && (blade0_y+14 > en_y[e_idx] && blade0_y < en_y[e_idx]+14)) ||
+                                ((blade1_x+14 > en_x[e_idx] && blade1_x < en_x[e_idx]+14) && (blade1_y+14 > en_y[e_idx] && blade1_y < en_y[e_idx]+14)))) ||
+                            (p2_alive && (
+                                ((p2_blade0_x+14 > en_x[e_idx] && p2_blade0_x < en_x[e_idx]+14) && (p2_blade0_y+14 > en_y[e_idx] && p2_blade0_y < en_y[e_idx]+14)) ||
+                                ((p2_blade1_x+14 > en_x[e_idx] && p2_blade1_x < en_x[e_idx]+14) && (p2_blade1_y+14 > en_y[e_idx] && p2_blade1_y < en_y[e_idx]+14)))))) begin
                             sfx_hit <= 1;
                             if (en_hp[e_idx] <= 4'd1) begin
                                 en_alive[e_idx] <= 0; en_hp[e_idx] <= 0; add_score(10'd50);
@@ -1380,16 +1409,16 @@ module game_engine_v2 (
                                 end
                             end
 
-                            // Fast Aggressive Dual-Axis Chase (2..4 px/frame!)
+                            // Balanced Dual-Axis Chase (Form 0: 1 px, Form 1: 1..2 px, Form 2: 2 px!)
                             if (next_x > boss_x + 11'd3 && boss_x < 11'd528)
-                                boss_x <= boss_x + ((boss_kind == 2'd2 && boss_enraged) ? 11'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd3 : 11'd2));
+                                boss_x <= boss_x + ((boss_kind == 2'd2) ? (boss_enraged && frame_cnt[0] ? 11'd3 : 11'd2) : ((boss_kind == 2'd1 && boss_enraged) ? 11'd2 : (frame_cnt[0] || boss_kind == 2'd1 ? 11'd1 : 11'd0)));
                             else if (next_x + 11'd3 < boss_x && boss_x > 11'd100)
-                                boss_x <= boss_x - ((boss_kind == 2'd2 && boss_enraged) ? 11'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd3 : 11'd2));
+                                boss_x <= boss_x - ((boss_kind == 2'd2) ? (boss_enraged && frame_cnt[0] ? 11'd3 : 11'd2) : ((boss_kind == 2'd1 && boss_enraged) ? 11'd2 : (frame_cnt[0] || boss_kind == 2'd1 ? 11'd1 : 11'd0)));
 
                             if (next_y > boss_y + 10'd3 && boss_y < 10'd340)
-                                boss_y <= boss_y + ((boss_kind == 2'd2 && boss_enraged) ? 10'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd3 : 10'd2));
+                                boss_y <= boss_y + ((boss_kind == 2'd2) ? (boss_enraged && frame_cnt[0] ? 10'd3 : 10'd2) : ((boss_kind == 2'd1 && boss_enraged) ? 10'd2 : (frame_cnt[0] || boss_kind == 2'd1 ? 10'd1 : 10'd0)));
                             else if (next_y + 10'd3 < boss_y && boss_y > 10'd100)
-                                boss_y <= boss_y - ((boss_kind == 2'd2 && boss_enraged) ? 10'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd3 : 10'd2));
+                                boss_y <= boss_y - ((boss_kind == 2'd2) ? (boss_enraged && frame_cnt[0] ? 10'd3 : 10'd2) : ((boss_kind == 2'd1 && boss_enraged) ? 10'd2 : (frame_cnt[0] || boss_kind == 2'd1 ? 10'd1 : 10'd0)));
 
                             // Meteor Strike on Target Player
                             if ((boss_ai_timer == 8'd70 || boss_ai_timer == 8'd150 || boss_ai_timer == 8'd220 || (boss_enraged && boss_ai_timer == 8'd35)) && !drop_active[2]) begin
@@ -1573,7 +1602,8 @@ module game_engine_v2 (
                                 quiz_gate <= (frame_cnt[2:0] >= 3'd6) ? (frame_cnt[2:0] - 3'd6) : frame_cnt[2:0];
                                 quiz_ans_slot <= frame_cnt[1:0];
                                 quiz_cursor <= 2'd0;
-                                quiz_wrong_t <= 6'd0;
+                                quiz_wrong_t <= 7'd0;
+                                quiz_lockout <= 6'd30;
                                 sfx_pickup <= 1'b1;
                             end
                         end else if (room_phase == RP_DOOR) begin
@@ -1588,6 +1618,7 @@ module game_engine_v2 (
                                 col_x[0] <= 11'd320; col_y[0] <= 10'd224; col_type[0] <= 1'b1; col_alive[0] <= 1'b1;
                                 door_slam_t <= 6'd45; door_slide <= 5'd0;
                                 shake_mag <= 4'd8; sfx_hit <= 1'b1;
+                                outfit_cut_t <= 8'd120;
                                 wave_banner_t <= 7'd90;
                                 room_phase <= RP_BANNER;
                             end
