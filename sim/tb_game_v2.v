@@ -8,7 +8,8 @@ module tb_game_v2;
     reg [15:0] sw = 16'h0000;
     reg signed [2:0] tilt_dx = 0, tilt_dy = 0, j1_dx = 0, j1_dy = 0, j2_dx = 0, j2_dy = 0;
     reg [2:0]        j1_btn = 0, j2_btn = 0;
-    reg              uart_rxd = 1'b1, joy_pause = 1'b0;
+    reg              uart_rxd = 1'b1, joy_pause = 1'b0, joy_select = 1'b0;
+    reg              j1_shoot = 1'b0, j2_shoot = 1'b0;
 
     wire [9:0] vga_x, vga_y;
     wire vga_hsync, vga_vsync, vga_video_on;
@@ -23,7 +24,8 @@ module tb_game_v2;
     wire [1:0]  control_mode, cut_id, stage, boss_kind, laser_state;
     wire        p2_active, zoom_out, zone2_open, zone3_open;
     wire [4:0]  enemies_left, dash_timer, evolve_flash, p2_dash_timer;
-    wire [2:0]  game_state, hp, hp2;
+    wire [2:0]  game_state;
+    wire [4:0]  hp, hp2;
     wire [3:0]  wave, shake_mag, p1_slash_t, p2_slash_t;
     wire [7:0]  cut_timer, eb_active_vec;
     wire [10:0] px, dash_gx, cam_x, p2x, p2_dash_gx, blade0_x, blade1_x, pet_bx, p1_slash_x, p2_slash_x, lock_x, boss_x;
@@ -48,10 +50,13 @@ module tb_game_v2;
     wire [3:0]       drop_active_vec;
     wire [4*5-1:0]   drop_boom_vec;
     wire signed [1:0] p1_slash_dx, p1_slash_dy, p2_slash_dx, p2_slash_dy;
-    wire [8*11-1:0]  eb_x_vec;
-    wire [8*10-1:0]  eb_y_vec;
+    wire [8*11-1:0]  eb_x_vec, pb_x_vec;
+    wire [8*10-1:0]  eb_y_vec, pb_y_vec;
+    wire [8*2-1:0]   pb_dir_vec;
+    wire [7:0]       pb_active_vec;
     wire             sfx_shoot, sfx_pickup, sfx_evolve, sfx_hit;
-    wire [1:0]       hero_sel = sw[3] ? 2'd3 : (sw[2] ? 2'd2 : (sw[1] ? 2'd1 : 2'd0));
+    wire [1:0]       hero_sel_l = sw[15] ? 2'd3 : (sw[14] ? 2'd2 : (sw[13] ? 2'd1 : 2'd0));
+    wire [1:0]       hero_sel_r = sw[3]  ? 2'd3 : (sw[2]  ? 2'd2 : (sw[1]  ? 2'd1 : 2'd0));
     wire [2:0]       room_phase;
     wire [6:0]       wave_banner_t;
     wire [5:0]       door_slam_t, quiz_wrong_t;
@@ -64,7 +69,9 @@ module tb_game_v2;
     game_engine_v2 u_engine (
         .clk(clk), .rst(rst), .tick(tick), .btn(btn),
         .tilt_dx(tilt_dx), .tilt_dy(tilt_dy),
-        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .joy_pause(joy_pause),
+        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j1_shoot(j1_shoot),
+        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(j2_shoot),
+        .joy_pause(joy_pause), .joy_select(joy_select),
         .map_addr_b(map_addr_b), .map_tile_b(map_tile_b),
         .control_mode(control_mode), .p2_active(p2_active), .zoom_lvl(zoom_lvl), .zoom_out(zoom_out), .enemies_left(enemies_left),
         .game_state(game_state), .cut_id(cut_id), .cut_timer(cut_timer), .wave(wave),
@@ -93,6 +100,7 @@ module tb_game_v2;
         .p2_slash_dx(p2_slash_dx), .p2_slash_dy(p2_slash_dy),
         .lock_x(lock_x), .lock_y(lock_y), .lock_valid(lock_valid),
         .eb_x_vec(eb_x_vec), .eb_y_vec(eb_y_vec), .eb_active_vec(eb_active_vec),
+        .pb_x_vec(pb_x_vec), .pb_y_vec(pb_y_vec), .pb_dir_vec(pb_dir_vec), .pb_active_vec(pb_active_vec),
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
@@ -104,8 +112,13 @@ module tb_game_v2;
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
     wire [2:0]        rx_j1_btn, rx_j2_btn;
-    wire              rx_joy_pause, joy_link_ok;
-    uart_joy_rx u_uart_joy (.clk(clk), .rst(rst), .uart_rxd(uart_rxd), .j1_dx(rx_j1_dx), .j1_dy(rx_j1_dy), .j1_btn(rx_j1_btn), .j2_dx(rx_j2_dx), .j2_dy(rx_j2_dy), .j2_btn(rx_j2_btn), .joy_pause(rx_joy_pause), .joy_link_ok(joy_link_ok));
+    wire              rx_j1_shoot, rx_j2_shoot, rx_joy_pause, rx_joy_select, joy_link_ok;
+    uart_joy_rx u_uart_joy (
+        .clk(clk), .rst(rst), .uart_rxd(uart_rxd),
+        .j1_dx(rx_j1_dx), .j1_dy(rx_j1_dy), .j1_btn(rx_j1_btn), .j1_shoot(rx_j1_shoot),
+        .j2_dx(rx_j2_dx), .j2_dy(rx_j2_dy), .j2_btn(rx_j2_btn), .j2_shoot(rx_j2_shoot),
+        .joy_pause(rx_joy_pause), .joy_select(rx_joy_select), .joy_link_ok(joy_link_ok)
+    );
 
     wire [3:0] VGA_R, VGA_G, VGA_B;
     wire       VGA_HS, VGA_VS;
@@ -141,10 +154,11 @@ module tb_game_v2;
         .p2_slash_dx(p2_slash_dx), .p2_slash_dy(p2_slash_dy),
         .lock_x(lock_x), .lock_y(lock_y), .lock_valid(lock_valid),
         .eb_x_vec(eb_x_vec), .eb_y_vec(eb_y_vec), .eb_active_vec(eb_active_vec),
+        .pb_x_vec(pb_x_vec), .pb_y_vec(pb_y_vec), .pb_dir_vec(pb_dir_vec), .pb_active_vec(pb_active_vec),
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),
@@ -192,21 +206,21 @@ module tb_game_v2;
         fail_cnt = 0; shoot_cnt = 0;
         repeat (5) @(posedge clk); rst = 0; repeat (5) @(posedge clk);
 
-        // 1. UART Dual-Joystick decode (incl. Start->Pause bit6!)
-        send_uart_byte(8'h8C); send_uart_byte(8'h18); send_uart_byte(8'h75);
+        // 1. UART 4-Byte Dual-Joystick decode (incl. Y Shoot, Start->Pause, Select->Menu!)
+        send_uart_byte(8'hCC); send_uart_byte(8'h18); send_uart_byte(8'h75); send_uart_byte(8'h01);
         repeat (5) @(posedge clk);
-        if (!joy_link_ok || rx_j1_dx !== 3'sd2 || rx_j2_dx !== -3'sd2 || rx_joy_pause !== 1'b1) begin
-            $display("FAIL: UART decode mismatch!"); fail_cnt = fail_cnt + 1;
-        end else $display("OK: UART Dual-Joystick + Pause bit decoded accurately");
+        if (!joy_link_ok || rx_j1_dx !== 3'sd2 || rx_j2_dx !== -3'sd2 || !rx_j1_shoot || !rx_joy_pause || !rx_joy_select) begin
+            $display("FAIL: UART 4-byte decode mismatch!"); fail_cnt = fail_cnt + 1;
+        end else $display("OK: UART 4-byte Dual-Joystick + Y Shoot + Pause + Select decoded accurately");
 
         // 2. Title Joy2 Menu (1P JOY -> 2P CO-OP JOY) & Start 2P Co-op
         j2_dx = 3'sd2; step_frame(); j2_dx = 0; step_frame();
         j2_btn[2] = 1'b1; step_frame(); j2_btn[2] = 0;
         repeat (95) step_frame();
-        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 3'd6 || hp2 !== 3'd6 || enemies_left !== 5'd6) begin
-            $display("FAIL: J2 Start / 6 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d", game_state, room_phase, p2_active, enemies_left);
+        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 5'd24 || hp2 !== 5'd24 || enemies_left !== 5'd6) begin
+            $display("FAIL: J2 Start / 6 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d hp=%d hp2=%d", game_state, room_phase, p2_active, enemies_left, hp, hp2);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 6 Wave1 Enemies, & 6/6 Hearts active!");
+        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 6 Wave1 Enemies, & 24/24 HP Bars active!");
 
         // 2b. Start button Pause toggle test
         joy_pause = 1'b1; step_frame(); joy_pause = 1'b0; step_frame();
@@ -214,6 +228,19 @@ module tb_game_v2;
         joy_pause = 1'b1; step_frame(); joy_pause = 1'b0; step_frame();
         if (paused) begin $display("FAIL: Start button did not unpause!"); fail_cnt = fail_cnt + 1; end
         else $display("OK: Joystick Start button Pause/Resume toggle works!");
+
+        // 2c. Y button elongated blue gun bullet test
+        j1_shoot = 1'b1; step_frame(); j1_shoot = 1'b0;
+        if (pb_active_vec == 8'b0) begin
+            $display("FAIL: Y button did not spawn blue gun bullet!"); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Y button fired elongated blue gun bullet (pb_active=%b)!", pb_active_vec);
+
+        // 2d. Out-of-combat HP regeneration test
+        u_engine.hp = 5'd16; u_engine.p1_ooc_t = 9'd179; u_engine.p1_regen_div = 6'd28;
+        repeat (5) step_frame();
+        if (hp <= 5'd16) begin
+            $display("FAIL: Out-of-combat HP regen did not heal! hp=%d", hp); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Out-of-combat HP regeneration healed P1 (%d)!", hp);
 
         // 3. Time-Multiplexed Limited Lock-On (<=72 px) + Lunge-Snap + 3-Hit Nova Combo!
         u_engine.px = 11'd120; u_engine.py = 10'd130;
@@ -235,14 +262,14 @@ module tb_game_v2;
         j1_btn[2] = 0; step_frame();
 
         // 4. Magnet Blue Gem Evolution (NO cutscene!) & Heart-Only Pickup (NO HP=0 wrap!)
-        u_engine.hp = 3'd6;
+        u_engine.hp = 5'd24;
         u_engine.drop_active[0] = 1; u_engine.drop_type[0] = 2'd0; u_engine.drop_z[0] = 0; u_engine.drop_x[0] = px; u_engine.drop_y[0] = py;
         u_engine.col_alive[0] = 1; u_engine.col_type[0] = 0; u_engine.col_x[0] = px + 11'd24; u_engine.col_y[0] = py;
         u_engine.col_alive[1] = 1; u_engine.col_type[1] = 0; u_engine.col_x[1] = px; u_engine.col_y[1] = py;
         repeat (15) step_frame();
-        if (stage < 2'd1 || !pet_active || game_state !== 3'd2 || hp !== 3'd6) begin
+        if (stage < 2'd1 || !pet_active || game_state !== 3'd2 || hp !== 5'd24) begin
             $display("FAIL: Seamless Evo / Heart-no-wrap failed! stg=%d pet=%b st=%d hp=%d", stage, pet_active, game_state, hp); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Seamless Evo (NO cutscene!) & Heart-only pickup at 6 HP stayed 6!");
+        end else $display("OK: Seamless Evo (NO cutscene!) & Heart-only pickup at 24 HP stayed 24!");
 
         // 5. Clear Sub-wave 0 -> Sub-wave 1 Reinforcement -> Room Clear -> Arrow -> Logic Gate Quiz -> Sliding Door Open -> Slam + Wave 2 Banner!
         for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
@@ -313,12 +340,25 @@ module tb_game_v2;
             $display("FAIL: Boss Form 2 defeat did not reach VICTORY! st=%d", game_state); fail_cnt = fail_cnt + 1;
         end else $display("OK: All 3 Boss Forms defeated -> VICTORY!");
 
-        // 7. SW[3:0] Priority Skin Check & Non-X Check
-        sw = 16'h0006; // SW1 + SW2 ON -> must pick Skin 2 (highest ON switch)
+        // 7. 2P Both-Dead Game Over (ST_LOSE) + Select->Menu + SW[15:12]/SW[3:0] Skin Check!
+        u_engine.game_state = 3'd2; u_engine.control_mode = 2'd1; u_engine.hp = 5'd0; u_engine.hp2 = 5'd4;
+        u_engine.invuln_timer = 6'd0; u_engine.p2_invuln = 6'd0;
+        u_engine.en_alive[0] = 1'b1; u_engine.en_x[0] = u_engine.p2x; u_engine.en_y[0] = u_engine.p2y;
+        repeat (3) step_frame();
+        if (game_state !== 3'd4) begin
+            $display("FAIL: 2P both dead did not reach ST_LOSE! st=%d hp=%d hp2=%d", game_state, hp, hp2); fail_cnt = fail_cnt + 1;
+        end else $display("OK: 2P both dead reached ST_LOSE cleanly (no 3-heart reset)!");
+
+        joy_select = 1'b1; step_frame(); joy_select = 1'b0;
+        if (game_state !== 3'd0) begin
+            $display("FAIL: Select button did not return to Title Menu! st=%d", game_state); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Select button returned to Title Menu!");
+
+        sw = 16'h8004; // SW15 (Left P1 -> Skin 3), SW2 (Right P2 -> Skin 2)
         repeat (10) @(posedge clk);
-        if (hero_sel !== 2'd2) begin
-            $display("FAIL: SW[3:0] priority skin check failed! hero_sel=%d", hero_sel); fail_cnt = fail_cnt + 1;
-        end else $display("OK: SW[3:0] priority skin check passed (SW1+SW2 -> Skin 2)!");
+        if (hero_sel_l !== 2'd3 || hero_sel_r !== 2'd2) begin
+            $display("FAIL: SW[15:12]/SW[3:0] skin check failed! L=%d R=%d", hero_sel_l, hero_sel_r); fail_cnt = fail_cnt + 1;
+        end else $display("OK: SW[15:12]->P1 Skin 3 & SW[3:0]->P2 Skin 2 check passed!");
 
         repeat (200) @(posedge clk);
         if (^VGA_R === 1'bx || ^VGA_G === 1'bx || ^VGA_B === 1'bx) begin

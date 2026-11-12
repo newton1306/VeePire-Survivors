@@ -12,8 +12,8 @@ module board_io_v2 (
     input  wire [2:0]  game_state,   // 0=TITLE, 1=CUTSCENE, 2=PLAY, 3=WIN, 4=LOSE
     input  wire [3:0]  wave,         // 1..10
     input  wire [1:0]  stage,        // 0..3
-    input  wire [2:0]  hp,           // 0..6
-    input  wire [2:0]  hp2,          // 0..6 P2 HP
+    input  wire [4:0]  hp,           // 0..24 HP bar
+    input  wire [4:0]  hp2,          // 0..24 P2 HP bar
     input  wire [5:0]  exp,          // 0..63
     input  wire [15:0] score_bcd,
     input  wire [4:0]  evolve_flash,
@@ -75,8 +75,8 @@ module board_io_v2 (
     end
 
     wire pwm_dim = (anim_cnt[5:0] < 6'd8);
-    assign LED16_R = pwm_dim && (hp <= 3'd2);
-    assign LED16_G = pwm_dim && (hp >= 3'd3);
+    assign LED16_R = pwm_dim && (hp <= 5'd8);
+    assign LED16_G = pwm_dim && (hp >= 5'd9);
     assign LED16_B = pwm_dim && chrono_active;
 
     assign LED17_R = pwm_dim && sw_sync[3];
@@ -96,7 +96,7 @@ module board_io_v2 (
             3'd7: char_code = 5'd14; // E (Evolution stage)
             3'd6: begin char_code = {3'd0, stage}; dp_val = 1'b0; end
             3'd5: char_code = 5'd17; // H (HP)
-            3'd4: begin char_code = {2'd0, hp};    dp_val = 1'b0; end
+            3'd4: begin char_code = {2'd0, hp[4:2]}; dp_val = 1'b0; end
             3'd3: char_code = {1'b0, score_bcd[15:12]};
             3'd2: char_code = {1'b0, score_bcd[11:8]};
             3'd1: char_code = {1'b0, score_bcd[7:4]};

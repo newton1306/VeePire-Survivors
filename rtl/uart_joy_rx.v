@@ -14,7 +14,10 @@ module uart_joy_rx (
     output reg signed [2:0] j2_dx = 3'sd0,
     output reg signed [2:0] j2_dy = 3'sd0,
     output reg  [2:0] j2_btn      = 3'b0, // {fire, dash, chrono}
+    output reg        j1_shoot    = 1'b0, // Y button (P1)
+    output reg        j2_shoot    = 1'b0, // Y button (P2)
     output reg        joy_pause   = 1'b0, // Start button (bit 6 of Byte 2)
+    output reg        joy_select  = 1'b0, // Select button (bit 0 of Byte 3)
     output reg        joy_link_ok = 1'b0
 );
     localparam integer CLKS_PER_BIT = 217; // 25,000,000 / 115,200 = 217.01
@@ -103,9 +106,9 @@ module uart_joy_rx (
         end
     endfunction
 
-    // 3-Byte Packet Framing + 1-Second Watchdog
+    // 4-Byte Packet Framing + 1-Second Watchdog
     reg [1:0]  pkt_state = 2'd0;
-    reg [7:0]  b0_latch = 8'd0, b1_latch = 8'd0;
+    reg [7:0]  b0_latch = 8'd0, b1_latch = 8'd0, b2_latch = 8'd0;
     reg [24:0] wdog_cnt = 25'd0;
 
     always @(posedge clk) begin
@@ -113,7 +116,8 @@ module uart_joy_rx (
             pkt_state   <= 2'd0;
             j1_dx       <= 3'sd0; j1_dy <= 3'sd0; j1_btn <= 3'b0;
             j2_dx       <= 3'sd0; j2_dy <= 3'sd0; j2_btn <= 3'b0;
-            joy_pause   <= 1'b0;
+            j1_shoot    <= 1'b0;  j2_shoot <= 1'b0;
+            joy_pause   <= 1'b0;  joy_select <= 1'b0;
             joy_link_ok <= 1'b0;
             wdog_cnt    <= 25'd0;
         end else begin
@@ -123,7 +127,8 @@ module uart_joy_rx (
                 joy_link_ok <= 1'b0;
                 j1_dx <= 3'sd0; j1_dy <= 3'sd0; j1_btn <= 3'b0;
                 j2_dx <= 3'sd0; j2_dy <= 3'sd0; j2_btn <= 3'b0;
-                joy_pause <= 1'b0;
+                j1_shoot <= 1'b0; j2_shoot <= 1'b0;
+                joy_pause <= 1'b0; joy_select <= 1'b0;
             end
 
             if (rx_valid) begin
@@ -134,13 +139,19 @@ module uart_joy_rx (
                     b1_latch  <= rx_byte;
                     pkt_state <= 2'd2;
                 end else if (pkt_state == 2'd2) begin
+                    b2_latch  <= rx_byte;
+                    pkt_state <= 2'd3;
+                end else if (pkt_state == 2'd3) begin
                     j1_dx       <= dec_axis(b0_latch[2:0]);
                     j1_dy       <= dec_axis(b0_latch[5:3]);
+                    j1_shoot    <= b0_latch[6];
                     j2_dx       <= dec_axis(b1_latch[2:0]);
                     j2_dy       <= dec_axis(b1_latch[5:3]);
-                    j1_btn      <= rx_byte[2:0];
-                    j2_btn      <= rx_byte[5:3];
-                    joy_pause   <= rx_byte[6];
+                    j2_shoot    <= b1_latch[6];
+                    j1_btn      <= b2_latch[2:0];
+                    j2_btn      <= b2_latch[5:3];
+                    joy_pause   <= b2_latch[6];
+                    joy_select  <= rx_byte[0];
                     joy_link_ok <= 1'b1;
                     wdog_cnt    <= 25'd25000000;
                     pkt_state   <= 2'd0;
