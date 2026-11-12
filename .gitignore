@@ -1,0 +1,11 @@
+# Vivado build & simulation artifacts
+.Xil/
+vivado_proj/
+sim_work/
+*.jou
+*.log
+*.pb
+*.wdb
+*.str
+*.backup.*
+scripts/__pycache__/

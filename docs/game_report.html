@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>DRAGO-NEXUS V3 OMEGA — Official Game Design &amp; Engineering Report</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 9mm 11mm 9mm 11mm;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Leelawadee UI', 'Tahoma', 'Segoe UI', sans-serif;
+    color: #162033;
+    background: #ffffff;
+    font-size: 8.9pt;
+    line-height: 1.4;
+  }
+  .page {
+    page-break-after: always;
+    break-after: page;
+  }
+  .page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Studio Header / Cover Banner */
+  .hero-banner {
+    background: linear-gradient(135deg, #0b1224 0%, #162347 58%, #1e2d5c 100%);
+    color: #f8fafc;
+    border-radius: 9px;
+    padding: 13px 16px;
+    border-bottom: 4px solid #f59e0b;
+    margin-bottom: 9px;
+  }
+  .studio-tag {
+    display: inline-block;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    padding: 2px 8px;
+    border-radius: 99px;
+    margin-bottom: 6px;
+  }
+  .hero-banner h1 {
+    margin: 0 0 4px 0;
+    font-size: 22pt;
+    letter-spacing: 1px;
+    color: #fde047;
+    font-weight: 800;
+  }
+  .hero-banner .subtitle {
+    margin: 0;
+    font-size: 10.2pt;
+    color: #cbd5e1;
+  }
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .kpi {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 6px;
+    padding: 6px 8px;
+    text-align: center;
+  }
+  .kpi .val {
+    display: block;
+    font-size: 10.5pt;
+    font-weight: 800;
+    color: #38bdf8;
+  }
+  .kpi .lbl {
+    display: block;
+    font-size: 7.2pt;
+    color: #cbd5e1;
+  }
+
+  /* Section Headings */
+  .sec-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-left: 4px solid #0284c7;
+    padding-left: 8px;
+    margin: 12px 0 7px 0;
+  }
+  .sec-badge {
+    font-size: 7.5pt;
+    font-weight: 700;
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 1px 7px;
+    border-radius: 99px;
+  }
+
+  /* Grids & Cards */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+  }
+  .card {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    break-inside: avoid;
+  }
+  .card-dark {
+    background: #0f172a;
+    color: #f1f5f9;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px 12px;
+    break-inside: avoid;
+  }
+  .card h3, .card-dark h3 {
+    margin: 0 0 4px 0;
+    font-size: 10pt;
+    font-weight: 800;
+    color: #0369a1;
+  }
+  .card-dark h3 {
+    color: #fde047;
+  }
+  .card p, .card-dark p {
+    margin: 0;
+    font-size: 8.9pt;
+  }
+
+  /* Real RTL Screenshot Frames */
+  .shot-card {
+    background: #0f172a;
+    border: 1.5px solid #334155;
+    border-radius: 8px;
+    padding: 6px;
+    break-inside: avoid;
+  }
+  .shot-card img {
+    width: 100%;
+    max-height: 188px;
+    object-fit: contain;
+    background: #0b1224;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+    image-rendering: pixelated;
+    border: 1px solid #475569;
+  }
+  .shot-cap {
+    padding: 5px 4px 2px 4px;
+    color: #e2e8f0;
+    font-size: 8.2pt;
+    line-height: 1.38;
+  }
+  .shot-cap strong {
+    color: #38bdf8;
+    font-size: 8.6pt;
+    display: block;
+    margin-bottom: 1px;
+  }
+  .shot-hero-wide {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  /* Core Loop Strip */
+  .loop-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin: 6px 0 8px 0;
+  }
+  .loop-step {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 6px 7px;
+    text-align: center;
+  }
+  .loop-step .num {
+    display: inline-block;
+    width: 17px;
+    height: 17px;
+    line-height: 17px;
+    border-radius: 50%;
+    background: #0284c7;
+    color: #fff;
+    font-size: 7.8pt;
+    font-weight: 800;
+    margin-bottom: 3px;
+  }
+  .loop-step b {
+    display: block;
+    font-size: 8.4pt;
+    color: #0f172a;
+  }
+  .loop-step span {
+    font-size: 7.5pt;
+    color: #475569;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.4pt;
+    margin-top: 4px;
+    break-inside: avoid;
+  }
+  th {
+    background: #0f172a;
+    color: #f8fafc;
+    text-align: left;
+    padding: 5px 8px;
+    font-weight: 700;
+    border: 1px solid #334155;
+  }
+  td {
+    padding: 4.5px 8px;
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+  code {
+    font-family: 'Consolas', monospace;
+    background: #e2e8f0;
+    color: #0f172a;
+    padding: 0.5px 4px;
+    border-radius: 3px;
+    font-size: 8pt;
+    font-weight: 700;
+  }
+  .pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 7.5pt;
+    font-weight: 700;
+  }
+  .pill-blue { background: #dbeafe; color: #1d4ed8; }
+  .pill-amber { background: #fef3c7; color: #b45309; }
+  .pill-green { background: #dcfce7; color: #15803d; }
+  .pill-red { background: #fee2e2; color: #b91c1c; }
+
+  .footer-note {
+    margin-top: 8px;
+    padding-top: 5px;
+    border-top: 1px solid #cbd5e1;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== PAGE 1: COVER, PITCH & CORE LOOP ==================== -->
+<div class="page">
+  <div class="hero-banner">
+    <div class="studio-tag">GAME DESIGN &amp; HARDWARE OVERVIEW · VERILOG RTL ON DIGILENT NEXYS A7-100T</div>
+    <h1>DRAGO-NEXUS V3 OMEGA EDITION</h1>
+    <p class="subtitle">
+      เกม 2D Action RPG Co-op สเกลใหญ่เต็มพิกัดบนบอร์ด FPGA โดยตรง (ไม่มี CPU / Soft-Core) — โลก 4 Biomes (<code>2048×1024 px</code>), ตะลุย 10 Waves · 3 บอส 64×64,
+      คอมโบ 3 จังหวะ + 360° Nova Finisher, Rank คอมโบ, เพลง BGM 4 แทร็กจาก BRAM และเปลี่ยนสกินได้ 65,536 แบบเรียลไทม์
+    </p>
+    <div class="kpi-strip">
+      <div class="kpi"><span class="val">640×480</span><span class="lbl">VGA 60 Hz 5-Stage Pipeline</span></div>
+      <div class="kpi"><span class="val">16 Enemies</span><span class="lbl">32×32 px · 8 Archetypes</span></div>
+      <div class="kpi"><span class="val">10 Waves</span><span class="lbl">4 Biomes + 3 Unique Bosses</span></div>
+      <div class="kpi"><span class="val">4-Song BGM</span><span class="lbl">3-Voice BRAM Chiptune Synth</span></div>
+      <div class="kpi"><span class="val">65,536</span><span class="lbl">Live SW[15:0] Skins</span></div>
+    </div>
+  </div>
+
+  <div class="sec-title">1. แนวคิดหลักของเกม &amp; ระบบต่อสู้ (Game Concept &amp; Core Combat) <span class="sec-badge">RTL Captured</span></div>
+  <div class="grid-2">
+    <div class="shot-card">
+      <img src="screenshots/shot_combat_lunge.png" alt="Active 3-Hit Combo &amp; 360 Nova Combat">
+      <div class="shot-cap">
+        <strong>ภาพจริงจากวงจรเกม — 3-Hit Melee Combo, 360° Nova &amp; Combo Rank</strong>
+        กรอบล็อกเป้า <code>[ ]</code> พุ่งดูดเข้าฟันต่อเนื่อง 3 จังหวะ (จังหวะ 3 ปล่อยคลื่นพายุ 360° Nova + Hit-Stop + Screen Shake + Hit Sparks 12 จุด) พร้อมหลอดเลือดศัตรู <code>16×2 px</code> และหัวใจแยก P1/P2
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div class="card-dark">
+        <h3>3-Hit Melee Lunge-Snap Combo + 360° Nova Finisher</h3>
+        <p>
+          การโจมตีทั้งหมดเป็น <b>Melee 100%</b> พร้อมกรอบล็อกเป้า <code>[ ]</code> พุ่งดูดตัว (สูงสุด 10 px/frame): จังหวะ 1–2 ฟาดคลื่นเสี้ยวพระจันทร์ความเร็วสูง จังหวะ 3 ปลดปล่อย <b>360° Nova Whirlwind</b> + แรงสั่นสะเทือนหน้าจอ (Screen Shake) + จังหวะปะทะ (Hit-Stop) และเกจ <b>Combo Rank (`C→B→A→S→X`)</b>!
+        </p>
+      </div>
+      <div class="card">
+        <h3>อัปเกรดสถาปัตยกรรมไร้คอขวดใน V3 OMEGA</h3>
+        <p>
+          • <b>5-Stage Pipelined VGA + Time-Mux FSM:</b> ขยายศัตรู 16 ตัว, ออร่า, Hit Sparks, แผนที่ 4× โดยไม่เกิด Timing Critical Path!<br>
+          • <b>4 Biomes (128×64 Tiles) + 3 Bosses:</b> Wave 3 Iron Titan, Wave 6 Phantom Arch-Mage, Wave 10 Sealed Omega Dragon<br>
+          • <b>Magnetic Blue Gems + Dual-Joy Co-op:</b> ดูด Gem เข้าหาตัวอัตโนมัติ + กล้องซูม Brawlhalla 17 ขั้น + ชุบเพื่อน 3 วิธี
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">2. วงจรการเล่นหลัก (Gameplay Core Loop)</div>
+  <div class="loop-row">
+    <div class="loop-step"><div class="num">1</div><b>Arcade Title</b><span>1P Tilt / 1P Joy / 2P Co-op (ลูกศร ◄ ►)</span></div>
+    <div class="loop-step"><div class="num">2</div><b>Combo &amp; Nova</b><span>พุ่งฟัน 3 จังหวะ + 360° Nova + สะสม Combo Rank</span></div>
+    <div class="loop-step"><div class="num">3</div><b>Magnet Gems</b><span>ดูด Gem ฟ้า + Cutscene เรียก Pet / ดาบหมุน / Aura</span></div>
+    <div class="loop-step"><div class="num">4</div><b>4 Biomes · 10 Waves</b><span>ฝ่าป้อมมรกต→เหวทไวไลท์→เตาหลอมลาวา 16 ตัว</span></div>
+    <div class="loop-step"><div class="num">5</div><b>3 Boss Battles</b><span>Titan (W3) → Arch-Mage (W6) → Omega (W10)</span></div>
+  </div>
+
+  <div class="sec-title">3. ภาพรวมระบบ HUD บนจอ (Display Layout)</div>
+  <div class="grid-3">
+    <div class="card">
+      <h3>หัวใจ &amp; คอมโบ Rank (Top-Left)</h3>
+      <p>แสดงหัวใจแยก <code>1♥♥♥♥♥♥</code> / <code>2♥♥♥♥♥♥</code>, เกจ <code>GEM</code> สีฟ้า, เกจ <code>CHR</code> ชะลอเวลา และป้ายแรงก์คอมโบ <code>x&lt;n&gt; C/B/A/S/X</code></p>
+    </div>
+    <div class="card">
+      <h3>ข้อมูล Wave &amp; ศัตรู (Top-Center/Right)</h3>
+      <p>แสดง <code>W1..W10</code>, ขั้นอัปเกรด <code>UP0..UP3</code>, คะแนน <code>SC</code>, จำนวนศัตรู <code>F:&lt;n&gt;</code> สูงสุด 16 ตัว, ตัว <code>Z</code> เมื่อซูม และป้าย <code>P S A</code></p>
+    </div>
+    <div class="card">
+      <h3>เรดาร์เอียง &amp; หลอดบอส (Corner / Bottom)</h3>
+      <p>มุมขวาบนแสดงจุดเรดาร์ทิศทางเรียลไทม์ ส่วนล่างสุดแสดงหลอดเลือด <code>BOSS</code> สีแดง/ส้มใน Wave 3, Wave 6 และ Wave 10</p>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <span>DRAGO-NEXUS V3 OMEGA Game Design Report</span>
+    <span>Captured Directly from Verilog RTL (xsim + vga_renderer_v2) · Page 1 / 4</span>
+  </div>
+</div>
+
+<!-- ==================== PAGE 2: REAL RTL SCREENSHOTS GALLERY ==================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;">4. ภาพหน้าจอจริงจากเกมเวอร์ชัน V3 OMEGA (Real In-Game RTL Captures) <span class="sec-badge">640×480 Native VGA</span></div>
+  <p style="margin:0 0 8px 0; font-size:8.9pt; color:#334155;">
+    ภาพทั้งหมดด้านล่างเรนเดอร์จากวงจร <code>vga_renderer_v2</code> (5-Stage Pipeline) และ <code>game_engine_v2</code> เวอร์ชัน V3 OMEGA จริงทุกพิกเซล
+  </p>
+
+  <div class="grid-2">
+    <div class="shot-card">
+      <img src="screenshots/shot_title.png" alt="V3 OMEGA Title Screen">
+      <div class="shot-cap">
+        <strong>1) หน้า Title Screen &amp; โลโก้อาร์เคด + แถบเลือกโหมด</strong>
+        โลโก้เมทัลลิก <code>160×48</code>, แถบ <code>◄ MODE: 2P CO-OP JOY ►</code>, สถานะ <code>USB JOY: ONLINE!</code> พร้อมสไปรต์ความละเอียดสูง <code>32×32</code> ของ P1, P2 และบอส Omega Dragon
+      </div>
+    </div>
+    <div class="shot-card">
+      <img src="screenshots/shot_upgrade_cutscene.png" alt="Blue Gem Upgrade Cutscene">
+      <div class="shot-cap">
+        <strong>2) Cutscene อัปเกรดจาก Gem ฟ้า (UPGRADE! UP2)</strong>
+        เมื่อเก็บ Gem ฟ้าครบเกณฑ์จะตัดเข้า Cutscene Letterbox สีทอง สปอว์น Pet Mob ลอยคู่ P1/P2 และปลดล็อกดาบคู่หมุนรอบตัวทันที
+      </div>
+    </div>
+    <div class="shot-card">
+      <img src="screenshots/shot_coop_zoom.png" alt="Wave 7 Magma Forge &amp; Brawlhalla Smooth Zoom">
+      <div class="shot-cap">
+        <strong>3) โซนใหม่ Wave 7: Inferno Magma Forge + Smooth Zoom</strong>
+        ต่อสู้ท่ามกลางแม่น้ำลาวาสีเพลิง (32×32 Dark Knight &amp; Magma Imp) กล้องซูมเอาท์สมูท 17 ระดับเห็นทั้ง Air-Drop อุกกาบาตและเพื่อนร่วมทีม
+      </div>
+    </div>
+    <div class="shot-card">
+      <img src="screenshots/shot_boss_locked.png" alt="Wave 10 Sealed Omega Sanctum Boss Arena">
+      <div class="shot-cap">
+        <strong>4) Wave 10: Sealed Omega Sanctum (ดวล 64×64 Omega Dragon!)</strong>
+        ประตูสีแดงล็อกปิดห้องอัตโนมัติ ล้างมอนสเตอร์ลูกกระจ๊อกหมดห้อง เปิดออร่า Tier 3 และดวลบอสสุดท้าย Omega Dragon พร้อมเส้นเล็งเลเซอร์มรณะ
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">5. การออกแบบฉาก 4 Biomes &amp; 10 Waves (Mega-World Progression)</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:14%;">Waves</th>
+        <th style="width:24%;">Biome (โลก 2048×1024)</th>
+        <th style="width:26%;">ศัตรู 32×32 &amp; บอส 64×64</th>
+        <th style="width:36%;">เหตุการณ์สำคัญ (Cutscenes &amp; Drops)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Wave 1–2</b></td>
+        <td>Emerald Citadel (Zone 1)</td>
+        <td>6–8 ตัว (Slime / Imp · 4–6 HP)</td>
+        <td>Intro Air-Drop (Evo Pod) ฝึกคอมโบฟัน &amp; Magnetic Blue Gems</td>
+      </tr>
+      <tr>
+        <td><b>Wave 3</b></td>
+        <td>Citadel Gatehouse</td>
+        <td><span class="pill pill-amber">Boss #1: Iron Titan (40 HP)</span></td>
+        <td>มินิบอสเกราะเหล็กตัวแรก 64×64 + กองทัพ Imp ช่วยรุม</td>
+      </tr>
+      <tr>
+        <td><b>Wave 4–5</b></td>
+        <td>Twilight Chasm &amp; Vault</td>
+        <td>10–12 ตัว (Phantom / Demon)</td>
+        <td><span class="pill pill-blue">Cutscene ทลายกำแพง</span> เปิดโซน 2, ข้ามสะพานเงาลับด้วย Chrono-Shift</td>
+      </tr>
+      <tr>
+        <td><b>Wave 6</b></td>
+        <td>Twilight Arena</td>
+        <td><span class="pill pill-amber">Boss #2: Phantom Arch-Mage (48 HP)</span></td>
+        <td>บอสจอมเวทปิศาจ 64×64 ยิงห่ากระสุนเวท &amp; ระเบิดอุกกาบาต</td>
+      </tr>
+      <tr>
+        <td><b>Wave 7–9</b></td>
+        <td>Inferno Magma Forge</td>
+        <td><b>12–16 ตัวเต็มพิกัด!</b> (8 Archetypes)</td>
+        <td><span class="pill pill-blue">Cutscene เปิดโซนลาวา</span> ปะทะฝูง Dark Knight, Lava Drake &amp; Warlord</td>
+      </tr>
+      <tr>
+        <td><b>Wave 10</b></td>
+        <td><b>Sealed Omega Sanctum</b></td>
+        <td><span class="pill pill-red">Final Boss #3: Omega Dragon (60 HP)</span></td>
+        <td><span class="pill pill-red">Cutscene ล็อกประตูแดง</span> ล้างลูกน้องทั้งฉาก ดวลบอสมังกรตัวเดียว!</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-note">
+    <span>DRAGO-NEXUS V3 OMEGA Game Design Report</span>
+    <span>Captured Directly from Verilog RTL · Page 2 / 4</span>
+  </div>
+</div>
+
+<!-- ==================== PAGE 3: SYSTEMS, PROGRESSION & CONTROLS ==================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;">6. ระบบอัปเกรดด้วย Gem ฟ้า + คอมโบ 3 จังหวะ + Cutscene</div>
+  <p style="margin:0 0 6px 0; font-size:8.8pt; color:#334155;">
+    <b>Blue Gem</b> ถูกดูดเข้าหาตัวอัตโนมัติ (Magnetic Pull) เมื่อเข้าใกล้ เพื่อสะสมเกจ <code>GEM</code> และตัดเข้า Cutscene วิวัฒนาการความสามารถ:
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:16%;">Tier (HUD)</th>
+        <th style="width:18%;">เงื่อนไข (GEM)</th>
+        <th style="width:24%;">ร่างวิวัฒนาการ (32×32)</th>
+        <th style="width:42%;">ความสามารถ &amp; Cutscene ที่ปลดล็อก</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>UP0 (Base)</b></td>
+        <td>0 – 9 EXP</td>
+        <td>Dragon Hatchling (2–3 Dmg)</td>
+        <td>ระยะฟันพื้นฐาน 32 px + คอมโบ 3 จังหวะ &amp; 360° Nova Finisher</td>
+      </tr>
+      <tr>
+        <td><b>UP1 (Pet)</b></td>
+        <td>10+ EXP</td>
+        <td>Cyber Gundam Mecha</td>
+        <td><span class="pill pill-blue">Cutscene: PET MOB SPAWNED!</span> เรียกโดรนคู่ใจลอยข้าง P1/P2 ยิงบอลสนับสนุนอัตโนมัติ + เดินไวขึ้น</td>
+      </tr>
+      <tr>
+        <td><b>UP2 (Swords)</b></td>
+        <td>25+ EXP</td>
+        <td>Inferno Winged Wyvern</td>
+        <td><span class="pill pill-amber">Cutscene: ORBIT SWORDS ON!</span> ดาบคู่สีทองหมุนรอบตัวช่วยฟันศัตรูรอบทิศ + ระยะฟัน 44 px</td>
+      </tr>
+      <tr>
+        <td><b>UP3 (Apex)</b></td>
+        <td>45+ EXP</td>
+        <td>Cosmic Apex Overlord</td>
+        <td><span class="pill pill-green">Cutscene: APEX AURA AWAKEN!</span> วงแหวนออร่า + ฟันแรงสุด (3–4 Dmg / 54 px) + ฟื้นเลือดเต็ม 6♥ ทั้งคู่</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sec-title">7. ระบบ Co-op, แยกหัวใจ, กล้อง Brawlhalla และเสียง BGM 4 แทร็ก</div>
+  <div class="grid-3">
+    <div class="card">
+      <h3>หัวใจแยก P1/P2 + ชุบชีวิต 3 วิธี</h3>
+      <p>P1 และ P2 แยก 6 หัวใจอิสระ เพื่อน KO ชุบได้โดย: 1) ยืนชิดเพื่อน ~0.5 วิ 2) เก็บ Heart/Supply Crate 3) เคลียร์ Wave</p>
+    </div>
+    <div class="card">
+      <h3>17-Step Brawlhalla Zoom</h3>
+      <p>ปรับสเกล Q0.8 จาก <code>320×212</code> ถึง <code>480×317</code> ทีละขั้นบน Pipeline 5 ระดับ พร้อม Shake และ Glide 5 px/frame</p>
+    </div>
+    <div class="card">
+      <h3>4-Song BRAM Chiptune Audio</h3>
+      <p><code>bgm_rom.mem</code> (1024×16-bit) สังเคราะห์ Lead + Bass + Noise Drum 4 เพลง (Title / Adventure / Boss / Victory)</p>
+    </div>
+  </div>
+
+  <div class="sec-title">8. การควบคุมทั้งหมด — บอร์ด, เซนเซอร์เอียง &amp; จอยสติ๊กคู่ (P1 &amp; P2)</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:24%;">การทำงาน / สถานะ</th>
+        <th style="width:36%;">บนบอร์ด Nexys A7-100T</th>
+        <th style="width:40%;">จอยสติ๊กคู่ USB (ใช้ได้ทั้ง จอย 1 และ จอย 2!)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>หน้า Title เลือกโหมด</b></td>
+        <td><code>BTNL</code> / <code>BTNR</code> เลื่อนโหมด · <code>BTNC</code> เริ่มเกม</td>
+        <td>โยกซ้าย/ขวา (จอย 1 หรือ 2) เลื่อน ◄ ► · กด <code>O/X/START</code> เริ่มเกม</td>
+      </tr>
+      <tr>
+        <td><b>เดิน &amp; เล็งทิศทาง</b></td>
+        <td>เอียงบอร์ด (<code>ADXL362</code> ในโหมด 1P Tilt) · <code>BTNR</code> Set Zero</td>
+        <td><b>Analog ON (แนะนำ):</b> ก้านซ้ายเดิน 2 ความเร็ว + D-Pad<br><b>Analog OFF:</b> D-Pad 8 ทิศความเร็วเต็ม</td>
+      </tr>
+      <tr>
+        <td><b>3-Hit Combo &amp; 360° Nova</b></td>
+        <td><code>BTNC</code> กดรัวพุ่งดูดฟัน (ตีครั้งที่ 3 ปล่อยพายุ Nova!)</td>
+        <td>ปุ่ม <code>2 (O)</code> / <code>3 (X)</code> / <code>R1</code> / <code>START</code></td>
+      </tr>
+      <tr>
+        <td><b>Shadow Dash (อมตะ)</b></td>
+        <td><code>BTNU</code> พุ่งหลบ + ทิ้งเงา Afterimage</td>
+        <td>ปุ่ม <code>4 ([])</code> / <code>L1</code></td>
+      </tr>
+      <tr>
+        <td><b>Chrono-Shift (ชะลอ)</b></td>
+        <td>กดค้าง <code>BTND</code> ชะลอโลก/เพลง + เปิดสะพานเงา</td>
+        <td>กดค้าง ปุ่ม <code>1 (^)</code> / <code>L2</code> / <code>R2</code></td>
+      </tr>
+      <tr>
+        <td><b>Cutscene / Victory / Retry</b></td>
+        <td><code>BTNC</code> ข้ามฉาก / เริ่มเล่นใหม่ · <code>CPU_RESETN</code> รีเซ็ต</td>
+        <td><b>ทั้งจอย 1 และ จอย 2:</b> กด Fire/Start เพื่อ Retry หรือโยก ซ้าย/ขวา กลับหน้าเมนู</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-note">
+    <span>DRAGO-NEXUS V3 OMEGA Game Design Report</span>
+    <span>Twin USB Gamepad UART Bridge: 115200 8N1 (winmm.dll + kernel32.dll Zero-Dependency) · Page 3 / 4</span>
+  </div>
+</div>
+
+<!-- ==================== PAGE 4: 16-BIT SKINS & HARDWARE ENGINEERING ==================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;">9. คลังสไปรต์ความละเอียดสูง &amp; ระบบสกิน 16 บิต <code>SW[15:0]</code> (65,536 แบบ)</div>
+  <div class="shot-card" style="margin-bottom:8px;">
+    <img src="../sprite_preview.png" alt="V3 OMEGA Mega Sprite Sheet">
+    <div class="shot-cap">
+      <strong>Mega Sprite Sheet (V3 OMEGA): 8 ฮีโร่ 32×32 (4 ท่า), 8 มอนสเตอร์ 32×32, 3 บอส 64×64, Gem ฟ้า, Crate &amp; อุกกาบาต</strong>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:18%;">สวิตช์บอร์ด</th>
+        <th style="width:16%;">จำนวนแบบ</th>
+        <th style="width:66%;">รายละเอียดการปรับแต่ง (เปลี่ยนทันทีระหว่างเล่น ไม่มี Rainbow Mode)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>SW[2:0]</code></td><td>8 ร่างตัวละคร</td><td>000: เปลี่ยนตามขั้น Upgrade (UP0–UP3) · 001: Cyber Gundam · 010: Wyvern · 011: Valkyrie · 100: Shinobi · 101: Cosmic Overlord · 110: Royal Slime · 111: Titan Mech</td></tr>
+      <tr><td><code>SW[6:3]</code></td><td>16 ชุดสีเกราะ</td><td>จานสี Artist Chromas คอนทราสต์สูง 16 สไตล์ (Azure, Crimson, RX-78, Shadow, Gold, Venom, Frost, Solar, Sakura, Void, Jade, Blood, Plasma, Titan, Synth, Dark)</td></tr>
+      <tr><td><code>SW[9:7]</code></td><td>8 สีคลื่นดาบ</td><td>Plasma Cyan, Crimson Blaze, Gold Excalibur, Electric Cobalt, Sakura Rose, Venom Green, Molten Flame, Void Amethyst</td></tr>
+      <tr><td><code>SW[11:10]</code></td><td>4 สีขอบตัวละคร</td><td>Silhouette Outline Rim รอบตัวละคร: Classic Black, Neon Cyan, Radiant Gold, Inferno Crimson</td></tr>
+      <tr><td><code>SW[13:12]</code></td><td>4 ร่างคู่หู P2</td><td>Default Complement (Valkyrie), Shadow Reaper Twin, Royal Slime Buddy, Mirror P1 Model</td></tr>
+      <tr><td><code>SW[15:14]</code></td><td>4 สีเงา Dash</td><td>สีเงา Ghost Afterimage ตอนพุ่งตัว/ฟัน: Cyan, Crimson, Gold, Neon Magenta</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sec-title">10. สถาปัตยกรรมไร้คอขวด &amp; ผลการใช้งานทรัพยากร FPGA จริง (Vivado 2024.2)</div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>โมดูล Verilog RTL หลัก (Zero-Bottleneck Architecture)</h3>
+      <p>
+        • <code>game_engine_v2</code>: Time-Multiplexed FSM ประมวลผล 16 ศัตรูทีละตัวต่อสัญญาณนาฬิกา (ตัด Critical Path), Lunge-Snap Combo + Nova, 10 Waves<br>
+        • <code>vga_renderer_v2</code>: 5-Stage Pipelined Renderer แยกรีจิสเตอร์สเกล Q0.8, 32×32/64×64 BRAM ROMs, 12 Hit Sparks &amp; 16 Mini HP Bars<br>
+        • <code>audio_synth_v2</code>: 3-Voice Chiptune PWM Synthesizer + BRAM 4-Song Sequencer<br>
+        • <code>uart_joy_rx</code> &amp; <code>acl_tilt</code>: Dual-Gamepad 115200 bps &amp; ADXL362 SPI Sensor
+      </p>
+    </div>
+    <div class="card">
+      <h3>ผลการใช้งานทรัพยากร &amp; Timing Closure (<code>xc7a100tcsg324-1</code>)</h3>
+      <table>
+        <tr><td><b>Slice LUTs</b></td><td>16,074 / 63,400 (<b>25.35%</b>)</td></tr>
+        <tr><td><b>Slice Registers (FF)</b></td><td>4,454 / 126,800 (<b>3.51%</b> · 0 Latches)</td></tr>
+        <tr><td><b>Block RAM Tiles</b></td><td>20.5 / 135 (<b>15.19%</b> · 19×36K + 3×18K)</td></tr>
+        <tr><td><b>DSP48E1 Slices</b></td><td>6 / 240 (<b>2.50%</b>)</td></tr>
+        <tr><td><b>Timing (WNS / WHS)</b></td><td><span class="pill pill-green">+14.066 ns / +0.054 ns (PASS)</span></td></tr>
+        <tr><td><b>RTL Simulation (xsim)</b></td><td><span class="pill pill-green">0 Errors · 13/13 PASS</span></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <span>DRAGO-NEXUS V3 OMEGA — Digilent Nexys A7-100T FPGA Action RPG Project</span>
+    <span>Generated from Verified Vivado 2024.2 Build &amp; xsim RTL Capture · Page 4 / 4</span>
+  </div>
+</div>
+
+</body>
+</html>
