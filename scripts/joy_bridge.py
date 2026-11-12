@@ -174,14 +174,16 @@ def read_pad(joy_id):
             dx = -2
 
     b = info.dwButtons
-    # Fire: Btn2(Circle), Btn3(Cross), Btn6(R1), Btn10(Start)
-    fire = 1 if (b & ((1 << 1) | (1 << 2) | (1 << 5) | (1 << 9))) else 0
+    # Fire: Btn2(Circle), Btn3(Cross), Btn6(R1)
+    fire = 1 if (b & ((1 << 1) | (1 << 2) | (1 << 5))) else 0
     # Dash: Btn4(Square), Btn5(L1)
     dash = 1 if (b & ((1 << 3) | (1 << 4))) else 0
     # Chrono: Btn1(Triangle), Btn7(L2), Btn8(R2)
     chrono = 1 if (b & ((1 << 0) | (1 << 6) | (1 << 7))) else 0
+    # Start (Btn10 = Pause)
+    start_btn = 1 if (b & (1 << 9)) else 0
     btn_bits = (fire << 2) | (dash << 1) | chrono
-    return dx, dy, btn_bits, True
+    return dx, dy, btn_bits, start_btn, True
 
 
 def main():
@@ -199,7 +201,7 @@ def main():
     for jid in (0, 1):
         caps = JOYCAPS()
         if winmm.joyGetDevCapsW(jid, ctypes.byref(caps), ctypes.sizeof(caps)) == 0:
-            dx, dy, bb, ok = read_pad(jid)
+            dx, dy, bb, sb, ok = read_pad(jid)
             status = "READY" if ok else "NOT CONNECTED"
             print(f"  Joystick P{jid+1} (ID {jid}): {caps.szPname} [{status}]")
         else:
@@ -215,11 +217,12 @@ def main():
     last_log = 0.0
     try:
         while True:
-            dx1, dy1, b1, ok1 = read_pad(0)
-            dx2, dy2, b2, ok2 = read_pad(1)
+            dx1, dy1, b1, s1, ok1 = read_pad(0)
+            dx2, dy2, b2, s2, ok2 = read_pad(1)
+            pause_bit = 1 if (s1 or s2) else 0
             byte0 = 0x80 | (((dy1 + 2) & 0x7) << 3) | ((dx1 + 2) & 0x7)
             byte1 = (((dy2 + 2) & 0x7) << 3) | ((dx2 + 2) & 0x7)
-            byte2 = ((b2 & 0x7) << 3) | (b1 & 0x7)
+            byte2 = ((pause_bit & 0x1) << 6) | ((b2 & 0x7) << 3) | (b1 & 0x7)
             write_serial(h, bytes([byte0, byte1, byte2]))
 
             now = time.monotonic()

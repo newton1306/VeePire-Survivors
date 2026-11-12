@@ -8,7 +8,7 @@ module tb_game_v2;
     reg [15:0] sw = 16'h0000;
     reg signed [2:0] tilt_dx = 0, tilt_dy = 0, j1_dx = 0, j1_dy = 0, j2_dx = 0, j2_dy = 0;
     reg [2:0]        j1_btn = 0, j2_btn = 0;
-    reg              uart_rxd = 1'b1;
+    reg              uart_rxd = 1'b1, joy_pause = 1'b0;
 
     wire [9:0] vga_x, vga_y;
     wire vga_hsync, vga_vsync, vga_video_on;
@@ -59,11 +59,12 @@ module tb_game_v2;
     wire [2:0]       quiz_gate;
     wire [1:0]       quiz_cursor, quiz_ans_slot;
     wire [7:0]       boss_trans_t;
+    wire             paused;
 
     game_engine_v2 u_engine (
         .clk(clk), .rst(rst), .tick(tick), .btn(btn),
         .tilt_dx(tilt_dx), .tilt_dy(tilt_dy),
-        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn),
+        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .joy_pause(joy_pause),
         .map_addr_b(map_addr_b), .map_tile_b(map_tile_b),
         .control_mode(control_mode), .p2_active(p2_active), .zoom_lvl(zoom_lvl), .zoom_out(zoom_out), .enemies_left(enemies_left),
         .game_state(game_state), .cut_id(cut_id), .cut_timer(cut_timer), .wave(wave),
@@ -98,13 +99,13 @@ module tb_game_v2;
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
-        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t)
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused)
     );
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
     wire [2:0]        rx_j1_btn, rx_j2_btn;
-    wire              joy_link_ok;
-    uart_joy_rx u_uart_joy (.clk(clk), .rst(rst), .uart_rxd(uart_rxd), .j1_dx(rx_j1_dx), .j1_dy(rx_j1_dy), .j1_btn(rx_j1_btn), .j2_dx(rx_j2_dx), .j2_dy(rx_j2_dy), .j2_btn(rx_j2_btn), .joy_link_ok(joy_link_ok));
+    wire              rx_joy_pause, joy_link_ok;
+    uart_joy_rx u_uart_joy (.clk(clk), .rst(rst), .uart_rxd(uart_rxd), .j1_dx(rx_j1_dx), .j1_dy(rx_j1_dy), .j1_btn(rx_j1_btn), .j2_dx(rx_j2_dx), .j2_dy(rx_j2_dy), .j2_btn(rx_j2_btn), .joy_pause(rx_joy_pause), .joy_link_ok(joy_link_ok));
 
     wire [3:0] VGA_R, VGA_G, VGA_B;
     wire       VGA_HS, VGA_VS;
@@ -146,7 +147,7 @@ module tb_game_v2;
         .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
-        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -191,22 +192,28 @@ module tb_game_v2;
         fail_cnt = 0; shoot_cnt = 0;
         repeat (5) @(posedge clk); rst = 0; repeat (5) @(posedge clk);
 
-        // 1. UART Dual-Joystick decode
-        send_uart_byte(8'h8C); send_uart_byte(8'h18); send_uart_byte(8'h35);
+        // 1. UART Dual-Joystick decode (incl. Start->Pause bit6!)
+        send_uart_byte(8'h8C); send_uart_byte(8'h18); send_uart_byte(8'h75);
         repeat (5) @(posedge clk);
-        if (!joy_link_ok || rx_j1_dx !== 3'sd2 || rx_j2_dx !== -3'sd2) begin
+        if (!joy_link_ok || rx_j1_dx !== 3'sd2 || rx_j2_dx !== -3'sd2 || rx_joy_pause !== 1'b1) begin
             $display("FAIL: UART decode mismatch!"); fail_cnt = fail_cnt + 1;
-        end else $display("OK: UART Dual-Joystick decoded accurately");
+        end else $display("OK: UART Dual-Joystick + Pause bit decoded accurately");
 
-        // 2. Title Joy2 Menu & Start 2P Co-op (direct ST_PLAY, Wave Banner -> 4 Wave1 Enemies)
-        j2_dx = 3'sd2; step_frame(); j2_dx = 0; step_frame();
+        // 2. Title Joy2 Menu (1P JOY -> 2P CO-OP JOY) & Start 2P Co-op
         j2_dx = 3'sd2; step_frame(); j2_dx = 0; step_frame();
         j2_btn[2] = 1'b1; step_frame(); j2_btn[2] = 0;
         repeat (95) step_frame();
-        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 3'd6 || hp2 !== 3'd6 || enemies_left !== 5'd4) begin
-            $display("FAIL: J2 Start / 4 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d", game_state, room_phase, p2_active, enemies_left);
+        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 3'd6 || hp2 !== 3'd6 || enemies_left !== 5'd6) begin
+            $display("FAIL: J2 Start / 6 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d", game_state, room_phase, p2_active, enemies_left);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 4 Wave1 Enemies, & 6/6 Hearts active!");
+        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 6 Wave1 Enemies, & 6/6 Hearts active!");
+
+        // 2b. Start button Pause toggle test
+        joy_pause = 1'b1; step_frame(); joy_pause = 1'b0; step_frame();
+        if (!paused) begin $display("FAIL: Start button did not pause!"); fail_cnt = fail_cnt + 1; end
+        joy_pause = 1'b1; step_frame(); joy_pause = 1'b0; step_frame();
+        if (paused) begin $display("FAIL: Start button did not unpause!"); fail_cnt = fail_cnt + 1; end
+        else $display("OK: Joystick Start button Pause/Resume toggle works!");
 
         // 3. Time-Multiplexed Limited Lock-On (<=72 px) + Lunge-Snap + 3-Hit Nova Combo!
         u_engine.px = 11'd120; u_engine.py = 10'd130;
@@ -237,7 +244,12 @@ module tb_game_v2;
             $display("FAIL: Seamless Evo / Heart-no-wrap failed! stg=%d pet=%b st=%d hp=%d", stage, pet_active, game_state, hp); fail_cnt = fail_cnt + 1;
         end else $display("OK: Seamless Evo (NO cutscene!) & Heart-only pickup at 6 HP stayed 6!");
 
-        // 5. Room Clear -> Arrow -> Logic Gate Quiz -> Sliding Door Open -> Slam + Wave 2 Banner!
+        // 5. Clear Sub-wave 0 -> Sub-wave 1 Reinforcement -> Room Clear -> Arrow -> Logic Gate Quiz -> Sliding Door Open -> Slam + Wave 2 Banner!
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
+        repeat (3) step_frame();
+        if (enemies_left !== 5'd6 || room_phase !== 3'd1) begin
+            $display("FAIL: Sub-wave 1 reinforcement did not spawn! en=%d rp=%d", enemies_left, room_phase); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Sub-wave 1 reinforcement spawned (6 more enemies)!");
         for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
         repeat (3) step_frame();
         if (room_phase !== 3'd2) begin
@@ -269,7 +281,7 @@ module tb_game_v2;
 
         // 6. Final Boss (Wave 6): 3-Form Death -> Chuunibyou Quote + Portal Regrowth -> Victory!
         u_engine.wave = 4'd6; u_engine.room_phase = 3'd1;
-        u_engine.spawn_wave_group(4'd6);
+        u_engine.spawn_wave_group(4'd6, 1'b0);
         step_frame();
         if (!boss_active || boss_kind !== 2'd0) begin
             $display("FAIL: Wave 6 Boss Form 0 failed to spawn!"); fail_cnt = fail_cnt + 1;

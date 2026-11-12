@@ -102,6 +102,7 @@ module vga_renderer_v2 (
     input  wire [1:0]  quiz_ans_slot,
     input  wire [5:0]  quiz_wrong_t,
     input  wire [7:0]  boss_trans_t,
+    input  wire        paused,
 
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
     output reg         VGA_HS = 1, VGA_VS = 1
@@ -138,7 +139,7 @@ module vga_renderer_v2 (
 
     wire signed [12:0] s_cx = $signed({2'b00, cam_x}) + cut_shx + hit_shx;
     wire signed [12:0] s_cy = $signed({3'b000, cam_y}) + cut_shy + hit_shy;
-    wire signed [12:0] min_cx = boss_locked ? 13'sd1568 : 13'sd0;
+    wire signed [12:0] min_cx = 13'sd0;
     wire signed [12:0] max_cx = 13'sd2048 - $signed({3'b000, view_w});
     wire signed [12:0] max_cy = 13'sd1024 - $signed({3'b000, view_h});
     wire [10:0] eff_cam_x = (s_cx < min_cx) ? min_cx[10:0] : ((s_cx > max_cx) ? max_cx[10:0] : s_cx[10:0]);
@@ -177,7 +178,7 @@ module vga_renderer_v2 (
     );
 
     // 2. Hero Sprites P1 & P2 (8 models x 4 frames incl Lunge/Apex x 32x32 = 32K)
-    wire [10:0] target_px  = (game_state == 3'd0) ? (control_mode == 2'd2 ? 11'd80 : 11'd100) : px;
+    wire [10:0] target_px  = (game_state == 3'd0) ? (control_mode == 2'd1 ? 11'd80 : 11'd100) : px;
     wire [9:0]  target_py  = (game_state == 3'd0) ? 10'd160 : py;
     wire [10:0] target_p2x = (game_state == 3'd0) ? 11'd120 : p2x;
     wire [9:0]  target_p2y = (game_state == 3'd0) ? 10'd160 : p2y;
@@ -597,20 +598,20 @@ module vga_renderer_v2 (
                     if (col_1x == 6'd7)      begin hud_char_code = C_LARW; hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17; end
                     else if (col_1x == 6'd32)begin hud_char_code = C_RARW; hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17; end
                     else begin
-                        hud_text_color = (control_mode == 2'd0) ? 6'd58 : ((control_mode == 2'd1) ? 6'd59 : 6'd60);
+                        hud_text_color = (control_mode == 2'd0) ? 6'd59 : 6'd60;
                         case (col_1x - 6'd9)
                             0:hud_char_code=lch("M"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("D"); 3:hud_char_code=lch("E");
-                            4:hud_char_code=lch(":"); 5:hud_char_code=C_SP;     6:hud_char_code=(control_mode==2'd2)?lch("2"):lch("1");
+                            4:hud_char_code=lch(":"); 5:hud_char_code=C_SP;     6:hud_char_code=(control_mode==2'd1)?lch("2"):lch("1");
                             7:hud_char_code=lch("P"); 8:hud_char_code=C_SP;
-                            9:hud_char_code=(control_mode==2'd0)?lch("T"):((control_mode==2'd1)?lch("J"):lch("C"));
-                            10:hud_char_code=(control_mode==2'd0)?lch("I"):((control_mode==2'd1)?lch("O"):lch("O"));
-                            11:hud_char_code=(control_mode==2'd0)?lch("L"):((control_mode==2'd1)?lch("Y"):lch("-"));
-                            12:hud_char_code=(control_mode==2'd0)?lch("T"):((control_mode==2'd1)?lch("S"):lch("O"));
-                            13:hud_char_code=(control_mode==2'd0)?C_SP    :((control_mode==2'd1)?lch("T"):lch("P"));
-                            14:hud_char_code=(control_mode==2'd0)?C_SP    :((control_mode==2'd1)?lch("I"):C_SP);
-                            15:hud_char_code=(control_mode==2'd0)?C_SP    :((control_mode==2'd1)?lch("C"):lch("J"));
-                            16:hud_char_code=(control_mode==2'd0)?C_SP    :((control_mode==2'd1)?lch("K"):lch("O"));
-                            17:hud_char_code=(control_mode==2'd2)?lch("Y"):C_SP; default:hud_char_code=C_SP;
+                            9:hud_char_code=(control_mode==2'd0)?lch("J"):lch("C");
+                            10:hud_char_code=(control_mode==2'd0)?lch("O"):lch("O");
+                            11:hud_char_code=(control_mode==2'd0)?lch("Y"):lch("-");
+                            12:hud_char_code=(control_mode==2'd0)?lch("S"):lch("O");
+                            13:hud_char_code=(control_mode==2'd0)?lch("T"):lch("P");
+                            14:hud_char_code=(control_mode==2'd0)?lch("I"):C_SP;
+                            15:hud_char_code=(control_mode==2'd0)?lch("C"):lch("J");
+                            16:hud_char_code=(control_mode==2'd0)?lch("K"):lch("O");
+                            17:hud_char_code=(control_mode==2'd1)?lch("Y"):C_SP; default:hud_char_code=C_SP;
                         endcase
                     end
                 end
@@ -967,6 +968,99 @@ module vga_renderer_v2 (
                             20:hud_char_code=lch("!"); default:hud_char_code=C_SP;
                         endcase
                     end
+                end
+            end
+
+            // PAUSE MODAL WITH PIXEL-ART JOYSTICK & BUTTON CALLOUT ARROWS!
+            if (game_state == 3'd2 && paused && gx >= 9'd24 && gx < 9'd296 && gy >= 9'd38 && gy < 9'd206) begin : blk_pause
+                integer jdx, jdy;
+                hud_bg_en = 1;
+                hud_bg_color = (gx==9'd24||gx==9'd295||gy==9'd38||gy==9'd205) ? 6'd58 : 6'd54;
+
+                // Header: "PAUSED - PRESS START"
+                if (gy >= 9'd46 && gy < 9'd54 && col_1x >= 6'd10 && col_1x < 6'd30) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd46;
+                    case (col_1x - 6'd10)
+                        0:hud_char_code=lch("P"); 1:hud_char_code=lch("A"); 2:hud_char_code=lch("U"); 3:hud_char_code=lch("S");
+                        4:hud_char_code=lch("E"); 5:hud_char_code=lch("D"); 6:hud_char_code=C_SP;     7:hud_char_code=C_DSH;
+                        8:hud_char_code=C_SP;     9:hud_char_code=lch("P"); 10:hud_char_code=lch("R"); 11:hud_char_code=lch("E");
+                        12:hud_char_code=lch("S"); 13:hud_char_code=lch("S"); 14:hud_char_code=C_SP; 15:hud_char_code=lch("S");
+                        16:hud_char_code=lch("T"); 17:hud_char_code=lch("A"); 18:hud_char_code=lch("R"); 19:hud_char_code=lch("T");
+                        default:hud_char_code=C_SP;
+                    endcase
+                end
+
+                // Gamepad Body (centered at gx=160, gy=122)
+                // Shoulder Bumpers (L1/L2 & R1/R2)
+                if (gy >= 9'd96 && gy <= 9'd99 && ((gx >= 9'd126 && gx <= 9'd146) || (gx >= 9'd174 && gx <= 9'd194)))
+                    hud_bg_color = 6'd59;
+                // Bridge & Left/Right Circular Grips
+                if (gx >= 9'd136 && gx <= 9'd184 && gy >= 9'd100 && gy <= 9'd134)
+                    hud_bg_color = (gy==9'd100 || gy==9'd134) ? 6'd17 : 6'd55;
+                // Left Grip Circle (center 136,120 r=18)
+                jdx = $signed({1'b0, gx}) - 12'sd136; jdy = $signed({1'b0, gy}) - 12'sd120;
+                if (jdx*jdx + jdy*jdy <= 324) hud_bg_color = (jdx*jdx + jdy*jdy >= 270) ? 6'd17 : 6'd55;
+                // Right Grip Circle (center 184,120 r=18)
+                jdx = $signed({1'b0, gx}) - 12'sd184;
+                if (jdx*jdx + jdy*jdy <= 324) hud_bg_color = (jdx*jdx + jdy*jdy >= 270) ? 6'd17 : 6'd55;
+
+                // Left D-Pad (+) in bright Cyan (center 135, 117)
+                if ((gx >= 9'd133 && gx <= 9'd137 && gy >= 9'd111 && gy <= 9'd123) ||
+                    (gx >= 9'd129 && gx <= 9'd141 && gy >= 9'd115 && gy <= 9'd119))
+                    hud_bg_color = 6'd59;
+                // Center START button in Gold (gx=156..164, gy=115..118)
+                if (gx >= 9'd156 && gx <= 9'd164 && gy >= 9'd115 && gy <= 9'd118)
+                    hud_bg_color = 6'd58;
+                // Right 4 Face Buttons (center 185, 117): Top=^ (50), Right=O (60), Bot=X (49), Left=[] (58)
+                if (gx >= 9'd183 && gx <= 9'd187 && gy >= 9'd109 && gy <= 9'd113) hud_bg_color = 6'd50; // ^ Chrono
+                if (gx >= 9'd189 && gx <= 9'd193 && gy >= 9'd115 && gy <= 9'd119) hud_bg_color = 6'd60; // O Attack
+                if (gx >= 9'd183 && gx <= 9'd187 && gy >= 9'd121 && gy <= 9'd125) hud_bg_color = 6'd49; // X Attack
+                if (gx >= 9'd177 && gx <= 9'd181 && gy >= 9'd115 && gy <= 9'd119) hud_bg_color = 6'd58; // [] Dash
+
+                // Pointer Lines from Labels directly to each Joystick Button!
+                if (gy == 9'd117 && gx >= 9'd104 && gx <= 9'd128) hud_bg_color = 6'd59; // D-Pad <- MOVE
+                if (gx == 9'd160 && gy >= 9'd78  && gy <= 9'd114) hud_bg_color = 6'd58; // START ^ PAUSE
+                if (gy == 9'd97  && gx >= 9'd194 && gx <= 9'd206) hud_bg_color = 6'd58; // L1/[] -> DASH
+                if (gy == 9'd117 && gx >= 9'd194 && gx <= 9'd206) hud_bg_color = 6'd60; // O/X -> ATTACK
+                if (gy == 9'd136 && gx >= 9'd186 && gx <= 9'd206) hud_bg_color = 6'd50; // ^/L2 -> CHRONO
+                if (gx == 9'd186 && gy >= 9'd113 && gy <= 9'd136) hud_bg_color = 6'd50;
+
+                // Callout Labels
+                if (gy >= 9'd68 && gy < 9'd76 && col_1x >= 6'd14 && col_1x < 6'd26) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd68;
+                    case (col_1x - 6'd14)
+                        0:hud_char_code=lch("S"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("A"); 3:hud_char_code=lch("R");
+                        4:hud_char_code=lch("T"); 5:hud_char_code=lch(":"); 6:hud_char_code=C_SP;     7:hud_char_code=lch("P");
+                        8:hud_char_code=lch("A"); 9:hud_char_code=lch("U"); 10:hud_char_code=lch("S"); 11:hud_char_code=lch("E");
+                        default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd113 && gy < 9'd121 && col_1x >= 6'd4 && col_1x < 6'd13) begin
+                    hud_text_en = 1; hud_text_color = 6'd59; hud_char_row = gy - 9'd113;
+                    case (col_1x - 6'd4)
+                        0:hud_char_code=lch("M"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("V"); 3:hud_char_code=lch("E");
+                        4:hud_char_code=lch("/"); 5:hud_char_code=lch("Q"); 6:hud_char_code=lch("U"); 7:hud_char_code=lch("I");
+                        8:hud_char_code=lch("Z"); default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd93 && gy < 9'd101 && col_1x >= 6'd26 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd93;
+                    case (col_1x - 6'd26)
+                        0:hud_char_code=lch("L"); 1:hud_char_code=lch("1"); 2:hud_char_code=lch(":"); 3:hud_char_code=lch("D");
+                        4:hud_char_code=lch("A"); 5:hud_char_code=lch("S"); 6:hud_char_code=lch("H"); default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd113 && gy < 9'd121 && col_1x >= 6'd26 && col_1x < 6'd36) begin
+                    hud_text_en = 1; hud_text_color = 6'd60; hud_char_row = gy - 9'd113;
+                    case (col_1x - 6'd26)
+                        0:hud_char_code=lch("O"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("X"); 3:hud_char_code=lch(":");
+                        4:hud_char_code=lch("A"); 5:hud_char_code=lch("T"); 6:hud_char_code=lch("T"); 7:hud_char_code=lch("A");
+                        8:hud_char_code=lch("C"); 9:hud_char_code=lch("K"); default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd132 && gy < 9'd140 && col_1x >= 6'd26 && col_1x < 6'd36) begin
+                    hud_text_en = 1; hud_text_color = 6'd50; hud_char_row = gy - 9'd132;
+                    case (col_1x - 6'd26)
+                        0:hud_char_code=lch("L"); 1:hud_char_code=lch("2"); 2:hud_char_code=lch(":"); 3:hud_char_code=lch("C");
+                        4:hud_char_code=lch("H"); 5:hud_char_code=lch("R"); 6:hud_char_code=lch("O"); 7:hud_char_code=lch("N");
+                        8:hud_char_code=lch("O"); default:hud_char_code=C_SP;
+                    endcase
                 end
             end
 
