@@ -150,6 +150,19 @@ module drago_nexus_v2_top (
     wire signed [2:0] hud_dx = (control_mode == 2'd0) ? tilt_dx : j1_dx;
     wire signed [2:0] hud_dy = (control_mode == 2'd0) ? tilt_dy : j1_dy;
 
+    // SW[3:0] Priority Human-Face Skin Selector (highest ON switch wins, no mixing!)
+    wire [1:0] hero_sel = sw_sync[3] ? 2'd3 :
+                          sw_sync[2] ? 2'd2 :
+                          sw_sync[1] ? 2'd1 : 2'd0;
+
+    wire [2:0] room_phase;
+    wire [6:0] wave_banner_t;
+    wire [5:0] door_slam_t, quiz_wrong_t;
+    wire [4:0] door_slide;
+    wire [2:0] quiz_gate;
+    wire [1:0] quiz_cursor, quiz_ans_slot;
+    wire [7:0] boss_trans_t;
+
     game_engine_v2 u_engine (
         .clk(clk25), .rst(rst), .tick(game_tick), .btn(btn_sync),
         .tilt_dx(tilt_dx), .tilt_dy(tilt_dy),
@@ -185,7 +198,10 @@ module drago_nexus_v2_top (
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit)
+        .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+        .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
+        .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t)
     );
 
     vga_renderer_v2 u_renderer (
@@ -223,6 +239,10 @@ module drago_nexus_v2_top (
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
+        .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
+        .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 

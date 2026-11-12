@@ -183,104 +183,32 @@ with open(os.path.join(OUT_DIR, "tiles.mem"), "w") as f:
     f.write("\n".join(f"{t[y][x]:02X}" for t in tiles for y in range(16) for x in range(16)) + "\n")
 
 # =========================================================================
-# 3. GIANT 128 x 64 KMUTT BANGMOD CAMPUS MAP (2048 x 1024 world pixels!)
-#    - Zone 1 (tx=2..36):  KMUTT Pracha Uthit Gate -> King Rama IV Plaza & N1/N2
-#    - Zone 2 (tx=38..72): KMUTT Central Pond, Bridges, Library & CPE Building
-#    - Zone 3 (tx=74..98): Learning Exchange (LX) / CB2 & Bangmod Canal Bridges
-#    - Zone 4 (tx=100..125): KMUTT Grand Auditorium / Sealed Thanos Sanctum (W10)
+# 3. SINGLE RECTANGULAR ARENA ROOM (tx=4..35, ty=4..23 -> 512 x 320 px)
+#    Exterior is pure void in vga_renderer_v2; right wall has sliding door!
 # =========================================================================
 W_T, H_T = 128, 64
 wmap = [[0]*W_T for _ in range(H_T)]
 
-for y in range(H_T):
-    for x in range(W_T):
-        if x <= 1 or x >= W_T - 2 or y <= 1 or y >= H_T - 2:
-            wmap[y][x] = 2 # Campus Perimeter Wall
+for y in range(4, 24):
+    for x in range(4, 36):
+        if x == 4 or x == 35 or y == 4 or y == 23:
+            wmap[y][x] = 2 # Arena Perimeter Wall
         else:
             wmap[y][x] = 1 if (x + y) % 2 == 0 else 0
 
-# ZONE 1: Pracha Uthit Gate (West) -> King Rama IV Monument Plaza & N1/N2
-# Main Campus Avenue & Plaza
-for x in range(2, 21):
-    wmap[11][x] = 7; wmap[12][x] = 7; wmap[13][x] = 7
-for y in range(6, 30):
-    wmap[y][10] = 7; wmap[y][11] = 7
-# King Rama IV Monument Circle / Shrine
-for y in range(4, 9):
-    for x in range(4, 9):
-        wmap[y][x] = 8 if (x in (5,6,7) and y in (5,6,7)) else 7
-wmap[6][6] = 6   # R4 Monument Healing Shrine
-# Campus Trees / Lamp Pillars (keep wave 1 spawns x=5..18,y=7..26 clear!)
-wmap[3][14] = 5; wmap[3][18] = 5; wmap[22][4] = 5; wmap[22][19] = 5
-# N1/CB1 Courtyard Wall & Gates (Gate 11 opens at Wave 2!)
-for y in range(2, 62): wmap[y][21] = 2
-for y in range(10, 17): wmap[y][21] = 11 # North Road Gate
-for y in range(42, 48): wmap[y][21] = 11 # South Road Gate
-for x in range(2, 21): wmap[30][x] = 11 if 9 <= x <= 13 else 2
-# East Plaza (N2 Admin / CB1 Building Wings)
-for x in range(11, 37): wmap[44][x] = 7; wmap[45][x] = 7
-for y in range(12, 46): wmap[y][28] = 7
-for y in range(26, 34):
-    for x in range(30, 35): wmap[y][x] = 15 # Boss 1 Arena Emblem
-wmap[52][26] = 6 # Fountain Shrine 2
-wmap[18][24] = 5; wmap[18][34] = 5; wmap[38][24] = 5; wmap[54][33] = 5
-
-# ZONE 2 WALL at tx=37 (Gate 13 opens at Wave 4!)
-for y in range(2, 62): wmap[y][37] = 2
-for y in range(12, 18): wmap[y][37] = 13
-for y in range(42, 48): wmap[y][37] = 13
-
-# ZONE 2: KMUTT Central Pond, Bridges, Library & CPE (Wissawa Wattana)
-# Central Pond (ty=2..11 and ty=16..24, keeping ty=12..15 & ty=25..61 walkable!)
-for y in range(2, 24):
-    for x in range(40, 70):
-        wmap[y][x] = 10 # Pond Water
+# Clean central arena walkway & emblem (non-blocking floor tiles)
+for x in range(6, 34):
+    wmap[13][x] = 7; wmap[14][x] = 7
+for y in range(6, 22):
+    wmap[y][19] = 7; wmap[y][20] = 7
+for y in range(11, 17):
+    for x in range(17, 23):
+        wmap[y][x] = 15 if (18 <= x <= 21 and 12 <= y <= 15) else 8
+# Corner torches (visual accents, far from spawn & door)
+wmap[6][6] = 5; wmap[6][33] = 5; wmap[21][6] = 5; wmap[21][33] = 5
+# Right-wall doorway opening (handled dynamically as sliding door in renderer/engine)
 for y in range(12, 16):
-    for x in range(38, 66): wmap[y][x] = 3 # Main Pond Bridge
-for y in range(9, 19):
-    for x in range(50, 58): wmap[y][x] = 7 # Pond Pavilion Island
-for y in range(5, 10):
-    for x in range(52, 56): wmap[y][x] = 4 # Secret Shadow Bridge (Chrono-Shift!)
-for y in range(2, 6):
-    for x in range(46, 62): wmap[y][x] = 7 # Secret Library Rooftop Gem Vault
-wmap[2][46] = 5; wmap[2][61] = 5
-for y in range(18, 28):
-    for x in range(52, 56): wmap[y][x] = 3 # South Pond Bridge to CPE Plaza
-# CPE / Wissawa Wattana & Library Grand Walkway
-for x in range(38, 72): wmap[31][x] = 7; wmap[32][x] = 7
-for y in range(28, 56): wmap[y][54] = 7
-for y in range(28, 36):
-    for x in range(62, 68): wmap[y][x] = 15 # Boss 2 Arena Emblem
-wmap[36][44] = 5; wmap[36][64] = 5; wmap[52][44] = 5; wmap[52][64] = 5
-wmap[56][50] = 6 # CPE Garden Shrine
-
-# ZONE 3 WALL at tx=73 (Gate 13 opens at Wave 7!)
-for y in range(2, 62): wmap[y][73] = 2
-for y in range(29, 36): wmap[y][73] = 13
-
-# ZONE 3: Learning Exchange (LX) / CB2 & Bangmod Canal Bridges (tx=74..98)
-for y in range(2, 62):
-    for x in range(74, 99): wmap[y][x] = 8 if (x+y)%2==0 else 1
-for y in range(10, 54):
-    for x in (82, 83, 90, 91): wmap[y][x] = 12 # Bangmod Canal / Energy Trenches
-for y in (16, 17, 31, 32, 33, 46, 47):
-    for x in range(74, 99): wmap[y][x] = 14 if x in (82,83,90,91) else 7
-wmap[14][78] = 5; wmap[14][95] = 5; wmap[48][78] = 5; wmap[48][95] = 5
-wmap[54][78] = 6 # LX Plaza Shrine
-
-# ZONE 4 SEAL WALL at tx=99 (Gate 9 stays LOCKED RED in Wave 10!)
-for y in range(2, 62): wmap[y][99] = 2
-for y in range(28, 36): wmap[y][99] = 9
-
-# ZONE 4: KMUTT Grand Auditorium / Sealed Thanos Sanctum (tx=100..125, ty=2..61)
-for y in range(2, 62):
-    for x in range(100, 126): wmap[y][x] = 8
-for y in range(22, 42):
-    for x in range(114, 122): wmap[y][x] = 15 # KMUTT Thanos Altar
-for x in range(100, 115): wmap[31][x] = 7; wmap[32][x] = 7
-for ty in (8, 18, 44, 54):
-    for tx in (104, 121): wmap[ty][tx] = 5
-wmap[54][103] = 6 # Sanctum Shrine
+    wmap[y][35] = 7
 
 with open(os.path.join(OUT_DIR, "tilemap.mem"), "w") as f:
     f.write("\n".join(f"{wmap[y][x]:01X}" for y in range(64) for x in range(128)) + "\n")
@@ -413,62 +341,15 @@ def extract_face_32(filename, crop_frac, bg_mode="wall", rim_rgb=(17, 17, 34), b
                 grid[oy + y][ox + x] = rgb_to_hex12(r, g, b)
     return add_outline(grid, rgb_to_hex12(*rim_rgb))
 
-def extract_goose_32():
-    im = Image.open(os.path.join(SPACE_SRC, "goose.jpg")).convert("RGB")
-    im = im.resize((96, 96), Image.Resampling.NEAREST)
-    rgba = remove_bg_bfs(im, mode="teal")
-    bbox = rgba.getbbox()
-    if bbox:
-        rgba = rgba.crop(bbox)
-    bw, bh = rgba.size
-    scale = min(28.0 / max(1, bw), 28.0 / max(1, bh))
-    nw, nh = max(1, int(round(bw*scale))), max(1, int(round(bh*scale)))
-    small = rgba.resize((nw, nh), Image.Resampling.NEAREST)
-    grid = blank(32, 32)
-    ox, oy = (32 - nw) // 2, (32 - nh) // 2
-    sp = small.load()
-    for y in range(nh):
-        for x in range(nw):
-            r, g, b, a = sp[x, y]
-            if a > 120:
-                grid[oy + y][ox + x] = rgb_to_hex12(r, g, b)
-    return add_outline(grid, 0x112)
-
-def extract_nexys_32():
-    im = Image.open(os.path.join(SPACE_SRC, "NexysA7.jpg")).convert("RGB")
-    im = ImageEnhance.Contrast(im).enhance(1.18)
-    im = im.resize((96, 96), Image.Resampling.LANCZOS)
-    rgba = remove_bg_bfs(im, mode="white")
-    bbox = rgba.getbbox()
-    if bbox:
-        rgba = rgba.crop(bbox)
-    bw, bh = rgba.size
-    scale = min(28.0 / max(1, bw), 28.0 / max(1, bh))
-    nw, nh = max(1, int(round(bw*scale))), max(1, int(round(bh*scale)))
-    small = rgba.resize((nw, nh), Image.Resampling.LANCZOS)
-    grid = blank(32, 32)
-    ox, oy = (32 - nw) // 2, (32 - nh) // 2
-    sp = small.load()
-    for y in range(nh):
-        for x in range(nw):
-            r, g, b, a = sp[x, y]
-            if a > 120:
-                grid[oy + y][ox + x] = rgb_to_hex12(r, g, b)
-    return add_outline(grid, 0x2DF)
-
 BASE_HEROES = [
-    extract_goose_32(),                                                                        # 0: Goose
-    extract_face_32("pf.jpg",    (0.08, 0.07, 0.79, 0.82), "wall", (64, 160, 255), 1.18, 1.24),# 1: PF
-    extract_face_32("ppuen.jpg", (0.14, 0.03, 0.86, 0.82), "white",(48, 224, 144), 1.06, 1.15),# 2: PPuen
-    extract_face_32("ppeem.jpg", (0.18, 0.11, 0.80, 0.77), "wall", (255, 192, 48), 1.08, 1.16),# 3: PPeem
-    extract_face_32("pping.jpg", (0.10, 0.13, 0.86, 0.82), "wall", (255, 80, 180), 1.06, 1.16),# 4: PPing
-    extract_nexys_32(),                                                                        # 5: NexysA7
+    extract_face_32("pf.jpg",    (0.08, 0.07, 0.79, 0.82), "wall", (64, 160, 255), 1.18, 1.24),# 0: PF (SW0)
+    extract_face_32("ppuen.jpg", (0.14, 0.03, 0.86, 0.82), "white",(48, 224, 144), 1.06, 1.15),# 1: PPuen (SW1)
+    extract_face_32("ppeem.jpg", (0.18, 0.11, 0.80, 0.77), "wall", (255, 192, 48), 1.08, 1.16),# 2: PPeem (SW2)
+    extract_face_32("pping.jpg", (0.10, 0.13, 0.86, 0.82), "wall", (255, 80, 180), 1.06, 1.16),# 3: PPing (SW3)
 ]
-BASE_HEROES.append(BASE_HEROES[0]) # 6: Goose alt
-BASE_HEROES.append(BASE_HEROES[5]) # 7: NexysA7 alt
 
 def draw_hero(model_id, frame):
-    base = BASE_HEROES[model_id]
+    base = BASE_HEROES[model_id % 4]
     g = blank(32, 32)
     bob = -1 if frame == 1 else (1 if frame == 2 else 0)
     lean = 2 if frame == 2 else 0
@@ -495,93 +376,63 @@ def draw_hero(model_id, frame):
             put_px(g, sx, sy, 0xFF4)
     return g
 
-player_frames = [draw_hero(mid, fr) for mid in range(8) for fr in range(4)]
-# 8 * 4 * 1024 = 32,768 entries (12-bit RGB444)!
+player_frames = [draw_hero(mid, fr) for mid in range(4) for fr in range(4)]
+# 4 * 4 * 1024 = 16,384 entries (12-bit RGB444)!
 with open(os.path.join(OUT_DIR, "player_sprites.mem"), "w") as f:
     f.write("\n".join(f"{fg[y][x]:03X}" for fg in player_frames for y in range(32) for x in range(32)) + "\n")
 
 # =========================================================================
-# 5. MASSIVE 32x32 MONSTERS (8 Archetypes x 2 Frames = 16,384 Entries!)
+# 5. HUMAN-FACE 32x32 ENEMIES (8 Archetypes x 2 Frames = 16,384 x 12-bit!)
+#    Only human faces (ajv.png clones with distinct enemy armor/rims)!
 # =========================================================================
+AJV_BASE = extract_face_32("ajv.png", (0.05, 0.02, 0.95, 0.90), "white", (255, 48, 64), 1.05, 1.18)
+
+ENEMY_RIMS = [
+    (0xF34, 0x912, 0xFF4), # 0: Crimson Recruit
+    (0xC4F, 0x619, 0xF8F), # 1: Void Striker
+    (0x3E5, 0x172, 0xAF4), # 2: Toxic Bruiser
+    (0xFD2, 0xA60, 0xFFF), # 3: Gold Elite
+    (0xF61, 0x820, 0xFF6), # 4: Magma Raider
+    (0x2DF, 0x169, 0xFFF), # 5: Cyber Clone
+    (0x6AF, 0x259, 0xDFF), # 6: Frost Mage
+    (0xF26, 0x702, 0xFE0), # 7: Abyssal Guard
+]
+
 def draw_monster_32(kind, frame):
     g = blank(32, 32)
     b = 1 if frame else 0
-    if kind == 0: # 0: Emerald King Slime
-        for cx in range(12, 21, 2): put_px(g, cx, 7+b, 44); put_px(g, cx, 8+b, 44)
-        fill_ellipse(g, 16, 19+b, 10.5, 8.2 - b*0.6, 30)
-        fill_ellipse(g, 16, 18+b, 8.8, 6.6, 29)
-        fill_ellipse(g, 13, 15+b, 5.5, 3.5, 28)
-        fill_ellipse(g, 11, 14+b, 2.0, 1.5, 31)
-        for dy in range(3): put_px(g, 12, 18+dy+b, 16); put_px(g, 20, 18+dy+b, 16)
-        put_px(g, 12, 18+b, 17); put_px(g, 20, 18+b, 17)
-    elif kind == 1: # 1: Crimson Winged Imp
-        for s in (-1, 1):
-            for r in range(1, 9):
-                for y in range(11+b-r//3, 18+b): put_px(g, 16+s*(4+r), y, 33 if r>5 else 32)
-        for h in range(4): put_px(g, 11-h, 6-h+b, 34); put_px(g, 20+h, 6-h+b, 34)
-        fill_ellipse(g, 16, 12+b, 5.5, 4.8, 32)
-        fill_ellipse(g, 16, 21+b, 4.5, 5.2, 33)
-        put_px(g, 13, 12+b, 58); put_px(g, 19, 12+b, 58)
-        for ly in range(25, 29): put_px(g, 13-b, ly, 35); put_px(g, 19+b, ly, 35)
-    elif kind == 2: # 2: Void Shadow Phantom
-        fill_ellipse(g, 16, 11+b, 6.2, 5.5, 37)
-        fill_ellipse(g, 16, 10+b, 4.5, 3.8, 36)
-        for y in range(15, 27):
-            hw = 4 + (y-15)//3
-            for x in range(16-hw, 17+hw):
-                if (x + y + frame) % 3 == 0 and y > 23: continue
-                put_px(g, x, y+b, 39 if y>21 else 37)
-        put_px(g, 13, 11+b, 59); put_px(g, 14, 11+b, 17); put_px(g, 18, 11+b, 17); put_px(g, 19, 11+b, 59)
-    elif kind == 3: # 3: Dark Iron Knight (Horned Helm + Shield + Sword!)
-        for h in range(4): put_px(g, 10-h, 7-h+b, 44); put_px(g, 22+h, 7-h+b, 44)
-        fill_ellipse(g, 16, 10+b, 5.2, 4.5, 41)
-        for vx in range(13, 20): put_px(g, vx, 10+b, 43)
-        for y in range(15, 25):
-            for x in range(10, 23): put_px(g, x, y+b, 40 if x<16 else 42)
-        # Shield on left + Sword on right
-        for y in range(15, 24):
-            for x in range(5, 10): put_px(g, x, y+b, 44 if (x==7 or y==19) else 42)
-        for y in range(6, 23): put_px(g, 25, y+b, 17 if y<17 else 44)
-        for ly in range(25, 30): put_px(g, 12-b, ly, 42); put_px(g, 20+b, ly, 42)
-    elif kind == 4: # 4: Magma Gargoyle (Lava Core + Stone Wings!)
-        for s in (-1, 1):
-            for r in range(1, 10):
-                for y in range(10-r//2+b, 19+b): put_px(g, 16+s*(4+r), y, 35 if r%2==0 else 42)
-        fill_ellipse(g, 16, 11+b, 5.0, 4.5, 35)
-        fill_ellipse(g, 16, 19+b, 5.5, 5.5, 33)
-        fill_ellipse(g, 16, 19+b, 2.8, 3.0, 51)
-        put_px(g, 14, 11+b, 58); put_px(g, 18, 11+b, 58)
-    elif kind == 5: # 5: Cyber Recon Drone
-        for cx in (7, 25):
-            for dy in range(11, 20): put_px(g, cx, dy+b, 45); put_px(g, cx+(1 if cx<16 else -1), dy+b, 41)
-        fill_ellipse(g, 16, 15+b, 7.0, 6.5, 40)
-        fill_ellipse(g, 16, 15+b, 4.5, 4.0, 42)
-        fill_ellipse(g, 16, 15+b, 2.5, 2.0, 43)
-        put_px(g, 16, 15+b, 17)
-    elif kind == 6: # 6: Frost Arcane Mage
-        for y in range(5, 14):
-            hw = 1 + (y-5)//2
-            for x in range(16-hw, 17+hw): put_px(g, x, y+b, 56)
-        for y in range(14, 28):
-            hw = 4 + (y-14)//3
-            for x in range(16-hw, 17+hw): put_px(g, x, y+b, 59 if abs(x-16)<=1 else 56)
-        put_px(g, 14, 11+b, 17); put_px(g, 18, 11+b, 17)
-        for y in range(7, 27): put_px(g, 25, y+b, 46)
-        fill_ellipse(g, 25, 6+b, 2.5, 2.5, 59)
-    else: # 7: Abyssal Twin-Axe Berserker
-        fill_ellipse(g, 16, 10+b, 5.5, 4.5, 33)
-        for vx in (13, 14, 18, 19): put_px(g, vx, 10+b, 58)
-        for y in range(14, 25):
-            for x in range(10, 23): put_px(g, x, y+b, 39 if y>20 else 32)
-        for ax in (5, 26):
-            for y in range(8, 22): put_px(g, ax, y+b, 41)
-            for dy in range(7, 14): put_px(g, ax+(1 if ax>16 else -1), dy+b, 43); put_px(g, ax+(2 if ax>16 else -2), dy+1+b, 17)
-        for ly in range(25, 30): put_px(g, 12-b, ly, 39); put_px(g, 20+b, ly, 39)
-    return add_outline(g, 16)
+    rim, dark, accent = ENEMY_RIMS[kind % 8]
+    # Copy human face (shifted slightly by walk bob)
+    for y in range(28):
+        for x in range(32):
+            c = AJV_BASE[y][x]
+            if c != 0:
+                ny = y + b
+                if 0 <= ny < 32:
+                    # Tint subtle outer rim pixels with enemy color
+                    if c == 0xF34:
+                        g[ny][x] = rim
+                    else:
+                        g[ny][x] = c
+    # Enemy shoulder armor + glowing horns/visor so they look clearly hostile
+    for y in range(26 + b, min(32, 30 + b)):
+        for x in range(7, 25):
+            if g[y][x] == 0:
+                g[y][x] = rim if (x < 11 or x > 20) else dark
+    if kind in (1, 5):
+        # Cyber/Void glowing visor strip across eyes
+        for x in range(11, 21):
+            put_px(g, x, 13 + b, accent)
+    elif kind in (3, 7):
+        # Horns / Crown spikes
+        for h in range(3):
+            put_px(g, 9 - h, 4 - h + b, accent)
+            put_px(g, 22 + h, 4 - h + b, accent)
+    return g
 
 monster_frames = [draw_monster_32(k, fr) for k in range(8) for fr in range(2)]
 with open(os.path.join(OUT_DIR, "enemy_sprites.mem"), "w") as f:
-    f.write("\n".join(f"{m[y][x]:02X}" for m in monster_frames for y in range(32) for x in range(32)) + "\n")
+    f.write("\n".join(f"{m[y][x]:03X}" for m in monster_frames for y in range(32) for x in range(32)) + "\n")
 
 # =========================================================================
 # 6. 16x16 PICKUPS, CRATES, METEORS, PETS, ORBIT SWORDS (16 frames -> 4096)
@@ -594,22 +445,12 @@ def draw_item_16(fid):
         fill_ellipse(g, 8, 8, 4.5 + f*0.4, 5.4, 59)
         fill_ellipse(g, 8, 7, 2.6, 3.4, 17)
         put_px(g, 8, 8, 58)
-    elif kind == 1: # Heart
+    elif kind in (1, 2, 3): # Heart ONLY (no mushroom/crate!)
         fill_ellipse(g, 5, 6, 2.5, 2.5, 49); fill_ellipse(g, 10, 6, 2.5, 2.5, 49)
         for y in range(6, 13):
             for x in range(8 - (12-y), 9 + (12-y)):
                 if 3 <= x <= 12: put_px(g, x, y, 49)
         put_px(g, 5, 5, 17)
-    elif kind == 2: # Supply Crate w/ Parachute
-        fill_ellipse(g, 8, 4, 6.0, 3.0, 49)
-        put_px(g, 5, 3, 17); put_px(g, 8, 3, 17); put_px(g, 11, 3, 17)
-        put_px(g, 4, 7, 57); put_px(g, 12, 7, 57)
-        for y in range(8, 15):
-            for x in range(4, 13): put_px(g, x, y, 47 if (y==11 or x==8) else 46)
-    elif kind == 3: # Sky Evo Pod
-        fill_ellipse(g, 8, 8, 5.0, 5.8, 56)
-        fill_ellipse(g, 8, 8, 3.2, 4.0, 59)
-        put_px(g, 8, 7, 17)
     elif kind == 4: # Flaming Meteor
         for y in range(2, 7):
             for x in range(6, 11):
@@ -881,10 +722,10 @@ with open(os.path.join(OUT_DIR, "bgm_rom.mem"), "w") as f:
     f.write("\n".join(bgm_words) + "\n")
 
 # =========================================================================
-# 11. EXPORT PREVIEW PNGS (12-bit RGB444 Heroes & Bosses + Palette Monsters)
+# 11. EXPORT PREVIEW PNGS (12-bit RGB444 Human Heroes, Enemies & Bosses)
 # =========================================================================
 prev = Image.new("RGB", (680, 330), (16, 22, 36))
-for i in range(8):
+for i in range(4):
     spr = player_frames[i*4]
     ox, oy = 14 + i*82, 12
     for y in range(32):
@@ -895,7 +736,7 @@ for i in range(8):
             for dy in range(2):
                 for dx in range(2): prev.putpixel((ox + x*2 + dx, oy + y*2 + dy), rgb)
 
-# 8 Monsters row
+# 8 Human-Face Enemies row (12-bit RGB444!)
 for i in range(8):
     spr = monster_frames[i*2]
     ox, oy = 14 + i*82, 92
@@ -903,8 +744,7 @@ for i in range(8):
         for x in range(32):
             c = spr[y][x]
             if c == 0: continue
-            col = 0x112 if c==16 else (0xFFF if c==17 else FIXED_FG.get(c, 0xFFF))
-            rgb = hex12_to_rgb(col)
+            rgb = hex12_to_rgb(c)
             for dy in range(2):
                 for dx in range(2): prev.putpixel((ox + x*2 + dx, oy + y*2 + dy), rgb)
 

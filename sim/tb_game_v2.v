@@ -51,6 +51,14 @@ module tb_game_v2;
     wire [8*11-1:0]  eb_x_vec;
     wire [8*10-1:0]  eb_y_vec;
     wire             sfx_shoot, sfx_pickup, sfx_evolve, sfx_hit;
+    wire [1:0]       hero_sel = sw[3] ? 2'd3 : (sw[2] ? 2'd2 : (sw[1] ? 2'd1 : 2'd0));
+    wire [2:0]       room_phase;
+    wire [6:0]       wave_banner_t;
+    wire [5:0]       door_slam_t, quiz_wrong_t;
+    wire [4:0]       door_slide;
+    wire [2:0]       quiz_gate;
+    wire [1:0]       quiz_cursor, quiz_ans_slot;
+    wire [7:0]       boss_trans_t;
 
     game_engine_v2 u_engine (
         .clk(clk), .rst(rst), .tick(tick), .btn(btn),
@@ -87,7 +95,10 @@ module tb_game_v2;
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit)
+        .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+        .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
+        .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t)
     );
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
@@ -132,6 +143,10 @@ module tb_game_v2;
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
+        .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
+        .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -183,19 +198,19 @@ module tb_game_v2;
             $display("FAIL: UART decode mismatch!"); fail_cnt = fail_cnt + 1;
         end else $display("OK: UART Dual-Joystick decoded accurately");
 
-        // 2. Title Joy2 Menu & Start 2P Co-op
+        // 2. Title Joy2 Menu & Start 2P Co-op (direct ST_PLAY, Wave Banner -> 4 Wave1 Enemies)
         j2_dx = 3'sd2; step_frame(); j2_dx = 0; step_frame();
         j2_dx = 3'sd2; step_frame(); j2_dx = 0; step_frame();
         j2_btn[2] = 1'b1; step_frame(); j2_btn[2] = 0;
-        repeat (140) step_frame();
-        if (game_state !== 3'd2 || !p2_active || hp !== 3'd6 || hp2 !== 3'd6 || enemies_left !== 5'd8) begin
-            $display("FAIL: J2 Start / 8 W1 Enemies / Separate 2P HP failed! st=%d p2=%b en=%d", game_state, p2_active, enemies_left);
+        repeat (95) step_frame();
+        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 3'd6 || hp2 !== 3'd6 || enemies_left !== 5'd4) begin
+            $display("FAIL: J2 Start / 4 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d", game_state, room_phase, p2_active, enemies_left);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Joy2 Menu/Start, 8 Wave1 Enemies, & 6/6 Separate Hearts active!");
+        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 4 Wave1 Enemies, & 6/6 Hearts active!");
 
         // 3. Time-Multiplexed Limited Lock-On (<=72 px) + Lunge-Snap + 3-Hit Nova Combo!
-        u_engine.px = 11'd120; u_engine.py = 10'd120;
-        u_engine.en_x[0] = 11'd178; u_engine.en_y[0] = 10'd120; u_engine.en_hp[0] = 4'd4;
+        u_engine.px = 11'd120; u_engine.py = 10'd130;
+        u_engine.en_x[0] = 11'd178; u_engine.en_y[0] = 10'd130; u_engine.en_hp[0] = 4'd4;
         step_frame();
         px_before = px; shoot_cnt = 0;
         j1_btn[2] = 1'b1; repeat (8) step_frame(); j1_btn[2] = 0; step_frame();
@@ -212,60 +227,88 @@ module tb_game_v2;
         end else $display("OK: 3rd Combo Hit triggered 360 Nova Finisher + Screen Shake!");
         j1_btn[2] = 0; step_frame();
 
-        // 4. Magnetic Gem Pull & Blue Gem Upgrade Cutscene!
-        u_engine.col_alive[0] = 1; u_engine.col_type[0] = 0; u_engine.col_x[0] = px + 11'd32; u_engine.col_y[0] = py;
+        // 4. Magnet Blue Gem Evolution (NO cutscene!) & Heart-Only Pickup (NO HP=0 wrap!)
+        u_engine.hp = 3'd6;
+        u_engine.drop_active[0] = 1; u_engine.drop_type[0] = 2'd0; u_engine.drop_z[0] = 0; u_engine.drop_x[0] = px; u_engine.drop_y[0] = py;
+        u_engine.col_alive[0] = 1; u_engine.col_type[0] = 0; u_engine.col_x[0] = px + 11'd24; u_engine.col_y[0] = py;
         u_engine.col_alive[1] = 1; u_engine.col_type[1] = 0; u_engine.col_x[1] = px; u_engine.col_y[1] = py;
-        repeat (18) step_frame();
-        if (stage < 2'd1 || !pet_active) begin
-            $display("FAIL: Magnet Blue Gem Upgrade failed! stg=%d pet=%b", stage, pet_active); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Magnet Blue Gems triggered Upgrade Cutscene -> Pet Mob Spawned!");
-        repeat (110) step_frame();
+        repeat (15) step_frame();
+        if (stage < 2'd1 || !pet_active || game_state !== 3'd2 || hp !== 3'd6) begin
+            $display("FAIL: Seamless Evo / Heart-no-wrap failed! stg=%d pet=%b st=%d hp=%d", stage, pet_active, game_state, hp); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Seamless Evo (NO cutscene!) & Heart-only pickup at 6 HP stayed 6!");
 
-        // 5. Partner KO & Touch Revive + Smooth Brawlhalla Zoom
-        u_engine.hp = 3'd0; u_engine.p2x = u_engine.px; u_engine.p2y = u_engine.py;
-        repeat (28) step_frame();
-        if (hp !== 3'd3) begin
-            $display("FAIL: Downed Partner Touch-Revive failed! hp=%d", hp); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Downed Partner Touch-Revive restored P1 to 3 Hearts!");
+        // 5. Room Clear -> Arrow -> Logic Gate Quiz -> Sliding Door Open -> Slam + Wave 2 Banner!
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
+        repeat (3) step_frame();
+        if (room_phase !== 3'd2) begin
+            $display("FAIL: Room clear did not enter RP_CLEAR! rp=%d", room_phase); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Room cleared -> Flashing Arrow active (RP_CLEAR)!");
 
-        u_engine.px = 11'd120; u_engine.py = 10'd200; u_engine.p2x = 11'd440; u_engine.p2y = 10'd200;
-        repeat (8) step_frame();
-        if (zoom_lvl == 0 || zoom_lvl >= 7'd80) begin
-            $display("FAIL: Smooth Zoom check failed! z=%d", zoom_lvl); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Brawlhalla smooth zoom ramping (%d/80)", zoom_lvl);
+        u_engine.px = 11'd525; u_engine.py = 10'd224;
+        repeat (3) step_frame();
+        if (room_phase !== 3'd3) begin
+            $display("FAIL: Door approach did not trigger Logic Gate Quiz! rp=%d", room_phase); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Logic Gate Quiz triggered (gate=%d, ans_slot=%d)!", quiz_gate, quiz_ans_slot);
 
-        // 6. Test Boss Waves 3, 6, 10 (16-Enemy Horde in Wave 7 & Sealed Wave 10 Boss Room!)
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W2
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W3 Boss 0 Titan!
-        if (wave !== 4'd3 || !boss_active || boss_kind !== 2'd0) begin
-            $display("FAIL: Wave 3 Iron Titan Boss missing!"); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Wave 3 Boss #0 (Iron Titan) active!");
-        u_engine.boss_active = 0; for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W4
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W5
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W6 Boss 1 Arch-Mage!
-        if (wave !== 4'd6 || !boss_active || boss_kind !== 2'd1) begin
-            $display("FAIL: Wave 6 Arch-Mage Boss missing!"); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Wave 6 Boss #1 (Phantom Arch-Mage) active!");
-        u_engine.boss_active = 0; for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W7 -> 16 Enemies!
-        if (wave !== 4'd7 || enemies_left !== 5'd16) begin
-            $display("FAIL: Wave 7 16-Enemy Mega Horde failed! wv=%d en=%d", wave, enemies_left); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Wave 7 Magma Forge 16-Enemy Mega Horde active!");
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W8
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (130) step_frame(); // W9
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0; repeat (185) step_frame(); // W10 Sealed Sanctum!
-        if (wave !== 4'd10 || !boss_active || boss_kind !== 2'd2 || !boss_locked || en_alive_vec !== 16'b0 || px < 11'd1600) begin
-            $display("FAIL: Wave 10 Sealed Omega Sanctum failed! wv=%d boss=%b kind=%d lock=%b px=%d", wave, boss_active, boss_kind, boss_locked, px);
+        // Select correct answer & submit
+        u_engine.quiz_cursor = quiz_ans_slot;
+        j1_btn[2] = 1'b1; step_frame(); j1_btn[2] = 0;
+        repeat (10) step_frame();
+        if (room_phase !== 3'd4 || door_slide == 0) begin
+            $display("FAIL: Correct quiz answer did not slide door open! rp=%d slide=%d", room_phase, door_slide); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Quiz solved -> Sliding door opened (slide=%d)!", door_slide);
+
+        // Step through open door -> Slam + Wave 2 Banner!
+        u_engine.px = 11'd545; u_engine.py = 10'd224;
+        repeat (3) step_frame();
+        if (wave !== 4'd2 || room_phase !== 3'd0 || door_slam_t == 0 || wave_banner_t == 0) begin
+            $display("FAIL: Entering door did not trigger Slam + Wave 2 Banner! wv=%d rp=%d slam=%d ban=%d", wave, room_phase, door_slam_t, wave_banner_t);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Wave 10 Sealed Omega Sanctum active (Boss #2 alone, locked px=%d)!", px);
+        end else $display("OK: Entered door -> Door Slam ('PANG!') + Wave 2 Banner Slide-Out!");
+        repeat (95) step_frame();
 
-        // 7. Joy2 Restart + Non-X Check
-        u_engine.game_state = 3'd3; u_engine.end_lockout = 0; step_frame();
-        j2_btn[2] = 1; step_frame(); j2_btn[2] = 0; step_frame();
-        if (game_state !== 3'd1 || wave !== 4'd1) begin
-            $display("FAIL: Joy2 restart failed!"); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Joy2 Restart passed!");
+        // 6. Final Boss (Wave 6): 3-Form Death -> Chuunibyou Quote + Portal Regrowth -> Victory!
+        u_engine.wave = 4'd6; u_engine.room_phase = 3'd1;
+        u_engine.spawn_wave_group(4'd6);
+        step_frame();
+        if (!boss_active || boss_kind !== 2'd0) begin
+            $display("FAIL: Wave 6 Boss Form 0 failed to spawn!"); fail_cnt = fail_cnt + 1;
+        end
+        // Kill Form 0 -> Portal -> Form 1
+        u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;
+        j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
+        if (room_phase !== 3'd5 || boss_trans_t == 0) begin
+            $display("FAIL: Boss Form 0 death did not enter RP_BOSS portal transition!"); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Boss Form 0 defeated -> Death FX + Portal Regrowth!");
+        repeat (165) step_frame();
+        if (!boss_active || boss_kind !== 2'd1) begin
+            $display("FAIL: Boss Form 1 did not regrow from portal! act=%b kind=%d", boss_active, boss_kind); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Boss Form 1 regrew from portal!");
 
-        sw = 16'hA55A; repeat (200) @(posedge clk);
+        // Kill Form 1 -> Portal -> Form 2 (Thanos)
+        u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;
+        j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
+        repeat (165) step_frame();
+        if (!boss_active || boss_kind !== 2'd2) begin
+            $display("FAIL: Boss Form 2 (Thanos) did not regrow from portal! act=%b kind=%d", boss_active, boss_kind); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Boss Form 2 (Thanos) regrew from portal!");
+
+        // Kill Form 2 -> Victory!
+        u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;
+        j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
+        repeat (165) step_frame();
+        if (game_state !== 3'd3) begin
+            $display("FAIL: Boss Form 2 defeat did not reach VICTORY! st=%d", game_state); fail_cnt = fail_cnt + 1;
+        end else $display("OK: All 3 Boss Forms defeated -> VICTORY!");
+
+        // 7. SW[3:0] Priority Skin Check & Non-X Check
+        sw = 16'h0006; // SW1 + SW2 ON -> must pick Skin 2 (highest ON switch)
+        repeat (10) @(posedge clk);
+        if (hero_sel !== 2'd2) begin
+            $display("FAIL: SW[3:0] priority skin check failed! hero_sel=%d", hero_sel); fail_cnt = fail_cnt + 1;
+        end else $display("OK: SW[3:0] priority skin check passed (SW1+SW2 -> Skin 2)!");
+
+        repeat (200) @(posedge clk);
         if (^VGA_R === 1'bx || ^VGA_G === 1'bx || ^VGA_B === 1'bx) begin
             $display("FAIL: VGA RGB X!"); fail_cnt = fail_cnt + 1;
         end else $display("OK: VGA RGB 5-stage pipeline & Audio BGM valid!");
