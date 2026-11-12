@@ -104,7 +104,7 @@ module tb_vga_capture;
     wire [4:0]  door_slide;
     wire [2:0]  quiz_gate;
     wire [1:0]  quiz_cursor, quiz_ans_slot;
-    wire [7:0]  boss_trans_t;
+    wire [7:0]  boss_trans_t, outfit_cut_t;
     wire        paused;
 
     game_engine_v2 u_engine (
@@ -148,7 +148,7 @@ module tb_vga_capture;
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
-        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused)
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused)
     );
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
@@ -202,7 +202,7 @@ module tb_vga_capture;
         .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
-        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -281,13 +281,16 @@ module tb_vga_capture;
         u_renderer.anim_cnt = 26'h0080_0000;
         capture_ppm("shot_combat_lunge.ppm");
 
-        // SHOT 3: Room Clear -> Bouncing Flashing Arrow pointing to Sliding Door!
+        // SHOT 3: Cool Outfit Transformation Cutscene (after Quiz Pass)
         for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
+        u_engine.room_phase = 3'd4;
+        u_engine.outfit_cut_t = 8'd45; // "EQUIPPED" spotlight phase!
         u_engine.px = 11'd380; u_engine.py = 10'd224;
         u_engine.p2x = 11'd340; u_engine.p2y = 10'd244;
-        repeat (5) step_frame();
+        step_frame();
         u_renderer.anim_cnt = 26'h00C0_0000;
         capture_ppm("shot_upgrade_cutscene.ppm");
+        u_engine.outfit_cut_t = 8'd0;
 
         // SHOT 4: Logic Gate Quiz Modal before Sliding Door!
         u_engine.px = 11'd525; u_engine.py = 10'd224;

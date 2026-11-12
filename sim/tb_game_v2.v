@@ -298,21 +298,26 @@ module tb_game_v2;
         repeat (32) step_frame();
         u_engine.quiz_cursor = quiz_ans_slot;
         j1_btn[2] = 1'b1; step_frame(); j1_btn[2] = 0;
-        repeat (10) step_frame();
+        repeat (5) step_frame();
+        if (outfit_cut_t == 0) begin
+            $display("FAIL: Correct quiz answer did not trigger outfit cutscene!"); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Quiz solved -> Outfit Transformation Cutscene active (t=%d)!", outfit_cut_t);
+        repeat (125) step_frame();
         if (room_phase !== 3'd4 || door_slide == 0) begin
             $display("FAIL: Correct quiz answer did not slide door open! rp=%d slide=%d", room_phase, door_slide); fail_cnt = fail_cnt + 1;
         end else $display("OK: Quiz solved -> Sliding door opened (slide=%d)!", door_slide);
 
-        // Step through open door -> Outfit Cutscene + Slam + Wave 2 Banner!
+        // Step through open door -> Door Slam + Wave 2 Banner!
         u_engine.px = 11'd545; u_engine.py = 10'd224;
         repeat (3) step_frame();
-        if (wave !== 4'd2 || room_phase !== 3'd0 || outfit_cut_t == 0 || door_slam_t == 0 || wave_banner_t == 0) begin
-            $display("FAIL: Entering door did not trigger Outfit Cutscene + Slam + Wave 2 Banner! wv=%d rp=%d cut=%d slam=%d ban=%d", wave, room_phase, outfit_cut_t, door_slam_t, wave_banner_t);
+        if (wave !== 4'd2 || room_phase !== 3'd0 || door_slam_t == 0 || wave_banner_t == 0) begin
+            $display("FAIL: Entering door did not trigger Slam + Wave 2 Banner! wv=%d rp=%d slam=%d ban=%d", wave, room_phase, door_slam_t, wave_banner_t);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Entered door -> Outfit Cutscene (t=%d) + Door Slam ('PANG!') + Wave 2 Banner!", outfit_cut_t);
-        repeat (220) step_frame();
+        end else $display("OK: Entered door -> Door Slam ('PANG!') + Wave 2 Banner Slide-Out!");
+        repeat (95) step_frame();
 
         // 6. Final Boss (Wave 6): 3-Form Death -> Chuunibyou Quote + Portal Regrowth AT DEATH LOCATION -> Victory!
+        u_engine.outfit_cut_t = 8'd0;
         u_engine.wave = 4'd6; u_engine.room_phase = 3'd1;
         u_engine.spawn_wave_group(4'd6, 3'd0);
         step_frame();
@@ -320,9 +325,12 @@ module tb_game_v2;
             $display("FAIL: Wave 6 Boss Form 0 failed to spawn!"); fail_cnt = fail_cnt + 1;
         end
         // Move Boss Form 0 to (300, 200), kill it -> Form 1 MUST spawn at (300, 200)!
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 1'b0;
         u_engine.boss_x = 11'd300; u_engine.boss_y = 10'd200;
-        u_engine.boss_hp = 7'd1; u_engine.px = 11'd288; u_engine.py = 10'd200;
-        j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
+        u_engine.boss_hp = 8'd1; u_engine.px = 11'd300; u_engine.py = 10'd200;
+        u_engine.p1_slash_x = 11'd300; u_engine.p1_slash_y = 10'd200;
+        u_engine.p1_slash_t = 4'd10; u_engine.p1_boss_hit = 1'b0;
+        step_frame();
         if (room_phase !== 3'd5 || boss_trans_t == 0) begin
             $display("FAIL: Boss Form 0 death did not enter RP_BOSS portal transition!"); fail_cnt = fail_cnt + 1;
         end else $display("OK: Boss Form 0 defeated -> Death FX + Portal Regrowth!");
@@ -332,16 +340,24 @@ module tb_game_v2;
         end else $display("OK: Boss Form 1 regrew right out of death Portal!");
 
         // Kill Form 1 -> Portal -> Form 2 (Thanos)
-        u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;
-        j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 1'b0;
+        u_engine.boss_hp = 8'd1;
+        u_engine.px = u_engine.boss_x; u_engine.py = u_engine.boss_y;
+        u_engine.p1_slash_x = u_engine.boss_x; u_engine.p1_slash_y = u_engine.boss_y;
+        u_engine.p1_slash_t = 4'd10; u_engine.p1_boss_hit = 1'b0;
+        step_frame();
         repeat (165) step_frame();
         if (!boss_active || boss_kind !== 2'd2) begin
             $display("FAIL: Boss Form 2 (Thanos) did not regrow from portal! act=%b kind=%d", boss_active, boss_kind); fail_cnt = fail_cnt + 1;
         end else $display("OK: Boss Form 2 (Thanos) regrew from portal!");
 
         // Kill Form 2 -> Victory!
-        u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;
-        j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 1'b0;
+        u_engine.boss_hp = 8'd1;
+        u_engine.px = u_engine.boss_x; u_engine.py = u_engine.boss_y;
+        u_engine.p1_slash_x = u_engine.boss_x; u_engine.p1_slash_y = u_engine.boss_y;
+        u_engine.p1_slash_t = 4'd10; u_engine.p1_boss_hit = 1'b0;
+        step_frame();
         repeat (165) step_frame();
         if (game_state !== 3'd3) begin
             $display("FAIL: Boss Form 2 defeat did not reach VICTORY! st=%d", game_state); fail_cnt = fail_cnt + 1;

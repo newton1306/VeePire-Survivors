@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2024.2 (win64) Build 5239630 Fri Nov 08 22:35:27 MST 2024
-| Date         : Thu Nov 12 22:37:46 2026
+| Date         : Thu Nov 12 23:29:13 2026
 | Host         : newton_laptop running 64-bit major release  (build 9200)
 | Command      : report_timing_summary -file D:/vivado_pj/DRAGO_NEXUS_V2/timing_summary.rpt
 | Design       : drago_nexus_v2_top
@@ -138,7 +138,7 @@ Table of Contents
 
     WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
     -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-     11.789        0.000                      0                11262        0.071        0.000                      0                11262        3.000        0.000                       0                  5244  
+     11.153        0.000                      0                11310        0.029        0.000                      0                11310        3.000        0.000                       0                  5272  
 
 
 All user specified timing constraints are met.
@@ -164,7 +164,7 @@ sys_clk_pin    {0.000 5.000}      10.000          100.000
 Clock              WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
 -----              -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
 sys_clk_pin                                                                                                                                                      3.000        0.000                       0                     1  
-  clk25_unbuf       11.789        0.000                      0                11262        0.071        0.000                      0                11262       19.020        0.000                       0                  5241  
+  clk25_unbuf       11.153        0.000                      0                11310        0.029        0.000                      0                11310       19.020        0.000                       0                  5269  
   clkfb                                                                                                                                                          8.751        0.000                       0                     2  
 
 
@@ -221,28 +221,28 @@ High Pulse Width  Slow    MMCME2_ADV/CLKIN1  n/a            2.000         5.000 
 From Clock:  clk25_unbuf
   To Clock:  clk25_unbuf
 
-Setup :            0  Failing Endpoints,  Worst Slack       11.789ns,  Total Violation        0.000ns
-Hold  :            0  Failing Endpoints,  Worst Slack        0.071ns,  Total Violation        0.000ns
+Setup :            0  Failing Endpoints,  Worst Slack       11.153ns,  Total Violation        0.000ns
+Hold  :            0  Failing Endpoints,  Worst Slack        0.029ns,  Total Violation        0.000ns
 PW    :            0  Failing Endpoints,  Worst Slack       19.020ns,  Total Violation        0.000ns
 ---------------------------------------------------------------------------------------------------
 
 
 Max Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             11.789ns  (required time - arrival time)
-  Source:                 u_engine/e_idx_reg[1]/C
+Slack (MET) :             11.153ns  (required time - arrival time)
+  Source:                 u_renderer/wy_reg[1]/C
                             (rising edge-triggered cell FDRE clocked by clk25_unbuf  {rise@0.000ns fall@20.000ns period=40.000ns})
-  Destination:            u_engine/en_x_reg[9][5]/CE
+  Destination:            u_renderer/on_pb_1_reg/D
                             (rising edge-triggered cell FDRE clocked by clk25_unbuf  {rise@0.000ns fall@20.000ns period=40.000ns})
   Path Group:             clk25_unbuf
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            40.000ns  (clk25_unbuf rise@40.000ns - clk25_unbuf rise@0.000ns)
-  Data Path Delay:        27.796ns  (logic 7.109ns (25.575%)  route 20.687ns (74.425%))
-  Logic Levels:           23  (CARRY4=10 LUT1=1 LUT2=2 LUT3=1 LUT4=2 LUT6=5 MUXF7=1 MUXF8=1)
-  Clock Path Skew:        0.098ns (DCD - SCD + CPR)
-    Destination Clock Delay (DCD):    6.091ns = ( 46.091 - 40.000 ) 
-    Source Clock Delay      (SCD):    6.233ns
-    Clock Pessimism Removal (CPR):    0.240ns
+  Data Path Delay:        28.647ns  (logic 6.702ns (23.396%)  route 21.945ns (76.604%))
+  Logic Levels:           24  (CARRY4=5 LUT2=2 LUT3=3 LUT4=2 LUT5=4 LUT6=8)
+  Clock Path Skew:        -0.130ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    5.882ns = ( 45.882 - 40.000 ) 
+    Source Clock Delay      (SCD):    6.244ns
+    Clock Pessimism Removal (CPR):    0.232ns
   Clock Uncertainty:      0.099ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
     Total System Jitter     (TSJ):    0.071ns
     Discrete Jitter          (DJ):    0.186ns
@@ -260,68 +260,65 @@ Slack (MET) :             11.789ns  (required time - arrival time)
                                                       0.088     2.803 r  u_clk/u_mmcm/CLKOUT0
                          net (fo=1, routed)           1.719     4.522    u_clk/clk25_unbuf
     BUFGCTRL_X0Y16       BUFG (Prop_bufg_I_O)         0.096     4.618 r  u_clk/u_bufg/O
-                         net (fo=5239, routed)        1.615     6.233    u_engine/clk25
-    SLICE_X51Y142        FDRE                                         r  u_engine/e_idx_reg[1]/C
+                         net (fo=5267, routed)        1.625     6.244    u_renderer/clk25
+    SLICE_X53Y93         FDRE                                         r  u_renderer/wy_reg[1]/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X51Y142        FDRE (Prop_fdre_C_Q)         0.456     6.689 r  u_engine/e_idx_reg[1]/Q
-                         net (fo=253, routed)         3.889    10.578    u_engine/col_slot_e[1]
-    SLICE_X8Y172         LUT6 (Prop_lut6_I2_O)        0.124    10.702 r  u_engine/best2_y[3]_i_9/O
-                         net (fo=1, routed)           0.000    10.702    u_engine/best2_y[3]_i_9_n_0
-    SLICE_X8Y172         MUXF7 (Prop_muxf7_I1_O)      0.214    10.916 r  u_engine/best2_y_reg[3]_i_5/O
-                         net (fo=1, routed)           0.000    10.916    u_engine/best2_y_reg[3]_i_5_n_0
-    SLICE_X8Y172         MUXF8 (Prop_muxf8_I1_O)      0.088    11.004 r  u_engine/best2_y_reg[3]_i_3/O
-                         net (fo=124, routed)         4.493    15.497    u_engine/best2_y_reg[3]_i_3_n_0
-    SLICE_X74Y139        LUT2 (Prop_lut2_I1_O)        0.319    15.816 r  u_engine/best2_d[3]_i_16/O
-                         net (fo=1, routed)           0.000    15.816    u_engine/best2_d[3]_i_16_n_0
-    SLICE_X74Y139        CARRY4 (Prop_carry4_S[3]_CO[3])
-                                                      0.376    16.192 r  u_engine/best2_d_reg[3]_i_15/CO[3]
-                         net (fo=1, routed)           0.000    16.192    u_engine/best2_d_reg[3]_i_15_n_0
-    SLICE_X74Y140        CARRY4 (Prop_carry4_CI_O[1])
-                                                      0.323    16.515 f  u_engine/best2_d_reg[7]_i_13/O[1]
-                         net (fo=2, routed)           0.433    16.948    u_engine/best2_d_reg[7]_i_13_n_6
-    SLICE_X73Y141        LUT1 (Prop_lut1_I0_O)        0.306    17.254 r  u_engine/best2_d[11]_i_46/O
-                         net (fo=1, routed)           0.000    17.254    u_engine/best2_d[11]_i_46_n_0
-    SLICE_X73Y141        CARRY4 (Prop_carry4_S[0]_CO[3])
-                                                      0.532    17.786 r  u_engine/best2_d_reg[11]_i_30/CO[3]
-                         net (fo=1, routed)           0.000    17.786    u_engine/best2_d_reg[11]_i_30_n_0
-    SLICE_X73Y142        CARRY4 (Prop_carry4_CI_O[0])
-                                                      0.222    18.008 r  u_engine/best2_d_reg[11]_i_29/O[0]
-                         net (fo=1, routed)           0.417    18.425    u_engine/best2_d_reg[11]_i_29_n_7
-    SLICE_X75Y142        LUT6 (Prop_lut6_I3_O)        0.299    18.724 r  u_engine/best2_d[11]_i_15/O
-                         net (fo=1, routed)           0.000    18.724    u_engine/best2_d[11]_i_15_n_0
-    SLICE_X75Y142        CARRY4 (Prop_carry4_S[1]_O[3])
-                                                      0.640    19.364 r  u_engine/best2_d_reg[11]_i_4/O[3]
-                         net (fo=9, routed)           1.069    20.433    u_engine/best2_d_reg[11]_i_4_n_4
-    SLICE_X71Y143        LUT4 (Prop_lut4_I1_O)        0.306    20.739 r  u_engine/eb_vy[1][1]_i_29/O
-                         net (fo=1, routed)           0.000    20.739    u_engine/eb_vy[1][1]_i_29_n_0
-    SLICE_X71Y143        CARRY4 (Prop_carry4_S[1]_CO[1])
-                                                      0.491    21.230 r  u_engine/eb_vy_reg[1][1]_i_25/CO[1]
-                         net (fo=2, routed)           1.400    22.630    u_engine/p_123_in
-    SLICE_X52Y133        LUT3 (Prop_lut3_I1_O)        0.323    22.953 r  u_engine/eb_vy[1][1]_i_18/O
-                         net (fo=154, routed)         1.487    24.440    u_engine/p_1471_out
-    SLICE_X37Y141        LUT4 (Prop_lut4_I2_O)        0.355    24.795 r  u_engine/en_x[15][3]_i_28/O
-                         net (fo=1, routed)           0.623    25.419    u_engine/en_x[15][3]_i_28_n_0
-    SLICE_X36Y140        CARRY4 (Prop_carry4_DI[3]_CO[3])
-                                                      0.588    26.007 r  u_engine/en_x_reg[15][3]_i_22/CO[3]
-                         net (fo=1, routed)           0.000    26.007    u_engine/en_x_reg[15][3]_i_22_n_0
-    SLICE_X36Y141        CARRY4 (Prop_carry4_CI_CO[3])
-                                                      0.114    26.121 r  u_engine/en_x_reg[15][3]_i_17/CO[3]
-                         net (fo=1, routed)           0.000    26.121    u_engine/en_x_reg[15][3]_i_17_n_0
-    SLICE_X36Y142        CARRY4 (Prop_carry4_CI_CO[3])
-                                                      0.114    26.235 r  u_engine/en_x_reg[15][3]_i_16/CO[3]
-                         net (fo=1, routed)           0.000    26.235    u_engine/en_x_reg[15][3]_i_16_n_0
-    SLICE_X36Y143        CARRY4 (Prop_carry4_CI_O[0])
-                                                      0.222    26.457 r  u_engine/en_x_reg[15][3]_i_7/O[0]
-                         net (fo=16, routed)          2.400    28.857    u_engine/en_x_reg[15][3]_i_7_n_7
-    SLICE_X27Y173        LUT6 (Prop_lut6_I0_O)        0.299    29.156 f  u_engine/en_x[9][10]_i_7/O
-                         net (fo=1, routed)           0.834    29.989    u_engine/en_x[9][10]_i_7_n_0
-    SLICE_X29Y179        LUT6 (Prop_lut6_I0_O)        0.124    30.113 f  u_engine/en_x[9][10]_i_6/O
-                         net (fo=1, routed)           0.462    30.575    u_engine/en_x[9][10]_i_6_n_0
-    SLICE_X31Y182        LUT6 (Prop_lut6_I5_O)        0.124    30.699 r  u_engine/en_x[9][10]_i_3/O
-                         net (fo=1, routed)           0.856    31.554    u_engine/en_x[9][10]_i_3_n_0
-    SLICE_X37Y184        LUT2 (Prop_lut2_I0_O)        0.150    31.704 r  u_engine/en_x[9][10]_i_1/O
-                         net (fo=11, routed)          2.325    34.030    u_engine/en_x[9][10]_i_1_n_0
-    SLICE_X72Y173        FDRE                                         r  u_engine/en_x_reg[9][5]/CE
+    SLICE_X53Y93         FDRE (Prop_fdre_C_Q)         0.456     6.700 r  u_renderer/wy_reg[1]/Q
+                         net (fo=104, routed)         3.301    10.001    u_renderer/wy_reg[9]_0[1]
+    SLICE_X78Y139        LUT2 (Prop_lut2_I0_O)        0.124    10.125 r  u_renderer/pb_col_1[2]_i_1945/O
+                         net (fo=1, routed)           0.000    10.125    u_renderer/pb_col_1[2]_i_1945_n_0
+    SLICE_X78Y139        CARRY4 (Prop_carry4_S[1]_O[3])
+                                                      0.643    10.768 f  u_renderer/pb_col_1_reg[2]_i_1149/O[3]
+                         net (fo=15, routed)          1.328    12.096    u_renderer/wy_reg[3]_6[3]
+    SLICE_X88Y134        LUT6 (Prop_lut6_I3_O)        0.307    12.403 r  u_renderer/pb_col_1[2]_i_1143/O
+                         net (fo=25, routed)          0.947    13.350    u_renderer/wy_reg[7]_rep_5
+    SLICE_X87Y145        LUT3 (Prop_lut3_I2_O)        0.118    13.468 r  u_renderer/pb_col_1[2]_i_1833/O
+                         net (fo=12, routed)          0.869    14.337    u_renderer/pb_col_1[2]_i_1833_n_0
+    SLICE_X89Y138        LUT6 (Prop_lut6_I1_O)        0.326    14.663 r  u_renderer/pb_col_1[2]_i_2579/O
+                         net (fo=1, routed)           0.539    15.202    u_renderer/pb_col_1[2]_i_2579_n_0
+    SLICE_X88Y137        CARRY4 (Prop_carry4_DI[0]_CO[1])
+                                                      0.488    15.690 r  u_renderer/pb_col_1_reg[2]_i_1981/CO[1]
+                         net (fo=23, routed)          1.086    16.776    u_renderer/pb_col_1_reg[2]_i_1981_n_2
+    SLICE_X88Y141        LUT5 (Prop_lut5_I3_O)        0.360    17.136 r  u_renderer/pb_col_1[2]_i_1990/O
+                         net (fo=1, routed)           0.680    17.816    u_renderer/pb_col_1[2]_i_1990_n_0
+    SLICE_X87Y137        CARRY4 (Prop_carry4_DI[0]_O[1])
+                                                      0.631    18.447 f  u_renderer/pb_col_1_reg[2]_i_1185/O[1]
+                         net (fo=12, routed)          0.983    19.430    u_renderer/pb_col_1_reg[2]_i_1185_n_6
+    SLICE_X87Y142        LUT2 (Prop_lut2_I0_O)        0.329    19.759 r  u_renderer/pb_col_1[2]_i_2555/O
+                         net (fo=1, routed)           0.482    20.241    u_renderer/pb_col_1[2]_i_2555_n_0
+    SLICE_X86Y141        CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    21.029 r  u_renderer/pb_col_1_reg[2]_i_1968/CO[3]
+                         net (fo=1, routed)           0.000    21.029    u_renderer/pb_col_1_reg[2]_i_1968_n_0
+    SLICE_X86Y142        CARRY4 (Prop_carry4_CI_CO[0])
+                                                      0.271    21.300 r  u_renderer/pb_col_1_reg[2]_i_1159/CO[0]
+                         net (fo=1, routed)           0.484    21.784    u_renderer/on_pb_031727_in
+    SLICE_X84Y145        LUT4 (Prop_lut4_I1_O)        0.373    22.157 f  u_renderer/pb_col_1[2]_i_462/O
+                         net (fo=4, routed)           0.714    22.872    u_engine/pb_col_1[4]_i_16_1
+    SLICE_X82Y149        LUT6 (Prop_lut6_I5_O)        0.124    22.996 r  u_engine/pb_col_1[4]_i_32/O
+                         net (fo=1, routed)           0.579    23.575    u_engine/pb_col_1[4]_i_32_n_0
+    SLICE_X77Y148        LUT6 (Prop_lut6_I1_O)        0.124    23.699 r  u_engine/pb_col_1[4]_i_16/O
+                         net (fo=4, routed)           1.889    25.588    u_engine/pb_col_1[4]_i_16_n_0
+    SLICE_X70Y175        LUT3 (Prop_lut3_I1_O)        0.124    25.712 r  u_engine/on_pb_1_i_13/O
+                         net (fo=3, routed)           1.562    27.274    u_engine/on_pb_1_i_13_n_0
+    SLICE_X34Y174        LUT5 (Prop_lut5_I1_O)        0.124    27.398 r  u_engine/on_pb_1_i_26/O
+                         net (fo=1, routed)           0.680    28.078    u_engine/on_pb_1_i_26_n_0
+    SLICE_X34Y174        LUT6 (Prop_lut6_I5_O)        0.124    28.202 r  u_engine/on_pb_1_i_14/O
+                         net (fo=1, routed)           0.668    28.870    u_engine/on_pb_1_i_14_n_0
+    SLICE_X33Y171        LUT5 (Prop_lut5_I2_O)        0.124    28.994 r  u_engine/on_pb_1_i_8/O
+                         net (fo=2, routed)           1.272    30.266    u_engine/on_pb_1_i_8_n_0
+    SLICE_X11Y155        LUT6 (Prop_lut6_I2_O)        0.124    30.390 r  u_engine/on_pb_1_i_7/O
+                         net (fo=1, routed)           0.433    30.823    u_engine/on_pb_1_i_7_n_0
+    SLICE_X11Y155        LUT6 (Prop_lut6_I0_O)        0.124    30.947 r  u_engine/on_pb_1_i_4/O
+                         net (fo=1, routed)           0.416    31.364    u_engine/on_pb_1_i_4_n_0
+    SLICE_X10Y156        LUT4 (Prop_lut4_I0_O)        0.124    31.488 r  u_engine/on_pb_1_i_2/O
+                         net (fo=3, routed)           2.173    33.660    u_engine/on_pb_1_i_2_n_0
+    SLICE_X67Y147        LUT5 (Prop_lut5_I1_O)        0.124    33.784 r  u_engine/on_pb_1_i_6/O
+                         net (fo=1, routed)           0.422    34.206    u_engine/on_pb_1_i_6_n_0
+    SLICE_X68Y147        LUT6 (Prop_lut6_I5_O)        0.124    34.330 f  u_engine/on_pb_1_i_3/O
+                         net (fo=1, routed)           0.436    34.766    u_engine/on_pb_1_i_3_n_0
+    SLICE_X69Y146        LUT3 (Prop_lut3_I2_O)        0.124    34.890 r  u_engine/on_pb_1_i_1/O
+                         net (fo=1, routed)           0.000    34.890    u_renderer/on_pb_1_reg_0
+    SLICE_X69Y146        FDRE                                         r  u_renderer/on_pb_1_reg/D
   -------------------------------------------------------------------    -------------------
 
                          (clock clk25_unbuf rise edge)
@@ -334,16 +331,16 @@ Slack (MET) :             11.789ns  (required time - arrival time)
                                                       0.083    42.656 r  u_clk/u_mmcm/CLKOUT0
                          net (fo=1, routed)           1.639    44.295    u_clk/clk25_unbuf
     BUFGCTRL_X0Y16       BUFG (Prop_bufg_I_O)         0.091    44.386 r  u_clk/u_bufg/O
-                         net (fo=5239, routed)        1.705    46.091    u_engine/clk25
-    SLICE_X72Y173        FDRE                                         r  u_engine/en_x_reg[9][5]/C
-                         clock pessimism              0.240    46.331    
-                         clock uncertainty           -0.099    46.232    
-    SLICE_X72Y173        FDRE (Setup_fdre_C_CE)      -0.413    45.819    u_engine/en_x_reg[9][5]
+                         net (fo=5267, routed)        1.496    45.882    u_renderer/clk25
+    SLICE_X69Y146        FDRE                                         r  u_renderer/on_pb_1_reg/C
+                         clock pessimism              0.232    46.114    
+                         clock uncertainty           -0.099    46.015    
+    SLICE_X69Y146        FDRE (Setup_fdre_C_D)        0.029    46.044    u_renderer/on_pb_1_reg
   -------------------------------------------------------------------
-                         required time                         45.819    
-                         arrival time                         -34.030    
+                         required time                         46.044    
+                         arrival time                         -34.890    
   -------------------------------------------------------------------
-                         slack                                 11.789    
+                         slack                                 11.153    
 
 
 
@@ -351,20 +348,20 @@ Slack (MET) :             11.789ns  (required time - arrival time)
 
 Min Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             0.071ns  (arrival time - required time)
-  Source:                 u_engine/eb_x_reg[5][6]/C
+Slack (MET) :             0.029ns  (arrival time - required time)
+  Source:                 u_uart_joy/b2_latch_reg[1]/C
                             (rising edge-triggered cell FDRE clocked by clk25_unbuf  {rise@0.000ns fall@20.000ns period=40.000ns})
-  Destination:            u_engine/eb_x_vec_reg[61]/D
+  Destination:            u_uart_joy/j1_btn_reg[1]/D
                             (rising edge-triggered cell FDRE clocked by clk25_unbuf  {rise@0.000ns fall@20.000ns period=40.000ns})
   Path Group:             clk25_unbuf
   Path Type:              Hold (Min at Fast Process Corner)
   Requirement:            0.000ns  (clk25_unbuf rise@0.000ns - clk25_unbuf rise@0.000ns)
-  Data Path Delay:        0.325ns  (logic 0.164ns (50.459%)  route 0.161ns (49.541%))
-  Logic Levels:           0  
-  Clock Path Skew:        0.184ns (DCD - SCD - CPR)
-    Destination Clock Delay (DCD):    2.378ns
-    Source Clock Delay      (SCD):    1.910ns
-    Clock Pessimism Removal (CPR):    0.283ns
+  Data Path Delay:        0.386ns  (logic 0.186ns (48.245%)  route 0.200ns (51.755%))
+  Logic Levels:           1  (LUT5=1)
+  Clock Path Skew:        0.266ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.417ns
+    Source Clock Delay      (SCD):    1.872ns
+    Clock Pessimism Removal (CPR):    0.278ns
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
@@ -378,12 +375,14 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                                                       0.050     0.740 r  u_clk/u_mmcm/CLKOUT0
                          net (fo=1, routed)           0.499     1.239    u_clk/clk25_unbuf
     BUFGCTRL_X0Y16       BUFG (Prop_bufg_I_O)         0.026     1.265 r  u_clk/u_bufg/O
-                         net (fo=5239, routed)        0.645     1.910    u_engine/clk25
-    SLICE_X38Y150        FDRE                                         r  u_engine/eb_x_reg[5][6]/C
+                         net (fo=5267, routed)        0.608     1.872    u_uart_joy/clk25
+    SLICE_X87Y99         FDRE                                         r  u_uart_joy/b2_latch_reg[1]/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X38Y150        FDRE (Prop_fdre_C_Q)         0.164     2.074 r  u_engine/eb_x_reg[5][6]/Q
-                         net (fo=16, routed)          0.161     2.235    u_engine/eb_x_reg[5]_8[6]
-    SLICE_X39Y148        FDRE                                         r  u_engine/eb_x_vec_reg[61]/D
+    SLICE_X87Y99         FDRE (Prop_fdre_C_Q)         0.141     2.013 r  u_uart_joy/b2_latch_reg[1]/Q
+                         net (fo=1, routed)           0.200     2.213    u_uart_joy/b2_latch_reg_n_0_[1]
+    SLICE_X87Y100        LUT5 (Prop_lut5_I4_O)        0.045     2.258 r  u_uart_joy/j1_btn[1]_i_1/O
+                         net (fo=1, routed)           0.000     2.258    u_uart_joy/j1_btn[1]_i_1_n_0
+    SLICE_X87Y100        FDRE                                         r  u_uart_joy/j1_btn_reg[1]/D
   -------------------------------------------------------------------    -------------------
 
                          (clock clk25_unbuf rise edge)
@@ -396,15 +395,15 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                                                       0.053     0.971 r  u_clk/u_mmcm/CLKOUT0
                          net (fo=1, routed)           0.544     1.514    u_clk/clk25_unbuf
     BUFGCTRL_X0Y16       BUFG (Prop_bufg_I_O)         0.029     1.543 r  u_clk/u_bufg/O
-                         net (fo=5239, routed)        0.835     2.378    u_engine/clk25
-    SLICE_X39Y148        FDRE                                         r  u_engine/eb_x_vec_reg[61]/C
-                         clock pessimism             -0.283     2.094    
-    SLICE_X39Y148        FDRE (Hold_fdre_C_D)         0.070     2.164    u_engine/eb_x_vec_reg[61]
+                         net (fo=5267, routed)        0.873     2.417    u_uart_joy/clk25
+    SLICE_X87Y100        FDRE                                         r  u_uart_joy/j1_btn_reg[1]/C
+                         clock pessimism             -0.278     2.138    
+    SLICE_X87Y100        FDRE (Hold_fdre_C_D)         0.091     2.229    u_uart_joy/j1_btn_reg[1]
   -------------------------------------------------------------------
-                         required time                         -2.164    
-                         arrival time                           2.235    
+                         required time                         -2.229    
+                         arrival time                           2.258    
   -------------------------------------------------------------------
-                         slack                                  0.071    
+                         slack                                  0.029    
 
 
 
@@ -418,10 +417,10 @@ Period(ns):         40.000
 Sources:            { u_clk/u_mmcm/CLKOUT0 }
 
 Check Type        Corner  Lib Pin             Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location         Pin
-Min Period        n/a     RAMB18E1/CLKARDCLK  n/a            2.576         40.000      37.424     RAMB18_X0Y34     u_audio/u_bgm_rom/q_reg/CLKARDCLK
+Min Period        n/a     RAMB18E1/CLKARDCLK  n/a            2.576         40.000      37.424     RAMB18_X0Y32     u_audio/u_bgm_rom/q_reg/CLKARDCLK
 Max Period        n/a     MMCME2_ADV/CLKOUT0  n/a            213.360       40.000      173.360    MMCME2_ADV_X1Y2  u_clk/u_mmcm/CLKOUT0
-Low Pulse Width   Slow    SRL16E/CLK          n/a            0.980         20.000      19.020     SLICE_X14Y90     u_renderer/hs_3_reg_srl3/CLK
-High Pulse Width  Slow    SRL16E/CLK          n/a            0.980         20.000      19.020     SLICE_X14Y90     u_renderer/hs_3_reg_srl3/CLK
+Low Pulse Width   Slow    SRL16E/CLK          n/a            0.980         20.000      19.020     SLICE_X12Y78     u_renderer/hs_3_reg_srl3/CLK
+High Pulse Width  Slow    SRL16E/CLK          n/a            0.980         20.000      19.020     SLICE_X12Y78     u_renderer/hs_3_reg_srl3/CLK
 
 
 
