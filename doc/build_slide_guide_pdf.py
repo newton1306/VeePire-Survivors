@@ -217,7 +217,7 @@ SLIDES = [
     ("Slide 1 — หน้าปก (Title Slide)", "0:00 – 0:20", "คนที่ 1",
      wireframe_svg("SLIDE 1: TITLE", [(16,34,150,128,"ชื่อเกม + โลโก้\n+ ชื่อสมาชิก 5 คน","#0284C7"), (178,34,126,128,"รูป shot_title.png\n+ รูปบอร์ด Nexys A7","#DB2777")]),
      [
-         "<b>หัวข้อใหญ่:</b> DRAGO-NEXUS V6 : ARENA EDITION",
+         "<b>หัวข้อใหญ่:</b> VeePire Survivors",
          "<b>หัวข้อรอง:</b> 2D Co-op Action RPG on Digilent Nexys A7-100T FPGA",
          "<b>รายละเอียด:</b> วิชา CPE222 Digital Logic Design | กลุ่มที่ ... | รายชื่อสมาชิก 5 คน + รหัสนักศึกษา",
          "<b>ภาพประกอบ:</b> ใช้รูป <code>shot_title.png</code> คู่กับรูปบอร์ด Nexys A7"
@@ -349,7 +349,7 @@ html = f'''<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="utf-8"/>
-<title>DRAGO-NEXUS V6 - Canva Slide Guide</title>
+<title>VeePire Survivors - Canva Slide Guide</title>
 <style>
   @page {{ size: A4; margin: 14mm; }}
   body {{ font-family: "Leelawadee UI", "Tahoma", "Segoe UI", sans-serif; color: #0F172A; margin: 0; line-height: 1.48; font-size: 11.5pt; }}
@@ -383,7 +383,7 @@ html = f'''<!DOCTYPE html>
 </head>
 <body>
   <div class="hero">
-    <h1>คู่มือทำสไลด์ Canva — DRAGO-NEXUS V6 (Arena Edition)</h1>
+    <h1>คู่มือทำสไลด์ Canva — VeePire Survivors</h1>
     <p>สำหรับสมาชิกทำสไลด์ที่ไม่ต้องมีพื้นฐาน Digital / Verilog / Vivado | ตรงตาม <b>CPE222 Final Brief</b></p>
     <p><b>เวลาพูดรวม:</b> 7 นาที 00 วินาที | <b>สมาชิก:</b> 5 คน | <b>จำนวนสไลด์:</b> 11 หน้า</p>
   </div>

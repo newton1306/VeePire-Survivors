@@ -643,8 +643,8 @@ for y in range(6, 42):
         put_px(logo, 4 + abs(y-24)//3 + d, y, 59 if d==1 else 56)
         put_px(logo, 155 - abs(y-24)//3 - d, y, 59 if d==1 else 56)
 
-# Render crisp 2x metallic beveled letters for "DRAGO-NEXUS" centered on row 10..25
-title_str = "DRAGO-NEXUS"
+# Render crisp 2x metallic beveled letters for "VEEPIRE" centered on row 8..23
+title_str = "VEEPIRE"
 sx0 = 160 // 2 - (len(title_str) * 12) // 2
 for ci, ch in enumerate(title_str):
     if 'A' <= ch <= 'Z': code = ord(ch) - ord('A') + 10
@@ -664,8 +664,8 @@ for ci, ch in enumerate(title_str):
                         put_px(logo, px_l, py_l, col)
                         put_px(logo, px_l + 1, py_l + 1, 52 if (r>=5) else col) # drop shadow edge
 
-# Second line: "OMEGA V3" centered at row 30..37 in bright cyan!
-sub_str = "OMEGA EDITION"
+# Second line: "SURVIVORS" centered at row 31..38 in bright cyan!
+sub_str = "SURVIVORS"
 sx1 = 160 // 2 - (len(sub_str) * 8) // 2
 for ci, ch in enumerate(sub_str):
     if 'A' <= ch <= 'Z': code = ord(ch) - ord('A') + 10

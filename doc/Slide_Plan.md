@@ -1,4 +1,4 @@
-# คู่มือวางแผนทำสไลด์ Canva — DRAGO-NEXUS V6 (ฉบับเพื่อนที่ไม่รู้ Digital / Verilog ก็ทำตามได้!)
+# คู่มือวางแผนทำสไลด์ Canva — VeePire Survivors (ฉบับเพื่อนที่ไม่รู้ Digital / Verilog ก็ทำตามได้!)
 
 > **อ้างอิงเกณฑ์:** `UTF-8CPE222+Final+brief.pdf` (วิชา CPE222 Digital Logic Design — บอร์ด Digilent Nexys A7-100T)
 > **เวลาพูด:** **7 นาที 00 วินาที** | **สมาชิก:** **5 คน** | **จำนวนสไลด์:** **11 สไลด์**
@@ -53,7 +53,7 @@
 ### Slide 1 — หน้าปก (Title Slide) | 0:00 – 0:20 (คนที่ 1)
 - **Layout:** ซ้ายวางชื่อโปรเจกต์ใหญ่ๆ + ชื่อสมาชิก 5 คน / ขวาวางรูป `shot_title.png` คู่กับรูปบอร์ด Nexys A7
 - **ข้อความในสไลด์:**
-  - `DRAGO-NEXUS V6 : ARENA EDITION`
+  - `VeePire Survivors`
   - `2D Co-op Action RPG on Digilent Nexys A7-100T FPGA`
   - `CPE222 Digital Logic Design — Final Project Proposal`
   - `Group <เลขกลุ่ม> | สมาชิก 5 คน (ใส่ชื่อ-รหัส)`
