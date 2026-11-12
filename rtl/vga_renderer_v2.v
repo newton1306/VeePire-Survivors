@@ -48,8 +48,8 @@ module vga_renderer_v2 (
     input  wire        p1_nova, p2_nova,
 
     input  wire        pet_active, blades_active, aura_active,
-    input  wire [10:0] blade0_x, blade1_x, pet_bx,
-    input  wire [9:0]  blade0_y, blade1_y, pet_by,
+    input  wire [10:0] blade0_x, blade1_x, p2_blade0_x, p2_blade1_x, pet_bx,
+    input  wire [9:0]  blade0_y, blade1_y, p2_blade0_y, p2_blade1_y, pet_by,
     input  wire        pet_b_act,
 
     input  wire [16*11-1:0] en_x_vec,
@@ -103,6 +103,7 @@ module vga_renderer_v2 (
     input  wire [1:0]  quiz_ans_slot,
     input  wire [6:0]  quiz_wrong_t,
     input  wire [7:0]  boss_trans_t,
+    input  wire [7:0]  outfit_cut_t,
     input  wire        paused,
 
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
@@ -179,6 +180,8 @@ module vga_renderer_v2 (
     );
 
     // 2. Hero Sprites P1 & P2 (8 models x 4 frames incl Lunge/Apex x 32x32 = 32K)
+    wire in_outfit_cut = (game_state == 3'd2 && outfit_cut_t > 8'd0);
+    wire [3:0] eff_outfit_wave = (in_outfit_cut && outfit_cut_t > 8'd60 && wave > 4'd1) ? (wave - 4'd1) : wave;
     wire [10:0] target_px  = (game_state == 3'd0) ? (control_mode == 2'd1 ? 11'd80 : 11'd100) : px;
     wire [9:0]  target_py  = (game_state == 3'd0) ? 10'd160 : py;
     wire [10:0] target_p2x = (game_state == 3'd0) ? 11'd120 : p2x;
@@ -186,15 +189,19 @@ module vga_renderer_v2 (
     wire [10:0] p_ref_x    = (game_state == 3'd0) ? {2'd0, gx} : wx;
     wire [9:0]  p_ref_y    = (game_state == 3'd0) ? {1'd0, gy} : wy;
 
-    wire signed [11:0] psx  = $signed({1'b0, p_ref_x}) - $signed({1'b0, target_px})  + 12'sd16;
-    wire signed [11:0] psy  = $signed({2'b00, p_ref_y}) - $signed({2'b00, target_py})  + 12'sd16;
-    wire signed [11:0] p2sx = $signed({1'b0, p_ref_x}) - $signed({1'b0, target_p2x}) + 12'sd16;
-    wire signed [11:0] p2sy = $signed({2'b00, p_ref_y}) - $signed({2'b00, target_p2y}) + 12'sd16;
+    wire signed [11:0] psx_norm  = $signed({1'b0, p_ref_x}) - $signed({1'b0, target_px})  + 12'sd16;
+    wire signed [11:0] psy_norm  = $signed({2'b00, p_ref_y}) - $signed({2'b00, target_py})  + 12'sd16;
+    wire signed [11:0] p2sx_norm = $signed({1'b0, p_ref_x}) - $signed({1'b0, target_p2x}) + 12'sd16;
+    wire signed [11:0] p2sy_norm = $signed({2'b00, p_ref_y}) - $signed({2'b00, target_p2y}) + 12'sd16;
+    wire signed [11:0] psx  = in_outfit_cut ? (($signed({3'b000, gx}) - (p2_active ? 12'sd96 : 12'sd128)) >>> 1) : psx_norm;
+    wire signed [11:0] psy  = in_outfit_cut ? (($signed({3'b000, gy}) - 12'sd74) >>> 1) : psy_norm;
+    wire signed [11:0] p2sx = in_outfit_cut ? (($signed({3'b000, gx}) - 12'sd160) >>> 1) : p2sx_norm;
+    wire signed [11:0] p2sy = in_outfit_cut ? (($signed({3'b000, gy}) - 12'sd74) >>> 1) : p2sy_norm;
 
-    wire p1_dead_floor = (game_state == 3'd2 && in_playfield && hp == 0);
-    wire p2_dead_floor = (game_state == 3'd2 && in_playfield && p2_active && hp2 == 0);
-    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 46)) && ((game_state == 3'd0) || in_playfield);
-    wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_playfield);
+    wire p1_dead_floor = (game_state == 3'd2 && in_playfield && hp == 0 && !in_outfit_cut);
+    wire p2_dead_floor = (game_state == 3'd2 && in_playfield && p2_active && hp2 == 0 && !in_outfit_cut);
+    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 46)) && ((game_state == 3'd0) || in_outfit_cut || in_playfield);
+    wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_outfit_cut) || (p2_active && in_playfield);
     wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < (p2_dead_floor ? 32 : 46));
     wire on_player_box = on_p1_box || on_p2_box;
     wire sel_p2_0      = !on_p1_box && on_p2_box;
@@ -224,8 +231,9 @@ module vga_renderer_v2 (
     //    SW[15:12] = Left Character (P1), SW[3:0] = Right Character (P2)
     wire [1:0] p_form_idx = sel_p2_0 ? hero_sel_r : hero_sel_l;
     wire [1:0] p_pose = (game_state == 3'd0) ? {1'b0, anim_cnt[23]} :
+                        (in_outfit_cut ? ((outfit_cut_t <= 8'd60) ? 2'd3 : 2'd0) :
                         (sel_p2_0 ? ((p2_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, p2_walk_frame})) :
-                                    ((p1_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, walk_frame})));
+                                    ((p1_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, walk_frame}))));
     wire       cur_dead_0 = sel_p2_0 ? p2_dead_floor : p1_dead_floor;
     wire [4:0] p_rawx = sel_p2_0 ? p2sx[4:0] : psx[4:0];
     wire [5:0] p_bsy0 = sel_p2_0 ? p2sy[5:0] : psy[5:0];
@@ -256,7 +264,7 @@ module vga_renderer_v2 (
                 p_body_0 = 12'hECA;
             // Torso (y=28..37)
             else if (p_bsy0 >= 6'd28 && p_bsy0 <= 6'd37 && p_col_norm >= 5'd10 && p_col_norm <= 5'd21) begin
-                if (wave <= 4'd1) begin
+                if (eff_outfit_wave <= 4'd1) begin
                     // Wave 1: White Student Shirt + Dark Tie + Black Belt
                     if (p_bsy0 == 6'd37)
                         p_body_0 = (p_col_norm == 5'd15 || p_col_norm == 5'd16) ? 12'hCCC : 12'h111;
@@ -264,7 +272,7 @@ module vga_renderer_v2 (
                         p_body_0 = 12'h223;
                     else
                         p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'hCCD : 12'hFFF;
-                end else if (wave == 4'd2) begin
+                end else if (eff_outfit_wave == 4'd2) begin
                     // Wave 2: KMUTT CPE Workshop (#405F73 = 12'h467) + White Inner V-Shirt
                     if (p_bsy0 == 6'd37)
                         p_body_0 = 12'h111;
@@ -290,29 +298,29 @@ module vga_renderer_v2 (
                 // Anticipation: back arm raised, front arm braced
                 if ((p_col_norm >= 5'd7 && p_col_norm <= 5'd9 && p_bsy0 >= 6'd23 && p_bsy0 <= 6'd30) ||
                     (p_col_norm >= 5'd21 && p_col_norm <= 5'd24 && p_bsy0 >= 6'd29 && p_bsy0 <= 6'd33))
-                    p_body_0 = (p_bsy0 <= 6'd24 || p_col_norm == 5'd24) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_bsy0 <= 6'd24 || p_col_norm == 5'd24) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
             end else if (p_sl_cur >= 4'd7) begin
                 // Smear 1: arms swinging forward-high
                 if ((p_col_norm >= 5'd21 && p_col_norm <= 5'd27 && p_bsy0 >= 6'd27 && p_bsy0 <= 6'd31) ||
                     (p_col_norm >= 5'd7  && p_col_norm <= 5'd9  && p_bsy0 >= 6'd29 && p_bsy0 <= 6'd34))
-                    p_body_0 = (p_col_norm >= 5'd26) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_col_norm >= 5'd26) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
             end else if (p_sl_cur >= 4'd4) begin
                 // Hit: both arms thrusting forward
                 if (p_col_norm >= 5'd22 && p_col_norm <= 5'd29 && p_bsy0 >= 6'd30 && p_bsy0 <= 6'd33)
-                    p_body_0 = (p_col_norm >= 5'd28) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_col_norm >= 5'd28) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
             end else if (p_sl_cur > 4'd0) begin
                 // Follow Through: extended forward-low
                 if (p_col_norm >= 5'd21 && p_col_norm <= 5'd28 && p_bsy0 >= 6'd32 && p_bsy0 <= 6'd35)
-                    p_body_0 = (p_col_norm >= 5'd27) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_col_norm >= 5'd27) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
             end else begin
                 // Idle / Walk Arms
                 if ((p_col_norm >= 5'd7 && p_col_norm <= 5'd9 && p_bsy0 >= (p_wk_cur ? 6'd28 : 6'd29) && p_bsy0 <= (p_wk_cur ? 6'd35 : 6'd36)) ||
                     (p_col_norm >= 5'd22 && p_col_norm <= 5'd24 && p_bsy0 >= (p_wk_cur ? 6'd29 : 6'd28) && p_bsy0 <= (p_wk_cur ? 6'd36 : 6'd35)))
-                    p_body_0 = (p_bsy0 >= 6'd35) ? 12'hECA : ((wave <= 4'd1) ? 12'hEEE : ((wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_bsy0 >= 6'd35) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hEEE : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
             end
             // Legs / Gown Skirt (y=38..45)
             if (p_bsy0 >= 6'd38 && p_bsy0 < 6'd46) begin
-                if (wave >= 4'd3 && p_bsy0 <= 6'd43) begin
+                if (eff_outfit_wave >= 4'd3 && p_bsy0 <= 6'd43) begin
                     if (p_col_norm >= 5'd8 && p_col_norm <= 5'd23) begin
                         if (p_col_norm == 5'd12 || p_col_norm == 5'd19) p_body_0 = 12'hF61;
                         else if (p_col_norm == 5'd13 || p_col_norm == 5'd18) p_body_0 = 12'hFD2;
@@ -445,10 +453,18 @@ module vga_renderer_v2 (
                 end
             end
             if (blades_active) begin
-                ox_i = $signed({1'b0, wx}) - $signed({1'b0, blade0_x}) + 12'sd8; oy_i = $signed({2'b00, wy}) - $signed({2'b00, blade0_y}) + 12'sd8;
-                if (ox_i >= 0 && ox_i < 16 && oy_i >= 0 && oy_i < 16) begin on_item_box=1; item_fid=4'd10; item_lx=ox_i[3:0]; item_ly=oy_i[3:0]; end
-                ox_i = $signed({1'b0, wx}) - $signed({1'b0, blade1_x}) + 12'sd8; oy_i = $signed({2'b00, wy}) - $signed({2'b00, blade1_y}) + 12'sd8;
-                if (ox_i >= 0 && ox_i < 16 && oy_i >= 0 && oy_i < 16) begin on_item_box=1; item_fid=4'd10; item_lx=ox_i[3:0]; item_ly=oy_i[3:0]; end
+                if (hp > 0) begin
+                    ox_i = $signed({1'b0, wx}) - $signed({1'b0, blade0_x}) + 12'sd8; oy_i = $signed({2'b00, wy}) - $signed({2'b00, blade0_y}) + 12'sd8;
+                    if (ox_i >= 0 && ox_i < 16 && oy_i >= 0 && oy_i < 16) begin on_item_box=1; item_fid=4'd10; item_lx=ox_i[3:0]; item_ly=oy_i[3:0]; end
+                    ox_i = $signed({1'b0, wx}) - $signed({1'b0, blade1_x}) + 12'sd8; oy_i = $signed({2'b00, wy}) - $signed({2'b00, blade1_y}) + 12'sd8;
+                    if (ox_i >= 0 && ox_i < 16 && oy_i >= 0 && oy_i < 16) begin on_item_box=1; item_fid=4'd10; item_lx=ox_i[3:0]; item_ly=oy_i[3:0]; end
+                end
+                if (p2_active && hp2 > 0) begin
+                    ox_i = $signed({1'b0, wx}) - $signed({1'b0, p2_blade0_x}) + 12'sd8; oy_i = $signed({2'b00, wy}) - $signed({2'b00, p2_blade0_y}) + 12'sd8;
+                    if (ox_i >= 0 && ox_i < 16 && oy_i >= 0 && oy_i < 16) begin on_item_box=1; item_fid=4'd10; item_lx=ox_i[3:0]; item_ly=oy_i[3:0]; end
+                    ox_i = $signed({1'b0, wx}) - $signed({1'b0, p2_blade1_x}) + 12'sd8; oy_i = $signed({2'b00, wy}) - $signed({2'b00, p2_blade1_y}) + 12'sd8;
+                    if (ox_i >= 0 && ox_i < 16 && oy_i >= 0 && oy_i < 16) begin on_item_box=1; item_fid=4'd10; item_lx=ox_i[3:0]; item_ly=oy_i[3:0]; end
+                end
             end
         end
     end
@@ -1131,6 +1147,30 @@ module vga_renderer_v2 (
                 end
             end
 
+            // Cool Outfit-Change Transformation Cutscene (after Quiz Pass!)
+            if (in_outfit_cut && gy >= 9'd36 && gy < 9'd204) begin
+                hud_bg_en = 1;
+                if (outfit_cut_t >= 8'd56 && outfit_cut_t <= 8'd64)
+                    hud_bg_color = 6'd17; // Bright henshin flash!
+                else if (gy == 9'd36 || gy == 9'd203)
+                    hud_bg_color = 6'd58;
+                else if ((gx >= 9'd154 && gx <= 9'd166) || (((gx - gy) & 5'd15) == 0) || (((gx + gy) & 5'd15) == 0))
+                    hud_bg_color = (outfit_cut_t <= 8'd60) ? 6'd54 : 6'd55; // Spotlight beams
+                else
+                    hud_bg_color = 6'd16;
+                if (gy >= 9'd44 && gy < 9'd60 && gx >= 9'd96 && gx < 9'd224) begin
+                    hud_text_en = 1; hud_text_color = (outfit_cut_t <= 8'd60) ? 6'd58 : 6'd59;
+                    hud_char_row = (gy - 9'd44) >> 1; hud_char_col = gx[3:1];
+                    case ((gx - 9'd96) >> 4)
+                        0:hud_char_code=(outfit_cut_t<=8'd60)?lch("E"):lch("N"); 1:hud_char_code=(outfit_cut_t<=8'd60)?lch("Q"):lch("E");
+                        2:hud_char_code=(outfit_cut_t<=8'd60)?lch("U"):lch("W"); 3:hud_char_code=(outfit_cut_t<=8'd60)?lch("I"):C_SP;
+                        4:hud_char_code=(outfit_cut_t<=8'd60)?lch("P"):lch("G"); 5:hud_char_code=(outfit_cut_t<=8'd60)?lch("P"):lch("E");
+                        6:hud_char_code=(outfit_cut_t<=8'd60)?lch("E"):lch("A"); 7:hud_char_code=(outfit_cut_t<=8'd60)?lch("D"):lch("R");
+                        default:hud_char_code=C_SP;
+                    endcase
+                end
+            end
+
             // Boss Death Chuunibyou Quote Banner (room_phase == 3'd5)
             if (game_state == 3'd2 && room_phase == 3'd5 && boss_trans_t > 0 && gy >= 9'd188 && gy < 9'd210) begin
                 hud_bg_en = 1; hud_bg_color = (gy == 9'd188 || gy == 9'd209) ? 6'd36 : 6'd16;
@@ -1339,12 +1379,14 @@ module vga_renderer_v2 (
     reg cur_dead_1=0, cur_dead_2=0;
     reg wrong_boss_1=0, wrong_boss_2=0, in_caution_1=0, in_caution_2=0;
     reg p_head_en_1=0, mon_head_en_1=0;
+    reg in_outfit_1=0, in_outfit_2=0;
     reg [11:0] p_body_1=0, mon_body_1=0;
     wire in_room_0 = (wx >= 11'd64 && wx < 11'd576 && wy >= 10'd64 && wy < 10'd384);
 
     always @(posedge clk) begin
         hs_1 <= hs_0; vs_1 <= vs_0; vid_1 <= vid_0; in_room_1 <= in_room_0;
         cur_dead_1 <= cur_dead_0; wrong_boss_1 <= wrong_boss_active; in_caution_1 <= in_caution_banner;
+        in_outfit_1 <= in_outfit_cut;
         p_head_en_1 <= p_head_en_0; p_body_1 <= p_body_0;
         mon_head_en_1 <= mon_head_en_0; mon_body_1 <= mon_body_0;
         wx_1 <= wx[3:0]; wy_1 <= wy[3:0]; gx_1 <= gx; gy_1 <= gy;
@@ -1381,6 +1423,7 @@ module vga_renderer_v2 (
     always @(posedge clk) begin
         hs_2 <= hs_1; vs_2 <= vs_1; vid_2 <= vid_1; gx_2 <= gx_1; gy_2 <= gy_1; in_room_2 <= in_room_1;
         cur_dead_2 <= cur_dead_1; wrong_boss_2 <= wrong_boss_1; in_caution_2 <= in_caution_1;
+        in_outfit_2 <= in_outfit_1;
         p_pix_2 <= (p_head_en_1 && player_pix_1 != 12'd0) ? player_pix_1 : p_body_1;
         b_pix_2 <= boss_pix_1;
         mon_pix_2 <= (mon_head_en_1 && mon_pix_1 != 12'd0) ? mon_pix_1 : mon_body_1;
@@ -1408,6 +1451,10 @@ module vga_renderer_v2 (
         direct_rgb_2     = 12'h000;
         final_idx_2      = 6'd0;
         if (hud_bit_2)            final_idx_2 = hud_tcol_2;
+        else if (in_outfit_2 && on_p_2 && p_pix_2 != 12'd0) begin
+            use_direct_rgb_2 = 1'b1;
+            direct_rgb_2     = p_pix_2;
+        end
         else if (in_caution_2)    final_idx_2 = ((gy_2 < 9'd114 || gy_2 >= 9'd152) ? ((gx_2[3] ^ gy_2[3]) ? 6'd58 : 6'd16) : 6'd58);
         else if (wrong_boss_2 && on_b_2 && b_pix_2 != 12'd0) begin
             use_direct_rgb_2 = 1'b1;

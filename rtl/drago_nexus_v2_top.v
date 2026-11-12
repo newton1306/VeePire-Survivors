@@ -73,8 +73,8 @@ module drago_nexus_v2_top (
     wire [3:0]  shake_mag;
     wire        p1_nova, p2_nova;
     wire        pet_active, blades_active, aura_active;
-    wire [10:0] blade0_x, blade1_x, pet_bx;
-    wire [9:0]  blade0_y, blade1_y, pet_by;
+    wire [10:0] blade0_x, blade1_x, p2_blade0_x, p2_blade1_x, pet_bx;
+    wire [9:0]  blade0_y, blade1_y, p2_blade0_y, p2_blade1_y, pet_by;
     wire        pet_b_act;
 
     wire [16*11-1:0] en_x_vec;
@@ -168,7 +168,7 @@ module drago_nexus_v2_top (
     wire [4:0] door_slide;
     wire [2:0] quiz_gate;
     wire [1:0] quiz_cursor, quiz_ans_slot;
-    wire [7:0] boss_trans_t;
+    wire [7:0] boss_trans_t, outfit_cut_t;
     wire       paused;
 
     game_engine_v2 u_engine (
@@ -192,6 +192,7 @@ module drago_nexus_v2_top (
         .combo_cnt(combo_cnt), .shake_mag(shake_mag), .p1_nova(p1_nova), .p2_nova(p2_nova),
         .pet_active(pet_active), .blades_active(blades_active), .aura_active(aura_active),
         .blade0_x(blade0_x), .blade0_y(blade0_y), .blade1_x(blade1_x), .blade1_y(blade1_y),
+        .p2_blade0_x(p2_blade0_x), .p2_blade0_y(p2_blade0_y), .p2_blade1_x(p2_blade1_x), .p2_blade1_y(p2_blade1_y),
         .pet_bx(pet_bx), .pet_by(pet_by), .pet_b_act(pet_b_act),
         .en_x_vec(en_x_vec), .en_y_vec(en_y_vec), .en_type_vec(en_type_vec),
         .en_alive_vec(en_alive_vec), .en_hp_vec(en_hp_vec), .en_tier_vec(en_tier_vec),
@@ -234,6 +235,7 @@ module drago_nexus_v2_top (
         .combo_cnt(combo_cnt), .shake_mag(shake_mag), .p1_nova(p1_nova), .p2_nova(p2_nova),
         .pet_active(pet_active), .blades_active(blades_active), .aura_active(aura_active),
         .blade0_x(blade0_x), .blade0_y(blade0_y), .blade1_x(blade1_x), .blade1_y(blade1_y),
+        .p2_blade0_x(p2_blade0_x), .p2_blade0_y(p2_blade0_y), .p2_blade1_x(p2_blade1_x), .p2_blade1_y(p2_blade1_y),
         .pet_bx(pet_bx), .pet_by(pet_by), .pet_b_act(pet_b_act),
         .en_x_vec(en_x_vec), .en_y_vec(en_y_vec), .en_type_vec(en_type_vec),
         .en_alive_vec(en_alive_vec), .en_hp_vec(en_hp_vec), .en_tier_vec(en_tier_vec),
@@ -254,7 +256,7 @@ module drago_nexus_v2_top (
         .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
-        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
