@@ -360,17 +360,7 @@ def draw_hero(model_id, frame):
                 nx, ny = x + lean, y + bob
                 if 0 <= nx < 32 and 0 <= ny < 32:
                     g[ny][nx] = c
-    if frame == 2:
-        # Clear Glowing Energy Sword on Lunge/Attack Pose!
-        for sy in range(4, 24):
-            put_px(g, 28, sy, 0xFFF)
-            put_px(g, 29, sy, 0x4FF)
-            put_px(g, 27, sy, 0x2BF)
-        for sx in range(25, 31):
-            put_px(g, sx, 22, 0xFD0)
-            put_px(g, sx, 23, 0xB70)
-        put_px(g, 28, 24, 0x840); put_px(g, 28, 25, 0x840)
-    elif frame == 3:
+    if frame == 3:
         # Apex Golden/Cyan Power Sparkles!
         for sx, sy in ((2,3),(29,3),(2,28),(29,28),(15,1),(16,1)):
             put_px(g, sx, sy, 0xFF4)

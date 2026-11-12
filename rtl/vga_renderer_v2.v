@@ -193,9 +193,9 @@ module vga_renderer_v2 (
 
     wire p1_dead_floor = (game_state == 3'd2 && in_playfield && hp == 0);
     wire p2_dead_floor = (game_state == 3'd2 && in_playfield && p2_active && hp2 == 0);
-    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < 32) && ((game_state == 3'd0) || in_playfield);
+    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 46)) && ((game_state == 3'd0) || in_playfield);
     wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_playfield);
-    wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < 32);
+    wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < (p2_dead_floor ? 32 : 46));
     wire on_player_box = on_p1_box || on_p2_box;
     wire sel_p2_0      = !on_p1_box && on_p2_box;
 
@@ -228,7 +228,9 @@ module vga_renderer_v2 (
                                     ((p1_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, walk_frame})));
     wire       cur_dead_0 = sel_p2_0 ? p2_dead_floor : p1_dead_floor;
     wire [4:0] p_rawx = sel_p2_0 ? p2sx[4:0] : psx[4:0];
-    wire [4:0] p_rawy = sel_p2_0 ? p2sy[4:0] : psy[4:0];
+    wire [5:0] p_bsy0 = sel_p2_0 ? p2sy[5:0] : psy[5:0];
+    wire [4:0] p_rawy = p_bsy0[4:0];
+    wire       p_head_en_0 = (p_bsy0 < 6'd32);
     wire       p_mir  = sel_p2_0 ? p2_mirror : mirror;
     wire [4:0] p_col_norm = (p_mir && game_state != 3'd0) ? (5'd31 - p_rawx) : p_rawx;
     // Dead player lies flat horizontally on the floor!
@@ -238,6 +240,93 @@ module vga_renderer_v2 (
     rom_1p #(.DW(12), .AW(14), .DEPTH(16384), .FILE("player_sprites.mem")) u_player_rom (
         .clk(clk), .addr({p_form_idx, p_pose, p_rom_y, p_rom_x}), .q(player_pix_1)
     );
+
+    // Procedural Hero Body & Wave Outfits (Head size 100% preserved!)
+    // Wave 1: Student Uniform (White long-sleeve + Black pants)
+    // Wave 2: KMUTT CPE Workshop Shirt (#405F73 -> 12'h467) + White inner + Black pants
+    // Wave 3+: KMUTT Graduation Gown (Black gown + Orange/Gold sash)
+    wire [3:0] p_sl_cur = sel_p2_0 ? p2_slash_t : p1_slash_t;
+    wire       p_wk_cur = sel_p2_0 ? p2_walk_frame : walk_frame;
+    reg [11:0] p_body_0;
+    always @(*) begin
+        p_body_0 = 12'd0;
+        if (on_player_box && !cur_dead_0 && p_bsy0 >= 6'd27 && p_bsy0 < 6'd46) begin
+            // Neck & Collar (y=27..28)
+            if (p_bsy0 == 6'd27 && p_col_norm >= 5'd14 && p_col_norm <= 5'd17)
+                p_body_0 = 12'hECA;
+            // Torso (y=28..37)
+            else if (p_bsy0 >= 6'd28 && p_bsy0 <= 6'd37 && p_col_norm >= 5'd10 && p_col_norm <= 5'd21) begin
+                if (wave <= 4'd1) begin
+                    // Wave 1: White Student Shirt + Dark Tie + Black Belt
+                    if (p_bsy0 == 6'd37)
+                        p_body_0 = (p_col_norm == 5'd15 || p_col_norm == 5'd16) ? 12'hCCC : 12'h111;
+                    else if (p_col_norm >= 5'd15 && p_col_norm <= 5'd16 && p_bsy0 <= 6'd35)
+                        p_body_0 = 12'h223;
+                    else
+                        p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'hCCD : 12'hFFF;
+                end else if (wave == 4'd2) begin
+                    // Wave 2: KMUTT CPE Workshop (#405F73 = 12'h467) + White Inner V-Shirt
+                    if (p_bsy0 == 6'd37)
+                        p_body_0 = 12'h111;
+                    else if (p_col_norm >= 5'd14 && p_col_norm <= 5'd17 && p_bsy0 <= 6'd32 &&
+                             ((p_bsy0 <= 6'd29) || (p_col_norm >= 5'd15 && p_col_norm <= 5'd16)))
+                        p_body_0 = 12'hFFF;
+                    else if (p_bsy0 >= 6'd31 && p_bsy0 <= 6'd33 && p_col_norm >= 5'd18 && p_col_norm <= 5'd20)
+                        p_body_0 = 12'h345; // Chest pocket
+                    else
+                        p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'h345 : 12'h467;
+                end else begin
+                    // Wave 3+: KMUTT Graduation Gown (Black + Orange-Gold Sash + White Inner)
+                    if ((p_col_norm == 5'd12 || p_col_norm == 5'd13 || p_col_norm == 5'd18 || p_col_norm == 5'd19))
+                        p_body_0 = (p_col_norm == 5'd13 || p_col_norm == 5'd18) ? 12'hFD2 : 12'hF61;
+                    else if (p_col_norm >= 5'd14 && p_col_norm <= 5'd17 && p_bsy0 <= 6'd33)
+                        p_body_0 = 12'hFFF;
+                    else
+                        p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'h111 : 12'h223;
+                end
+            end
+            // Arms & Animated Sword-Swing Pose
+            if (p_sl_cur >= 4'd10) begin
+                // Anticipation: back arm raised, front arm braced
+                if ((p_col_norm >= 5'd7 && p_col_norm <= 5'd9 && p_bsy0 >= 6'd23 && p_bsy0 <= 6'd30) ||
+                    (p_col_norm >= 5'd21 && p_col_norm <= 5'd24 && p_bsy0 >= 6'd29 && p_bsy0 <= 6'd33))
+                    p_body_0 = (p_bsy0 <= 6'd24 || p_col_norm == 5'd24) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+            end else if (p_sl_cur >= 4'd7) begin
+                // Smear 1: arms swinging forward-high
+                if ((p_col_norm >= 5'd21 && p_col_norm <= 5'd27 && p_bsy0 >= 6'd27 && p_bsy0 <= 6'd31) ||
+                    (p_col_norm >= 5'd7  && p_col_norm <= 5'd9  && p_bsy0 >= 6'd29 && p_bsy0 <= 6'd34))
+                    p_body_0 = (p_col_norm >= 5'd26) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+            end else if (p_sl_cur >= 4'd4) begin
+                // Hit: both arms thrusting forward
+                if (p_col_norm >= 5'd22 && p_col_norm <= 5'd29 && p_bsy0 >= 6'd30 && p_bsy0 <= 6'd33)
+                    p_body_0 = (p_col_norm >= 5'd28) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+            end else if (p_sl_cur > 4'd0) begin
+                // Follow Through: extended forward-low
+                if (p_col_norm >= 5'd21 && p_col_norm <= 5'd28 && p_bsy0 >= 6'd32 && p_bsy0 <= 6'd35)
+                    p_body_0 = (p_col_norm >= 5'd27) ? 12'hECA : ((wave <= 4'd1) ? 12'hFFF : ((wave == 4'd2) ? 12'h467 : 12'h223));
+            end else begin
+                // Idle / Walk Arms
+                if ((p_col_norm >= 5'd7 && p_col_norm <= 5'd9 && p_bsy0 >= (p_wk_cur ? 6'd28 : 6'd29) && p_bsy0 <= (p_wk_cur ? 6'd35 : 6'd36)) ||
+                    (p_col_norm >= 5'd22 && p_col_norm <= 5'd24 && p_bsy0 >= (p_wk_cur ? 6'd29 : 6'd28) && p_bsy0 <= (p_wk_cur ? 6'd36 : 6'd35)))
+                    p_body_0 = (p_bsy0 >= 6'd35) ? 12'hECA : ((wave <= 4'd1) ? 12'hEEE : ((wave == 4'd2) ? 12'h467 : 12'h223));
+            end
+            // Legs / Gown Skirt (y=38..45)
+            if (p_bsy0 >= 6'd38 && p_bsy0 < 6'd46) begin
+                if (wave >= 4'd3 && p_bsy0 <= 6'd43) begin
+                    if (p_col_norm >= 5'd8 && p_col_norm <= 5'd23) begin
+                        if (p_col_norm == 5'd12 || p_col_norm == 5'd19) p_body_0 = 12'hF61;
+                        else if (p_col_norm == 5'd13 || p_col_norm == 5'd18) p_body_0 = 12'hFD2;
+                        else p_body_0 = (p_col_norm == 5'd8 || p_col_norm == 5'd23) ? 12'h111 : 12'h223;
+                    end
+                end else begin
+                    // Left leg (11..14), Right leg (17..20), walking stride
+                    if ((p_col_norm >= 5'd11 && p_col_norm <= 5'd14 && p_bsy0 <= (p_wk_cur ? 6'd44 : 6'd45)) ||
+                        (p_col_norm >= 5'd17 && p_col_norm <= 5'd20 && p_bsy0 <= (p_wk_cur ? 6'd45 : 6'd44)))
+                        p_body_0 = (p_bsy0 >= 6'd44) ? 12'h334 : 12'h112;
+                end
+            end
+        end
+    end
 
     // 3. 3 Unique 64x64 Bosses (or Giant 128x128 Angry Ajarn_V Form 2 on Wrong Quiz!)
     wire wrong_boss_active = (game_state == 3'd2 && room_phase == 3'd3 && quiz_wrong_t > 0);
@@ -261,22 +350,47 @@ module vga_renderer_v2 (
         .clk(clk), .addr({eff_bkind, b_frame, bsy[5:0], bsx[5:0]}), .q(boss_pix_1)
     );
 
-    // 4. 16 HUGE 32x32 MONSTERS (8 Archetypes x 2 Frames -> 16K!)
+    // 4. 16 HUGE 32x46 MONSTERS (Head 32x32 preserved + Black Suit & White Inner Shirt!)
     reg        on_mon_box;
+    reg        mon_head_en_0;
     reg [2:0]  mon_kind_0;
     reg [4:0]  mon_lx, mon_ly;
+    reg [11:0] mon_body_0;
     integer k_mon;
     reg signed [11:0] ox_m, oy_m;
     always @(*) begin
-        on_mon_box = 1'b0; mon_kind_0 = 3'd0; mon_lx = 5'd0; mon_ly = 5'd0;
+        on_mon_box = 1'b0; mon_head_en_0 = 1'b0; mon_kind_0 = 3'd0; mon_lx = 5'd0; mon_ly = 5'd0;
+        mon_body_0 = 12'd0;
         ox_m = 12'sd0; oy_m = 12'sd0;
         if (in_playfield) begin
             for (k_mon = 15; k_mon >= 0; k_mon = k_mon - 1) begin
                 if (en_alive_vec[k_mon]) begin
                     ox_m = $signed({1'b0, wx})  - $signed({1'b0, en_x_vec[k_mon*11 +: 11]}) + 12'sd16;
                     oy_m = $signed({2'b00, wy}) - $signed({2'b00, en_y_vec[k_mon*10 +: 10]}) + 12'sd16;
-                    if (ox_m >= 0 && ox_m < 32 && oy_m >= 0 && oy_m < 32) begin
-                        on_mon_box = 1'b1; mon_kind_0 = en_type_vec[k_mon*3 +: 3]; mon_lx = ox_m[4:0]; mon_ly = oy_m[4:0];
+                    if (ox_m >= 0 && ox_m < 32 && oy_m >= 0 && oy_m < 46) begin
+                        on_mon_box = 1'b1; mon_kind_0 = en_type_vec[k_mon*3 +: 3];
+                        mon_lx = ox_m[4:0]; mon_ly = oy_m[4:0];
+                        mon_head_en_0 = (oy_m < 12'sd32);
+                        mon_body_0 = 12'd0;
+                        if (oy_m >= 12'sd28) begin
+                            // Black Suit Torso + White Inner Shirt + Tie
+                            if (oy_m <= 12'sd37 && ox_m >= 12'sd10 && ox_m <= 12'sd21) begin
+                                if (ox_m >= 12'sd14 && ox_m <= 12'sd17 && oy_m <= 12'sd34 &&
+                                    ((oy_m <= 12'sd30) || (ox_m >= 12'sd15 && ox_m <= 12'sd16)))
+                                    mon_body_0 = (ox_m >= 12'sd15 && ox_m <= 12'sd16 && oy_m >= 12'sd30) ? 12'hA12 : 12'hFFF;
+                                else
+                                    mon_body_0 = (ox_m == 12'sd10 || ox_m == 12'sd21) ? 12'h111 : 12'h223;
+                            end
+                            // Black Suit Sleeves & Hands
+                            else if ((ox_m >= 12'sd7 && ox_m <= 12'sd9 && oy_m >= 12'sd29 && oy_m <= 12'sd36) ||
+                                     (ox_m >= 12'sd22 && ox_m <= 12'sd24 && oy_m >= 12'sd29 && oy_m <= 12'sd36))
+                                mon_body_0 = (oy_m >= 12'sd35) ? 12'hECA : 12'h112;
+                            // Black Suit Pants & Shoes
+                            else if (oy_m >= 12'sd38 &&
+                                     ((ox_m >= 12'sd11 && ox_m <= 12'sd14 && oy_m <= (anim_cnt[23] ? 12'sd44 : 12'sd45)) ||
+                                      (ox_m >= 12'sd17 && ox_m <= 12'sd20 && oy_m <= (anim_cnt[23] ? 12'sd45 : 12'sd44))))
+                                mon_body_0 = (oy_m >= 12'sd44) ? 12'h334 : 12'h112;
+                        end
                     end
                 end
             end
@@ -1224,11 +1338,15 @@ module vga_renderer_v2 (
     reg in_room_1=0, in_room_2=0;
     reg cur_dead_1=0, cur_dead_2=0;
     reg wrong_boss_1=0, wrong_boss_2=0, in_caution_1=0, in_caution_2=0;
+    reg p_head_en_1=0, mon_head_en_1=0;
+    reg [11:0] p_body_1=0, mon_body_1=0;
     wire in_room_0 = (wx >= 11'd64 && wx < 11'd576 && wy >= 10'd64 && wy < 10'd384);
 
     always @(posedge clk) begin
         hs_1 <= hs_0; vs_1 <= vs_0; vid_1 <= vid_0; in_room_1 <= in_room_0;
         cur_dead_1 <= cur_dead_0; wrong_boss_1 <= wrong_boss_active; in_caution_1 <= in_caution_banner;
+        p_head_en_1 <= p_head_en_0; p_body_1 <= p_body_0;
+        mon_head_en_1 <= mon_head_en_0; mon_body_1 <= mon_body_0;
         wx_1 <= wx[3:0]; wy_1 <= wy[3:0]; gx_1 <= gx; gy_1 <= gy;
         on_p_1 <= on_player_box; sel_p2_1 <= sel_p2_0; on_aura_1 <= on_aura_0; aura_col_1 <= aura_col_0;
         on_ghost_1 <= on_ghost; on_b_1 <= on_boss_box; on_mon_1 <= on_mon_box; on_item_1 <= on_item_box; on_logo_1 <= in_logo_box;
@@ -1263,7 +1381,10 @@ module vga_renderer_v2 (
     always @(posedge clk) begin
         hs_2 <= hs_1; vs_2 <= vs_1; vid_2 <= vid_1; gx_2 <= gx_1; gy_2 <= gy_1; in_room_2 <= in_room_1;
         cur_dead_2 <= cur_dead_1; wrong_boss_2 <= wrong_boss_1; in_caution_2 <= in_caution_1;
-        p_pix_2 <= player_pix_1; b_pix_2 <= boss_pix_1; mon_pix_2 <= mon_pix_1; item_pix_2 <= item_pix_1; logo_pix_2 <= logo_pix_1;
+        p_pix_2 <= (p_head_en_1 && player_pix_1 != 12'd0) ? player_pix_1 : p_body_1;
+        b_pix_2 <= boss_pix_1;
+        mon_pix_2 <= (mon_head_en_1 && mon_pix_1 != 12'd0) ? mon_pix_1 : mon_body_1;
+        item_pix_2 <= item_pix_1; logo_pix_2 <= logo_pix_1;
         on_p_2 <= on_p_1; sel_p2_2 <= sel_p2_1; on_aura_2 <= on_aura_1; aura_col_2 <= aura_col_1;
         on_ghost_2 <= on_ghost_1; on_b_2 <= on_b_1; on_mon_2 <= on_mon_1; on_item_2 <= on_item_1; on_logo_2 <= on_logo_1;
         on_tag_2 <= on_tag_1; tag_col_2 <= tag_col_1;
