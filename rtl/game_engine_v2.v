@@ -177,7 +177,7 @@ module game_engine_v2 (
     reg [4:0] btn_prev = 0;
     reg [2:0] j1_btn_prev = 0, j2_btn_prev = 0;
     reg       joy_pause_prev = 1'b0, joy_select_prev = 1'b0;
-    reg       wave_sub = 1'b0;
+    reg [2:0] wave_sub = 3'd0;
     reg signed [2:0] j1_dx_prev = 0, j2_dx_prev = 0;
     reg signed [2:0] j1_dy_prev = 0, j2_dy_prev = 0;
 
@@ -213,7 +213,7 @@ module game_engine_v2 (
     assign blades_active = (game_state == ST_PLAY) && (stage >= 2'd2);
     assign aura_active   = (stage >= 2'd3);
     assign boss_locked   = (wave == FINAL_WAVE) && boss_active && (boss_hp > 0);
-    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 7'd45) : (boss_hp <= 7'd24);
+    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 7'd64) : (boss_hp <= 7'd48);
 
     reg [1:0] p1_combo_step = 2'd0, p2_combo_step = 2'd0;
     reg [5:0] p1_combo_rst = 6'd0, p2_combo_rst = 6'd0;
@@ -356,6 +356,12 @@ module game_engine_v2 (
     // Registered Lock-On outputs & running scan accumulator
     reg        best1_valid = 0, best2_valid = 0;
     reg [10:0] best1_x = 0, best2_x = 0;
+    reg        gun1_valid = 0, gun2_valid = 0;
+    reg [10:0] gun1_x = 0, gun2_x = 0;
+    reg [9:0]  gun1_y = 0, gun2_y = 0;
+    reg [11:0] gun1_d = 12'd260, gun2_d = 12'd260;
+    reg signed [11:0] gdx, gdy;
+    reg [11:0] agx, agy;
     reg [9:0]  best1_y = 0, best2_y = 0;
     reg [11:0] best1_d = 12'd220, best2_d = 12'd220;
 
@@ -426,32 +432,32 @@ module game_engine_v2 (
 
     task automatic spawn_wave_group;
         input [3:0] wv;
-        input       sub;
+        input [2:0] sub;
         begin
             for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
             case (wv)
-                4'd1: begin // Wave 1: 6 + 6 = 12 Human-Face Minions (6..7 HP)
-                    for (idx = 0; idx < 6; idx = idx + 1)
-                        set_en(idx, 11'd300 + ((idx % 3) * 11'd90), 10'd120 + ((idx / 3) * 10'd160), idx[2:0] + (sub ? 3'd2 : 3'd0), sub ? 2'd1 : 2'd0, sub ? 4'd7 : 4'd6, 20 + idx*7);
-                end
-                4'd2: begin // Wave 2: 8 + 8 = 16 Human-Face Minions (8 HP)
-                    for (idx = 0; idx < 8; idx = idx + 1)
-                        set_en(idx, 11'd280 + ((idx % 4) * 11'd74), 10'd115 + ((idx / 4) * 10'd170), idx[2:0] + (sub ? 3'd1 : 3'd0), 2'd1, 4'd8, 18 + idx*6);
-                end
-                4'd3: begin // Wave 3: 10 + 10 = 20 Human-Face Strikers (9..10 HP)
+                4'd1: begin // Wave 1: 3 sub-waves x 10 = 30 Human-Face Minions (8..9 HP)
                     for (idx = 0; idx < 10; idx = idx + 1)
-                        set_en(idx, 11'd265 + ((idx % 5) * 11'd62), 10'd115 + ((idx / 5) * 10'd175), idx[2:0] + (sub ? 3'd2 : 3'd0), 2'd2, sub ? 4'd10 : 4'd9, 18 + idx*5);
+                        set_en(idx, 11'd250 + ((idx % 5) * 11'd64), 10'd108 + ((idx / 5) * 10'd185), idx[2:0] + sub, (sub >= 3'd1) ? 2'd1 : 2'd0, (sub >= 3'd1) ? 4'd9 : 4'd8, 16 + idx*5);
                 end
-                4'd4: begin // Wave 4: 12 + 12 = 24 Human-Face Raiders (11..12 HP)
+                4'd2: begin // Wave 2: 4 sub-waves x 12 = 48 Human-Face Minions (10..11 HP)
                     for (idx = 0; idx < 12; idx = idx + 1)
-                        set_en(idx, 11'd255 + ((idx % 4) * 11'd80), 10'd108 + ((idx / 4) * 10'd95), idx[2:0] + (sub ? 3'd3 : 3'd0), 2'd2, sub ? 4'd12 : 4'd11, 16 + idx*4);
+                        set_en(idx, 11'd235 + ((idx % 4) * 11'd82), 10'd104 + ((idx / 4) * 10'd95), idx[2:0] + sub, 2'd1, (sub >= 3'd2) ? 4'd11 : 4'd10, 15 + idx*4);
                 end
-                4'd5: begin // Wave 5: 14 + 14 = 28 Human-Face Elites (13..14 HP)
+                4'd3: begin // Wave 3: 4 sub-waves x 14 = 56 Human-Face Strikers (11..12 HP)
                     for (idx = 0; idx < 14; idx = idx + 1)
-                        set_en(idx, 11'd240 + ((idx % 5) * 11'd68), 10'd108 + ((idx / 5) * 10'd92), idx[2:0] + (sub ? 3'd4 : 3'd0), 2'd3, sub ? 4'd14 : 4'd13, 15 + idx*4);
+                        set_en(idx, 11'd225 + ((idx % 5) * 11'd72), 10'd104 + ((idx / 5) * 10'd95), idx[2:0] + sub, 2'd2, (sub >= 3'd2) ? 4'd12 : 4'd11, 14 + idx*4);
                 end
-                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 -> 2 -> Thanos!)
-                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 7'd40;
+                4'd4: begin // Wave 4: 5 sub-waves x 15 = 75 Human-Face Raiders (13..14 HP)
+                    for (idx = 0; idx < 15; idx = idx + 1)
+                        set_en(idx, 11'd215 + ((idx % 5) * 11'd74), 10'd102 + ((idx / 5) * 10'd95), idx[2:0] + sub, 2'd2, (sub >= 3'd2) ? 4'd14 : 4'd13, 12 + idx*3);
+                end
+                4'd5: begin // Wave 5: 5 sub-waves x 16 = 80 Human-Face Elites (14..15 HP)
+                    for (idx = 0; idx < 16; idx = idx + 1)
+                        set_en(idx, 11'd205 + ((idx % 4) * 11'd95), 10'd100 + ((idx / 4) * 10'd72), idx[2:0] + sub, 2'd3, (sub >= 3'd2) ? 4'd15 : 4'd14, 10 + idx*3);
+                end
+                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 90 HP -> 110 HP -> 127 HP!)
+                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 7'd90;
                 end
             endcase
         end
@@ -466,7 +472,7 @@ module game_engine_v2 (
             p1_gun_cd <= 4'd0; p2_gun_cd <= 4'd0;
             p1_ooc_t <= 9'd0; p2_ooc_t <= 9'd0; p1_regen_div <= 6'd0; p2_regen_div <= 6'd0;
             score_bcd <= 16'd0; chrono_energy <= 7'd100;
-            wave <= 4'd1; wave_sub <= 1'b0; paused <= 1'b0; zone2_open <= 1'b0; zone3_open <= 1'b0;
+            wave <= 4'd1; wave_sub <= 3'd0; paused <= 1'b0; zone2_open <= 1'b0; zone3_open <= 1'b0;
             room_phase <= RP_BANNER; wave_banner_t <= 7'd90; door_slam_t <= 6'd45;
             door_slide <= 5'd0; boss_trans_t <= 8'd0; quiz_wrong_t <= 6'd0;
             quiz_cursor <= 2'd0; quiz_gate <= 3'd0; quiz_ans_slot <= 2'd0;
@@ -480,7 +486,8 @@ module game_engine_v2 (
             lock_valid <= 0; fire_req <= 0; p2_fire_req <= 0;
             shrine_cd <= 0; sky_drop_timer <= 0; pet_fire_cd <= 0; pet_b_act <= 0;
             face_dx <= 3'sd1; face_dy <= 3'sd0; p2_face_dx <= 3'sd1; p2_face_dy <= 3'sd0;
-            boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 7'd40;
+            boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 7'd90;
+            gun1_valid <= 1'b0; gun2_valid <= 1'b0;
             boss_ai_timer <= 0; laser_state <= 0; laser_timer <= 0;
 
             for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
@@ -676,8 +683,8 @@ module game_engine_v2 (
                         if (door_slam_t > 0)   door_slam_t   <= door_slam_t - 6'd1;
                         if (wave_banner_t > 0) wave_banner_t <= wave_banner_t - 7'd1;
                         if (room_phase == RP_BANNER && wave_banner_t == 7'd0) begin
-                            wave_sub <= 1'b0;
-                            spawn_wave_group(wave, 1'b0);
+                            wave_sub <= 3'd0;
+                            spawn_wave_group(wave, 3'd0);
                             room_phase <= RP_FIGHT;
                         end else if (room_phase == RP_DOOR) begin
                             if (door_slide < 5'd31) door_slide <= door_slide + 5'd1;
@@ -686,12 +693,12 @@ module game_engine_v2 (
                                 boss_trans_t <= boss_trans_t - 8'd1;
                                 if (boss_trans_t == 8'd1) begin
                                     if (boss_kind == 2'd0) begin
-                                        boss_kind <= 2'd1; boss_hp <= 7'd55; boss_active <= 1'b1;
-                                        boss_x <= 11'd480; boss_y <= 10'd224; boss_ai_timer <= 8'd0;
+                                        boss_kind <= 2'd1; boss_hp <= 7'd110; boss_active <= 1'b1;
+                                        boss_ai_timer <= 8'd0;
                                         room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
                                     end else if (boss_kind == 2'd1) begin
-                                        boss_kind <= 2'd2; boss_hp <= 7'd85; boss_active <= 1'b1;
-                                        boss_x <= 11'd480; boss_y <= 10'd224; boss_ai_timer <= 8'd0;
+                                        boss_kind <= 2'd2; boss_hp <= 7'd127; boss_active <= 1'b1;
+                                        boss_ai_timer <= 8'd0;
                                         room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
                                     end else begin
                                         game_state <= ST_WIN; end_lockout <= 7'd90; sfx_evolve <= 1'b1;
@@ -755,53 +762,55 @@ module game_engine_v2 (
                         if (p1_gun_cd > 0)  p1_gun_cd  <= p1_gun_cd - 4'd1;
                         if (p2_gun_cd > 0)  p2_gun_cd  <= p2_gun_cd - 4'd1;
 
-                        // Y Button: Fire Elongated Blue Gun Bullets (P1 slots 0..3, P2 slots 4..7)
+                        // Y Button: Fire Elongated Blue Gun Bullets with Smart Lock-On Aim Assist!
                         if (p1_alive && j1_shoot && p1_gun_cd == 0) begin
                             p1_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p1_ooc_t <= 9'd0; p1_regen_div <= 6'd0;
-                            if (!pb_active[0]) begin
-                                pb_active[0] <= 1'b1; pb_x[0] <= px; pb_y[0] <= py;
-                                pb_vx[0] <= (face_dx == 0 && face_dy == 0) ? 5'sd6 : (face_dx * 5'sd6);
-                                pb_vy[0] <= face_dy * 5'sd6;
-                                pb_dir[0] <= (face_dy == 0) ? 2'd0 : (face_dx == 0) ? 2'd1 : ((face_dx > 0) == (face_dy > 0) ? 2'd2 : 2'd3);
-                            end else if (!pb_active[1]) begin
-                                pb_active[1] <= 1'b1; pb_x[1] <= px; pb_y[1] <= py;
-                                pb_vx[1] <= (face_dx == 0 && face_dy == 0) ? 5'sd6 : (face_dx * 5'sd6);
-                                pb_vy[1] <= face_dy * 5'sd6;
-                                pb_dir[1] <= (face_dy == 0) ? 2'd0 : (face_dx == 0) ? 2'd1 : ((face_dx > 0) == (face_dy > 0) ? 2'd2 : 2'd3);
-                            end else if (!pb_active[2]) begin
-                                pb_active[2] <= 1'b1; pb_x[2] <= px; pb_y[2] <= py;
-                                pb_vx[2] <= (face_dx == 0 && face_dy == 0) ? 5'sd6 : (face_dx * 5'sd6);
-                                pb_vy[2] <= face_dy * 5'sd6;
-                                pb_dir[2] <= (face_dy == 0) ? 2'd0 : (face_dx == 0) ? 2'd1 : ((face_dx > 0) == (face_dy > 0) ? 2'd2 : 2'd3);
-                            end else if (!pb_active[3]) begin
-                                pb_active[3] <= 1'b1; pb_x[3] <= px; pb_y[3] <= py;
-                                pb_vx[3] <= (face_dx == 0 && face_dy == 0) ? 5'sd6 : (face_dx * 5'sd6);
-                                pb_vy[3] <= face_dy * 5'sd6;
-                                pb_dir[3] <= (face_dy == 0) ? 2'd0 : (face_dx == 0) ? 2'd1 : ((face_dx > 0) == (face_dy > 0) ? 2'd2 : 2'd3);
+                            if (gun1_valid) begin
+                                gdx = $signed({1'b0, gun1_x}) - $signed({1'b0, px});
+                                gdy = $signed({2'b00, gun1_y}) - $signed({2'b00, py});
+                            end else begin
+                                gdx = (face_dx == 0 && face_dy == 0) ? 12'sd6 : {{9{face_dx[2]}}, face_dx};
+                                gdy = {{9{face_dy[2]}}, face_dy};
+                            end
+                            agx = (gdx < 0) ? -gdx : gdx;
+                            agy = (gdy < 0) ? -gdy : gdy;
+                            for (idx = 0; idx < 4; idx = idx + 1) begin
+                                if (!pb_active[idx] && (idx == 0 || (idx == 1 && pb_active[0]) || (idx == 2 && pb_active[0] && pb_active[1]) || (idx == 3 && pb_active[0] && pb_active[1] && pb_active[2]))) begin
+                                    pb_active[idx] <= 1'b1; pb_x[idx] <= px; pb_y[idx] <= py;
+                                    if (agx > (agy << 1)) begin
+                                        pb_vx[idx] <= (gdx >= 0) ? 5'sd6 : -5'sd6; pb_vy[idx] <= 5'sd0; pb_dir[idx] <= 2'd0;
+                                    end else if (agy > (agx << 1)) begin
+                                        pb_vx[idx] <= 5'sd0; pb_vy[idx] <= (gdy >= 0) ? 5'sd6 : -5'sd6; pb_dir[idx] <= 2'd1;
+                                    end else begin
+                                        pb_vx[idx] <= (gdx >= 0) ? 5'sd5 : -5'sd5; pb_vy[idx] <= (gdy >= 0) ? 5'sd5 : -5'sd5;
+                                        pb_dir[idx] <= ((gdx >= 0) == (gdy >= 0)) ? 2'd2 : 2'd3;
+                                    end
+                                end
                             end
                         end
                         if (p2_alive && j2_shoot && p2_gun_cd == 0) begin
                             p2_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p2_ooc_t <= 9'd0; p2_regen_div <= 6'd0;
-                            if (!pb_active[4]) begin
-                                pb_active[4] <= 1'b1; pb_x[4] <= p2x; pb_y[4] <= p2y;
-                                pb_vx[4] <= (p2_face_dx == 0 && p2_face_dy == 0) ? 5'sd6 : (p2_face_dx * 5'sd6);
-                                pb_vy[4] <= p2_face_dy * 5'sd6;
-                                pb_dir[4] <= (p2_face_dy == 0) ? 2'd0 : (p2_face_dx == 0) ? 2'd1 : ((p2_face_dx > 0) == (p2_face_dy > 0) ? 2'd2 : 2'd3);
-                            end else if (!pb_active[5]) begin
-                                pb_active[5] <= 1'b1; pb_x[5] <= p2x; pb_y[5] <= p2y;
-                                pb_vx[5] <= (p2_face_dx == 0 && p2_face_dy == 0) ? 5'sd6 : (p2_face_dx * 5'sd6);
-                                pb_vy[5] <= p2_face_dy * 5'sd6;
-                                pb_dir[5] <= (p2_face_dy == 0) ? 2'd0 : (p2_face_dx == 0) ? 2'd1 : ((p2_face_dx > 0) == (p2_face_dy > 0) ? 2'd2 : 2'd3);
-                            end else if (!pb_active[6]) begin
-                                pb_active[6] <= 1'b1; pb_x[6] <= p2x; pb_y[6] <= p2y;
-                                pb_vx[6] <= (p2_face_dx == 0 && p2_face_dy == 0) ? 5'sd6 : (p2_face_dx * 5'sd6);
-                                pb_vy[6] <= p2_face_dy * 5'sd6;
-                                pb_dir[6] <= (p2_face_dy == 0) ? 2'd0 : (p2_face_dx == 0) ? 2'd1 : ((p2_face_dx > 0) == (p2_face_dy > 0) ? 2'd2 : 2'd3);
-                            end else if (!pb_active[7]) begin
-                                pb_active[7] <= 1'b1; pb_x[7] <= p2x; pb_y[7] <= p2y;
-                                pb_vx[7] <= (p2_face_dx == 0 && p2_face_dy == 0) ? 5'sd6 : (p2_face_dx * 5'sd6);
-                                pb_vy[7] <= p2_face_dy * 5'sd6;
-                                pb_dir[7] <= (p2_face_dy == 0) ? 2'd0 : (p2_face_dx == 0) ? 2'd1 : ((p2_face_dx > 0) == (p2_face_dy > 0) ? 2'd2 : 2'd3);
+                            if (gun2_valid) begin
+                                gdx = $signed({1'b0, gun2_x}) - $signed({1'b0, p2x});
+                                gdy = $signed({2'b00, gun2_y}) - $signed({2'b00, p2y});
+                            end else begin
+                                gdx = (p2_face_dx == 0 && p2_face_dy == 0) ? 12'sd6 : {{9{p2_face_dx[2]}}, p2_face_dx};
+                                gdy = {{9{p2_face_dy[2]}}, p2_face_dy};
+                            end
+                            agx = (gdx < 0) ? -gdx : gdx;
+                            agy = (gdy < 0) ? -gdy : gdy;
+                            for (idx = 4; idx < 8; idx = idx + 1) begin
+                                if (!pb_active[idx] && (idx == 4 || (idx == 5 && pb_active[4]) || (idx == 6 && pb_active[4] && pb_active[5]) || (idx == 7 && pb_active[4] && pb_active[5] && pb_active[6]))) begin
+                                    pb_active[idx] <= 1'b1; pb_x[idx] <= p2x; pb_y[idx] <= p2y;
+                                    if (agx > (agy << 1)) begin
+                                        pb_vx[idx] <= (gdx >= 0) ? 5'sd6 : -5'sd6; pb_vy[idx] <= 5'sd0; pb_dir[idx] <= 2'd0;
+                                    end else if (agy > (agx << 1)) begin
+                                        pb_vx[idx] <= 5'sd0; pb_vy[idx] <= (gdy >= 0) ? 5'sd6 : -5'sd6; pb_dir[idx] <= 2'd1;
+                                    end else begin
+                                        pb_vx[idx] <= (gdx >= 0) ? 5'sd5 : -5'sd5; pb_vy[idx] <= (gdy >= 0) ? 5'sd5 : -5'sd5;
+                                        pb_dir[idx] <= ((gdx >= 0) == (gdy >= 0)) ? 2'd2 : 2'd3;
+                                    end
+                                end
                             end
                         end
 
@@ -1135,6 +1144,8 @@ module game_engine_v2 (
                 6'd42: begin
                     best1_valid <= 0; best1_d <= 12'd72; best1_x <= px; best1_y <= py;
                     best2_valid <= 0; best2_d <= 12'd72; best2_x <= p2x; best2_y <= p2y;
+                    gun1_valid  <= 0; gun1_d  <= 12'd240; gun1_x <= px; gun1_y <= py;
+                    gun2_valid  <= 0; gun2_d  <= 12'd240; gun2_x <= p2x; gun2_y <= p2y;
                     tdmg1_acc   <= 0; tdmg2_acc <= 0;
                     e_idx       <= 4'd0;
                     step_state  <= 6'd43;
@@ -1150,9 +1161,11 @@ module game_engine_v2 (
                         d1_m = (dx_diff < 0 ? -dx_diff : dx_diff) + (dy_diff < 0 ? -dy_diff : dy_diff);
                         d2_m = (dx2_diff < 0 ? -dx2_diff : dx2_diff) + (dy2_diff < 0 ? -dy2_diff : dy2_diff);
 
-                        // Lock-On Running Min Update
+                        // Lock-On Running Min Update (Melee <=72px, Gun Auto-Aim <=240px)
                         if (d1_m < best1_d) begin best1_valid <= 1'b1; best1_d <= d1_m; best1_x <= en_x[e_idx]; best1_y <= en_y[e_idx]; end
                         if (d2_m < best2_d) begin best2_valid <= 1'b1; best2_d <= d2_m; best2_x <= en_x[e_idx]; best2_y <= en_y[e_idx]; end
+                        if (d1_m < gun1_d)  begin gun1_valid  <= 1'b1; gun1_d  <= d1_m; gun1_x  <= en_x[e_idx]; gun1_y  <= en_y[e_idx]; end
+                        if (d2_m < gun2_d)  begin gun2_valid  <= 1'b1; gun2_d  <= d2_m; gun2_x  <= en_x[e_idx]; gun2_y  <= en_y[e_idx]; end
 
                         // Enemy AI Move & Ranged Bolt
                         if (world_tick) begin
@@ -1300,6 +1313,8 @@ module game_engine_v2 (
                         lock_y     <= p1_alive ? ((d1_m <= 12'd96 && d1_m < best1_d + 12'd16) ? boss_y : best1_y) : ((d2_m <= 12'd96 && d2_m < best2_d + 12'd16) ? boss_y : best2_y);
                         if (d1_m <= 12'd96 && d1_m < best1_d + 12'd16) begin best1_valid <= 1'b1; best1_x <= boss_x; best1_y <= boss_y; end
                         if (d2_m <= 12'd96 && d2_m < best2_d + 12'd16) begin best2_valid <= 1'b1; best2_x <= boss_x; best2_y <= boss_y; end
+                        if (d1_m < gun1_d) begin gun1_valid <= 1'b1; gun1_d <= d1_m; gun1_x <= boss_x; gun1_y <= boss_y; end
+                        if (d2_m < gun2_d) begin gun2_valid <= 1'b1; gun2_d <= d2_m; gun2_x <= boss_x; gun2_y <= boss_y; end
                     end else begin
                         lock_valid <= p1_alive ? best1_valid : best2_valid;
                         lock_x     <= p1_alive ? best1_x     : best2_x;
@@ -1330,60 +1345,70 @@ module game_engine_v2 (
                         end
                     end
 
-                    // Boss AI (3 Distinct Patterns: Ajarn_V_1 Goose, Ajarn_V_2 Iron-Arm, Ajarn_V Thanos VERY HARD!)
+                    // Boss AI (ALL 3 Forms Aggressively Stalk Nearest Alive Player in Both X & Y!)
                     if (boss_active && boss_hp > 0) begin
                         if (world_tick) begin
                             boss_ai_timer <= boss_ai_timer + 8'd1;
-                            if (boss_kind == 2'd0) begin
-                                // Boss 0 (Ajarn_V_1): Chases Target Steadily inside Room!
-                                if (px > boss_x + 2 && boss_x < 11'd528) boss_x <= boss_x + 11'd1; else if (px + 2 < boss_x && boss_x > 11'd100) boss_x <= boss_x - 11'd1;
-                                if (py > boss_y + 2 && boss_y < 10'd340) boss_y <= boss_y + 10'd1; else if (py + 2 < boss_y && boss_y > 10'd100) boss_y <= boss_y - 10'd1;
-                            end else if (boss_kind == 2'd1) begin
-                                // Boss 1 (Ajarn_V_2): Patrolling Y + Orb Waves + Laser
-                                if (boss_dir_y == 0) begin if (boss_y < 10'd330) boss_y <= boss_y + 10'd2; else boss_dir_y <= 1'b1; end
-                                else                 begin if (boss_y > 10'd110) boss_y <= boss_y - 10'd2; else boss_dir_y <= 1'b0; end
-                            end else begin
-                                // Boss 2 (Ajarn_V THANOS): Relentless Stalk + Meteor Storm + 8-Way Barrage!
-                                if (p1_alive ? (px > boss_x + 4) : (p2x > boss_x + 4)) begin
-                                    if (boss_x < 11'd528) boss_x <= boss_x + (boss_enraged ? 11'd2 : 11'd1);
-                                end else if (p1_alive ? (px + 4 < boss_x) : (p2x + 4 < boss_x)) begin
-                                    if (boss_x > 11'd100) boss_x <= boss_x - (boss_enraged ? 11'd2 : 11'd1);
-                                end
-                                if (boss_dir_y == 0) begin if (boss_y < 10'd336) boss_y <= boss_y + (boss_enraged ? 10'd3 : 10'd2); else boss_dir_y <= 1'b1; end
-                                else                 begin if (boss_y > 10'd104) boss_y <= boss_y - (boss_enraged ? 10'd3 : 10'd2); else boss_dir_y <= 1'b0; end
-
-                                // Infinity Stone Meteor Strike every ~2.5s (faster when Enraged!)
-                                if ((boss_ai_timer == 8'd120 || (boss_enraged && boss_ai_timer == 8'd240)) && !drop_active[2]) begin
-                                    drop_active[2] <= 1'b1; drop_x[2] <= p1_alive ? px : p2x; drop_y[2] <= p1_alive ? py : p2y;
-                                    drop_z[2] <= 7'd75; drop_type[2] <= 2'd2; drop_boom[2] <= 5'd0;
-                                end
-                                // Enraged Thanos summons 4 Human-Face Minions inside the room if empty!
-                                if (boss_enraged && boss_ai_timer == 8'd150 && en_alive_vec == 16'b0) begin
-                                    set_en(0, 11'd200, 10'd120, 3'd3, 2'd3, 4'd8, 20);
-                                    set_en(1, 11'd200, 10'd320, 3'd7, 2'd3, 4'd8, 35);
-                                    set_en(2, 11'd480, 10'd120, 3'd1, 2'd3, 4'd8, 45);
-                                    set_en(3, 11'd480, 10'd320, 3'd4, 2'd3, 4'd8, 55);
+                            next_x = p1_alive ? px : p2x;
+                            next_y = p1_alive ? py : p2y;
+                            if (p1_alive && p2_alive) begin
+                                dx_diff  = $signed({1'b0, px})  - $signed({1'b0, boss_x});
+                                dy_diff  = $signed({2'b00, py}) - $signed({2'b00, boss_y});
+                                dx2_diff = $signed({1'b0, p2x}) - $signed({1'b0, boss_x});
+                                dy2_diff = $signed({2'b00, p2y}) - $signed({2'b00, boss_y});
+                                if (((dx2_diff < 0 ? -dx2_diff : dx2_diff) + (dy2_diff < 0 ? -dy2_diff : dy2_diff)) <
+                                    ((dx_diff  < 0 ? -dx_diff  : dx_diff)  + (dy_diff  < 0 ? -dy_diff  : dy_diff))) begin
+                                    next_x = p2x; next_y = p2y;
                                 end
                             end
 
-                            if (boss_ai_timer == 8'd65 || boss_ai_timer == 8'd135 || boss_ai_timer == 8'd205 ||
-                                (boss_kind == 2'd2 && (boss_ai_timer == 8'd30 || boss_ai_timer == 8'd100 || boss_ai_timer == 8'd170))) begin
-                                eb_active[2]<=1; eb_x[2]<=boss_x-20; eb_y[2]<=boss_y; eb_vx[2]<=-5'sd3; eb_vy[2]<= 5'sd0;
-                                eb_active[3]<=1; eb_x[3]<=boss_x-20; eb_y[3]<=boss_y; eb_vx[3]<=-5'sd2; eb_vy[3]<=-5'sd2;
-                                eb_active[4]<=1; eb_x[4]<=boss_x-20; eb_y[4]<=boss_y; eb_vx[4]<=-5'sd2; eb_vy[4]<= 5'sd2;
-                                if (boss_kind == 2'd2 || boss_enraged) begin
-                                    eb_active[5]<=1; eb_x[5]<=boss_x; eb_y[5]<=boss_y; eb_vx[5]<=5'sd0; eb_vy[5]<=(py>boss_y)?5'sd3:-5'sd3;
-                                    eb_active[6]<=1; eb_x[6]<=boss_x+20; eb_y[6]<=boss_y; eb_vx[6]<=5'sd3; eb_vy[6]<=5'sd2;
-                                    eb_active[7]<=1; eb_x[7]<=boss_x+20; eb_y[7]<=boss_y; eb_vx[7]<=5'sd3; eb_vy[7]<=-5'sd2;
+                            // Aggressive Dual-Axis Chase (Form 0: 1..2 px, Form 1: 2 px, Form 2: 2..3 px!)
+                            if (next_x > boss_x + 11'd3 && boss_x < 11'd528)
+                                boss_x <= boss_x + ((boss_kind == 2'd2 && boss_enraged) ? 11'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd2 : 11'd1));
+                            else if (next_x + 11'd3 < boss_x && boss_x > 11'd100)
+                                boss_x <= boss_x - ((boss_kind == 2'd2 && boss_enraged) ? 11'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd2 : 11'd1));
+
+                            if (next_y > boss_y + 10'd3 && boss_y < 10'd340)
+                                boss_y <= boss_y + ((boss_kind == 2'd2 && boss_enraged) ? 10'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd2 : 10'd1));
+                            else if (next_y + 10'd3 < boss_y && boss_y > 10'd100)
+                                boss_y <= boss_y - ((boss_kind == 2'd2 && boss_enraged) ? 10'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd2 : 10'd1));
+
+                            if (boss_kind >= 2'd1) begin
+                                // Meteor Strike on Target Player
+                                if ((boss_ai_timer == 8'd90 || boss_ai_timer == 8'd180 || (boss_enraged && boss_ai_timer == 8'd45)) && !drop_active[2]) begin
+                                    drop_active[2] <= 1'b1; drop_x[2] <= next_x; drop_y[2] <= next_y;
+                                    drop_z[2] <= 7'd65; drop_type[2] <= 2'd2; drop_boom[2] <= 5'd0;
+                                end
+                                // Boss Summons 4 Minions when room is empty!
+                                if ((boss_ai_timer == 8'd110 || (boss_kind == 2'd2 && boss_ai_timer == 8'd220)) && en_alive_vec == 16'b0) begin
+                                    set_en(0, 11'd160, 10'd110, 3'd3, 2'd3, 4'd9, 15);
+                                    set_en(1, 11'd160, 10'd330, 3'd7, 2'd3, 4'd9, 25);
+                                    set_en(2, 11'd480, 10'd110, 3'd1, 2'd3, 4'd9, 35);
+                                    set_en(3, 11'd480, 10'd330, 3'd4, 2'd3, 4'd9, 45);
+                                end
+                            end
+
+                            // Aimed + Multi-Way Barrages (much faster!)
+                            if (boss_ai_timer == 8'd45 || boss_ai_timer == 8'd95 || boss_ai_timer == 8'd145 || boss_ai_timer == 8'd195 ||
+                                ((boss_kind == 2'd2 || boss_enraged) && (boss_ai_timer == 8'd20 || boss_ai_timer == 8'd70 || boss_ai_timer == 8'd120 || boss_ai_timer == 8'd170))) begin
+                                eb_active[2]<=1; eb_x[2]<=boss_x; eb_y[2]<=boss_y;
+                                eb_vx[2]<=(next_x>boss_x+12)?5'sd3:((next_x+12<boss_x)?-5'sd3:5'sd0);
+                                eb_vy[2]<=(next_y>boss_y+12)?5'sd3:((next_y+12<boss_y)?-5'sd3:5'sd0);
+                                eb_active[3]<=1; eb_x[3]<=boss_x-16; eb_y[3]<=boss_y; eb_vx[3]<=-5'sd3; eb_vy[3]<=-5'sd2;
+                                eb_active[4]<=1; eb_x[4]<=boss_x-16; eb_y[4]<=boss_y; eb_vx[4]<=-5'sd3; eb_vy[4]<= 5'sd2;
+                                if (boss_kind >= 2'd1 || boss_enraged) begin
+                                    eb_active[5]<=1; eb_x[5]<=boss_x; eb_y[5]<=boss_y; eb_vx[5]<=5'sd0; eb_vy[5]<=(next_y>boss_y)?5'sd3:-5'sd3;
+                                    eb_active[6]<=1; eb_x[6]<=boss_x+16; eb_y[6]<=boss_y; eb_vx[6]<=5'sd3; eb_vy[6]<=5'sd2;
+                                    eb_active[7]<=1; eb_x[7]<=boss_x+16; eb_y[7]<=boss_y; eb_vx[7]<=5'sd3; eb_vy[7]<=-5'sd2;
                                 end
                             end
 
                             if (boss_kind >= 2'd1) begin
                                 if (laser_state == 2'd0) begin
-                                    if ((boss_enraged && (boss_ai_timer == 8'd95 || (boss_kind == 2'd2 && boss_ai_timer == 8'd195))) ||
-                                        (!boss_enraged && boss_ai_timer == 8'd230)) begin
-                                        laser_state <= 2'd1; laser_timer <= (boss_kind == 2'd2 && boss_enraged) ? 8'd45 : 8'd65;
-                                        laser_y <= p1_alive ? py : p2y;
+                                    if ((boss_enraged && (boss_ai_timer == 8'd75 || boss_ai_timer == 8'd165)) ||
+                                        (!boss_enraged && boss_ai_timer == 8'd185)) begin
+                                        laser_state <= 2'd1; laser_timer <= (boss_kind == 2'd2 && boss_enraged) ? 8'd40 : 8'd55;
+                                        laser_y <= next_y;
                                     end
                                 end else if (laser_state == 2'd1) begin
                                     if (laser_timer > 0) laser_timer <= laser_timer - 8'd1;
@@ -1505,9 +1530,9 @@ module game_engine_v2 (
                         game_state <= ST_LOSE; end_lockout <= 7'd90;
                     end else if (game_state == ST_PLAY) begin
                         if (room_phase == RP_FIGHT && wave < FINAL_WAVE && en_alive_vec == 16'b0 && !boss_active) begin
-                            if (!wave_sub) begin
-                                wave_sub <= 1'b1;
-                                spawn_wave_group(wave, 1'b1);
+                            if (wave_sub < ((wave == 4'd1) ? 3'd2 : ((wave <= 4'd3) ? 3'd3 : 3'd4))) begin
+                                wave_sub <= wave_sub + 3'd1;
+                                spawn_wave_group(wave, wave_sub + 3'd1);
                                 sfx_evolve <= 1'b1; shake_mag <= 4'd4;
                             end else begin
                                 room_phase <= RP_CLEAR; sfx_pickup <= 1'b1;
