@@ -6,7 +6,7 @@ D:/vivado_pj/DRAGO_NEXUS_V2/rtl/acl_tilt.v,1794306612,verilog,,D:/vivado_pj/DRAG
 D:/vivado_pj/DRAGO_NEXUS_V2/rtl/audio_synth_v2.v,1794324614,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/board_io_v2.v,,audio_synth_v2,,,,,,,,
 D:/vivado_pj/DRAGO_NEXUS_V2/rtl/board_io_v2.v,1794482642,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/clk_gen.v,,board_io_v2,,,,,,,,
 D:/vivado_pj/DRAGO_NEXUS_V2/rtl/clk_gen.v,1794301099,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/drago_nexus_v2_top.v,,clk_gen,,,,,,,,
-D:/vivado_pj/DRAGO_NEXUS_V2/rtl/drago_nexus_v2_top.v,1794482815,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/game_engine_v2.v,,drago_nexus_v2_top,,,,,,,,
+D:/vivado_pj/DRAGO_NEXUS_V2/rtl/drago_nexus_v2_top.v,1794493351,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/game_engine_v2.v,,drago_nexus_v2_top,,,,,,,,
 D:/vivado_pj/DRAGO_NEXUS_V2/rtl/game_engine_v2.v,1794490049,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/roms.v,,game_engine_v2,,,,,,,,
 D:/vivado_pj/DRAGO_NEXUS_V2/rtl/roms.v,1794301102,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/uart_joy_rx.v,,rom_1p;rom_dp;rom_lut,,,,,,,,
 D:/vivado_pj/DRAGO_NEXUS_V2/rtl/uart_joy_rx.v,1794482524,verilog,,D:/vivado_pj/DRAGO_NEXUS_V2/rtl/vga_renderer_v2.v,,uart_joy_rx,,,,,,,,

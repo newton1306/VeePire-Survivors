@@ -34,7 +34,8 @@ module tb_game_v2;
     wire        pet_active, blades_active, aura_active, pet_b_act, lock_valid, boss_active, boss_locked, boss_enraged;
     wire [5:0]  exp, invuln_timer, p2_invuln;
     wire [15:0] score_bcd, en_alive_vec;
-    wire [6:0]  chrono_energy, combo_cnt, zoom_lvl, boss_hp;
+    wire [6:0]  chrono_energy, combo_cnt, zoom_lvl, quiz_wrong_t;
+    wire [7:0]  boss_hp;
     wire [16*11-1:0] en_x_vec;
     wire [16*10-1:0] en_y_vec;
     wire [16*3-1:0]  en_type_vec;
@@ -59,7 +60,7 @@ module tb_game_v2;
     wire [1:0]       hero_sel_r = sw[3]  ? 2'd3 : (sw[2]  ? 2'd2 : (sw[1]  ? 2'd1 : 2'd0));
     wire [2:0]       room_phase;
     wire [6:0]       wave_banner_t;
-    wire [5:0]       door_slam_t, quiz_wrong_t;
+    wire [5:0]       door_slam_t;
     wire [4:0]       door_slide;
     wire [2:0]       quiz_gate;
     wire [1:0]       quiz_cursor, quiz_ans_slot;
@@ -235,8 +236,8 @@ module tb_game_v2;
             $display("FAIL: Y button did not spawn blue gun bullet!"); fail_cnt = fail_cnt + 1;
         end else $display("OK: Y button fired elongated blue gun bullet (pb_active=%b)!", pb_active_vec);
 
-        // 2d. Out-of-combat HP regeneration test
-        u_engine.hp = 5'd16; u_engine.p1_ooc_t = 9'd179; u_engine.p1_regen_div = 6'd28;
+        // 2d. Out-of-combat HP regeneration test (6s wait = 360 frames, 1.5s/HP = 90 frames)
+        u_engine.hp = 5'd16; u_engine.p1_ooc_t = 9'd359; u_engine.p1_regen_div = 7'd88;
         repeat (5) step_frame();
         if (hp <= 5'd16) begin
             $display("FAIL: Out-of-combat HP regen did not heal! hp=%d", hp); fail_cnt = fail_cnt + 1;

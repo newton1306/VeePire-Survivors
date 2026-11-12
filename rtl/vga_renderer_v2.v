@@ -88,7 +88,7 @@ module vga_renderer_v2 (
 
     input  wire [10:0] boss_x,
     input  wire [9:0]  boss_y, laser_y,
-    input  wire [6:0]  boss_hp,
+    input  wire [7:0]  boss_hp,
     input  wire [1:0]  boss_kind,
     input  wire        boss_active, boss_locked, boss_enraged,
     input  wire [1:0]  laser_state,
@@ -101,7 +101,7 @@ module vga_renderer_v2 (
     input  wire [2:0]  quiz_gate,
     input  wire [1:0]  quiz_cursor,
     input  wire [1:0]  quiz_ans_slot,
-    input  wire [5:0]  quiz_wrong_t,
+    input  wire [6:0]  quiz_wrong_t,
     input  wire [7:0]  boss_trans_t,
     input  wire        paused,
 
@@ -191,8 +191,10 @@ module vga_renderer_v2 (
     wire signed [11:0] p2sx = $signed({1'b0, p_ref_x}) - $signed({1'b0, target_p2x}) + 12'sd16;
     wire signed [11:0] p2sy = $signed({2'b00, p_ref_y}) - $signed({2'b00, target_p2y}) + 12'sd16;
 
-    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < 32) && ((game_state == 3'd0) || (in_playfield && !(hp == 0 && anim_cnt[21])));
-    wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_playfield && !(hp2 == 0 && anim_cnt[21]));
+    wire p1_dead_floor = (game_state == 3'd2 && in_playfield && hp == 0);
+    wire p2_dead_floor = (game_state == 3'd2 && in_playfield && p2_active && hp2 == 0);
+    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < 32) && ((game_state == 3'd0) || in_playfield);
+    wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_playfield);
     wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < 32);
     wire on_player_box = on_p1_box || on_p2_box;
     wire sel_p2_0      = !on_p1_box && on_p2_box;
@@ -203,7 +205,7 @@ module vga_renderer_v2 (
     wire [10:0] rad2_sq = (p2sx[5:0] - 6'sd16)*(p2sx[5:0] - 6'sd16) + (p2sy[5:0] - 6'sd16)*(p2sy[5:0] - 6'sd16);
     always @(*) begin
         on_aura_0 = 1'b0; aura_col_0 = 6'd58;
-        if (aura_active && (game_state == 3'd2 || (game_state == 3'd1 && cut_id == 2'd3)) && in_playfield) begin
+        if (aura_active && p1_slash_t == 0 && p2_slash_t == 0 && (game_state == 3'd2 || (game_state == 3'd1 && cut_id == 2'd3)) && in_playfield) begin
             if ((on_p1_box && hp > 0 && rad_sq >= 11'd210 && rad_sq <= 11'd250) ||
                 (on_p2_box && hp2 > 0 && rad2_sq >= 11'd210 && rad2_sq <= 11'd250)) begin
                 if ((psx[0]^psy[0]) ^ anim_cnt[22]) begin on_aura_0 = 1'b1; aura_col_0 = anim_cnt[22] ? 6'd58 : 6'd59; end
@@ -211,7 +213,7 @@ module vga_renderer_v2 (
         end
     end
 
-    wire on_ghost = (game_state == 3'd2 && in_playfield) && (
+    wire on_ghost = (game_state == 3'd2 && in_playfield && p1_slash_t == 0 && p2_slash_t == 0) && (
                     (dash_timer > 0 && hp > 0 && ($signed({1'b0, wx}) >= $signed({1'b0, dash_gx})-12'sd10) && ($signed({1'b0, wx}) < $signed({1'b0, dash_gx})+12'sd10) && ($signed({2'b00, wy}) >= $signed({2'b00, dash_gy})-12'sd10) && ($signed({2'b00, wy}) < $signed({2'b00, dash_gy})+12'sd10) && (wx[0]^wy[0])) ||
                     (p2_active && hp2 > 0 && p2_dash_timer > 0 && ($signed({1'b0, wx}) >= $signed({1'b0, p2_dash_gx})-12'sd10) && ($signed({1'b0, wx}) < $signed({1'b0, p2_dash_gx})+12'sd10) && ($signed({2'b00, wy}) >= $signed({2'b00, p2_dash_gy})-12'sd10) && ($signed({2'b00, wy}) < $signed({2'b00, p2_dash_gy})+12'sd10) && (wx[0]^wy[0])));
 
@@ -224,27 +226,36 @@ module vga_renderer_v2 (
     wire [1:0] p_pose = (game_state == 3'd0) ? {1'b0, anim_cnt[23]} :
                         (sel_p2_0 ? ((p2_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, p2_walk_frame})) :
                                     ((p1_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, walk_frame})));
+    wire       cur_dead_0 = sel_p2_0 ? p2_dead_floor : p1_dead_floor;
     wire [4:0] p_rawx = sel_p2_0 ? p2sx[4:0] : psx[4:0];
     wire [4:0] p_rawy = sel_p2_0 ? p2sy[4:0] : psy[4:0];
     wire       p_mir  = sel_p2_0 ? p2_mirror : mirror;
-    wire [4:0] p_col  = (p_mir && game_state != 3'd0) ? (5'd31 - p_rawx) : p_rawx;
+    wire [4:0] p_col_norm = (p_mir && game_state != 3'd0) ? (5'd31 - p_rawx) : p_rawx;
+    // Dead player lies flat horizontally on the floor!
+    wire [4:0] p_rom_y = cur_dead_0 ? p_rawx : p_rawy;
+    wire [4:0] p_rom_x = cur_dead_0 ? (5'd31 - p_rawy) : p_col_norm;
     wire [11:0] player_pix_1;
     rom_1p #(.DW(12), .AW(14), .DEPTH(16384), .FILE("player_sprites.mem")) u_player_rom (
-        .clk(clk), .addr({p_form_idx, p_pose, p_rawy, p_col}), .q(player_pix_1)
+        .clk(clk), .addr({p_form_idx, p_pose, p_rom_y, p_rom_x}), .q(player_pix_1)
     );
 
-    // 3. 3 Unique 64x64 Bosses (Ajarn_V_1, Ajarn_V_2, Ajarn_V Thanos -> 32K x 12-bit RGB444!)
+    // 3. 3 Unique 64x64 Bosses (or Giant 128x128 Angry Ajarn_V Form 2 on Wrong Quiz!)
+    wire wrong_boss_active = (game_state == 3'd2 && room_phase == 3'd3 && quiz_wrong_t > 0);
+    wire in_caution_banner = wrong_boss_active && (gy >= 9'd108 && gy < 9'd158);
     wire show_boss_cut = (game_state == 3'd1 && cut_id == 2'd2);
     wire [10:0] target_bx = (game_state == 3'd0) ? 11'd220 : (show_boss_cut ? 11'd255 : boss_x);
     wire [9:0]  target_by = (game_state == 3'd0) ? 10'd156 : (show_boss_cut ? 10'd120 : boss_y);
     wire [10:0] b_ref_x   = (game_state == 3'd0 || show_boss_cut) ? {2'd0, gx} : wx;
     wire [9:0]  b_ref_y   = (game_state == 3'd0 || show_boss_cut) ? {1'd0, gy} : wy;
-    wire signed [11:0] bsx = $signed({1'b0, b_ref_x}) - $signed({1'b0, target_bx}) + 12'sd32;
-    wire signed [11:0] bsy = $signed({2'b00, b_ref_y}) - $signed({2'b00, target_by}) + 12'sd32;
-    wire on_boss_box = (bsx >= 0 && bsx < 64 && bsy >= 0 && bsy < 64) &&
-                       ((game_state == 3'd0) || show_boss_cut || (in_playfield && boss_active && boss_hp > 0));
-    wire [1:0] eff_bkind = (game_state == 3'd0) ? 2'd2 : boss_kind;
-    wire b_frame = (game_state == 3'd0 || show_boss_cut) ? anim_cnt[24] : boss_enraged;
+    wire signed [11:0] bsx_norm = $signed({1'b0, b_ref_x}) - $signed({1'b0, target_bx}) + 12'sd32;
+    wire signed [11:0] bsy_norm = $signed({2'b00, b_ref_y}) - $signed({2'b00, target_by}) + 12'sd32;
+    wire signed [11:0] bsx = wrong_boss_active ? (($signed({3'b000, gx}) - 12'sd96) >>> 1) : bsx_norm;
+    wire signed [11:0] bsy = wrong_boss_active ? (($signed({3'b000, gy}) - 12'sd36) >>> 1) : bsy_norm;
+    wire on_boss_box = wrong_boss_active ? (gx >= 9'd96 && gx < 9'd224 && gy >= 9'd36 && gy < 9'd164) :
+                       ((bsx >= 0 && bsx < 64 && bsy >= 0 && bsy < 64) &&
+                        ((game_state == 3'd0) || show_boss_cut || (in_playfield && boss_active && boss_hp > 0)));
+    wire [1:0] eff_bkind = wrong_boss_active ? 2'd1 : ((game_state == 3'd0) ? 2'd2 : boss_kind);
+    wire b_frame = wrong_boss_active ? 1'b1 : ((game_state == 3'd0 || show_boss_cut) ? anim_cnt[24] : boss_enraged);
     wire [11:0] boss_pix_1;
     rom_1p #(.DW(12), .AW(15), .DEPTH(32768), .FILE("boss_sprites.mem")) u_boss_rom (
         .clk(clk), .addr({eff_bkind, b_frame, bsy[5:0], bsx[5:0]}), .q(boss_pix_1)
@@ -352,9 +363,9 @@ module vga_renderer_v2 (
         endcase
 
         if (in_playfield) begin
-            // 12 Hit Particle Sparks!
+            // 12 Hit Particle Sparks (suppressed while swinging sword for clean visual!)
             for (k_fx = 0; k_fx < 12; k_fx = k_fx + 1) begin
-                if (sp_alive_vec[k_fx]) begin
+                if (sp_alive_vec[k_fx] && p1_slash_t == 0 && p2_slash_t == 0) begin
                     bx_d = $signed({1'b0, wx}) - $signed({1'b0, sp_x_vec[k_fx*11 +: 11]});
                     by_d = $signed({2'b00, wy}) - $signed({2'b00, sp_y_vec[k_fx*10 +: 10]});
                     if (bx_d >= -2 && bx_d <= 2 && by_d >= -2 && by_d <= 2 && (bx_d == 0 || by_d == 0)) begin
@@ -396,42 +407,42 @@ module vga_renderer_v2 (
             end
 
             // P1 Clear 12-px Crescent Slash + Sword Beam OR 360 Double-Ring Nova!
-            // 4-Phase Pixel-Art Sword Swing Animation (Anticipation -> Smear 1 -> Hit Crescent -> Follow Through)
+            // Longer 4-Phase Pixel-Art Sword Swing Animation (reach ~34px, clean white/silver!)
             if (p1_slash_t > 0) begin
                 bx_d = $signed({1'b0, wx}) - $signed({1'b0, px});
                 by_d = $signed({2'b00, wy}) - $signed({2'b00, py});
-                if (bx_d >= -12'sd26 && bx_d <= 12'sd26 && by_d >= -12'sd26 && by_d <= 12'sd26) begin
+                if (bx_d >= -12'sd36 && bx_d <= 12'sd36 && by_d >= -12'sd36 && by_d <= 12'sd36) begin
                     ax_d  = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
                     oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
                     dot_d = ((p1_slash_dx == 0) ? 12'sd0 : ((p1_slash_dx > 0) ? bx_d : -bx_d)) +
                             ((p1_slash_dy == 0) ? 12'sd0 : ((p1_slash_dy > 0) ? by_d : -by_d));
                     sw_up = (p1_slash_dy == 0) ? -by_d : ((p1_slash_dx == 0) ? bx_d : -by_d);
                     if (p1_nova) begin
-                        if (oct_d >= 12'sd15 && oct_d <= 12'sd22) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd19) ? 6'd17 : 6'd59;
+                        if (oct_d >= 12'sd22 && oct_d <= 12'sd31) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd27) ? 6'd17 : 6'd55;
                         end
                     end else if (p1_slash_t >= 4'd10) begin
-                        // Phase 1: Anticipation (blade cocked up-back)
-                        if (sw_up >= 12'sd5 && sw_up <= 12'sd20 && dot_d >= -12'sd9 && dot_d <= -12'sd1 &&
-                            (dot_d + (sw_up >> 2) >= -12'sd5) && (dot_d + (sw_up >> 2) <= -12'sd2)) begin
-                            on_pb_0 = 1; pb_col_0 = (dot_d + (sw_up >> 2) == -12'sd3) ? 6'd17 : 6'd55;
+                        // Phase 1: Anticipation (long blade cocked up-back)
+                        if (sw_up >= 12'sd6 && sw_up <= 12'sd28 && dot_d >= -12'sd12 && dot_d <= -12'sd1 &&
+                            (dot_d + (sw_up >> 2) >= -12'sd6) && (dot_d + (sw_up >> 2) <= -12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (dot_d + (sw_up >> 2) >= -12'sd4) ? 6'd17 : 6'd55;
                         end
                     end else if (p1_slash_t >= 4'd7) begin
-                        // Phase 2: Smear 1 (wide white sweeping arc from top-back to front)
-                        if (sw_up >= -12'sd3 && oct_d >= 12'sd12 && oct_d <= 12'sd25 &&
-                            (dot_d >= -12'sd5 || sw_up >= 12'sd8) && (dot_d + sw_up >= 12'sd6)) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18 || dot_d >= 12'sd14) ? 6'd17 : 6'd55;
+                        // Phase 2: Smear 1 (long sweeping white arc from overhead-back to front)
+                        if (sw_up >= -12'sd4 && oct_d >= 12'sd16 && oct_d <= 12'sd34 &&
+                            (dot_d >= -12'sd6 || sw_up >= 12'sd10) && (dot_d + sw_up >= 12'sd8)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd25 || dot_d >= 12'sd20) ? 6'd17 : 6'd55;
                         end
                     end else if (p1_slash_t >= 4'd4) begin
-                        // Phase 3: Hit (sharp hooked white crescent in front)
-                        if (dot_d >= 12'sd5 && sw_up >= -12'sd9 && sw_up <= 12'sd15 &&
-                            oct_d >= 12'sd12 && oct_d <= 12'sd23 && (dot_d >= (sw_up < 0 ? -sw_up : sw_up) + 12'sd2)) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd17 || sw_up >= 12'sd6) ? 6'd17 : 6'd55;
+                        // Phase 3: Hit (long sharp hooked white crescent in front)
+                        if (dot_d >= 12'sd6 && sw_up >= -12'sd12 && sw_up <= 12'sd20 &&
+                            oct_d >= 12'sd16 && oct_d <= 12'sd32 && (dot_d >= (sw_up < 0 ? -sw_up : sw_up) + 12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd23 || sw_up >= 12'sd8) ? 6'd17 : 6'd55;
                         end
                     end else begin
-                        // Phase 4: Follow Through (forward extended blade)
-                        if (dot_d >= 12'sd6 && dot_d <= 12'sd24 && sw_up >= -12'sd2 && sw_up <= 12'sd1) begin
-                            on_pb_0 = 1; pb_col_0 = (sw_up == 12'sd0 || dot_d >= 12'sd16) ? 6'd17 : 6'd55;
+                        // Phase 4: Follow Through (long forward extended blade)
+                        if (dot_d >= 12'sd8 && dot_d <= 12'sd34 && sw_up >= -12'sd2 && sw_up <= 12'sd1) begin
+                            on_pb_0 = 1; pb_col_0 = (sw_up == 12'sd0 || dot_d >= 12'sd22) ? 6'd17 : 6'd55;
                         end
                     end
                 end
@@ -440,34 +451,34 @@ module vga_renderer_v2 (
             if (p2_active && p2_slash_t > 0) begin
                 bx_d = $signed({1'b0, wx}) - $signed({1'b0, p2x});
                 by_d = $signed({2'b00, wy}) - $signed({2'b00, p2y});
-                if (bx_d >= -12'sd26 && bx_d <= 12'sd26 && by_d >= -12'sd26 && by_d <= 12'sd26) begin
+                if (bx_d >= -12'sd36 && bx_d <= 12'sd36 && by_d >= -12'sd36 && by_d <= 12'sd36) begin
                     ax_d  = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
                     oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
                     dot_d = ((p2_slash_dx == 0) ? 12'sd0 : ((p2_slash_dx > 0) ? bx_d : -bx_d)) +
                             ((p2_slash_dy == 0) ? 12'sd0 : ((p2_slash_dy > 0) ? by_d : -by_d));
                     sw_up = (p2_slash_dy == 0) ? -by_d : ((p2_slash_dx == 0) ? bx_d : -by_d);
                     if (p2_nova) begin
-                        if (oct_d >= 12'sd15 && oct_d <= 12'sd22) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd19) ? 6'd17 : 6'd60;
+                        if (oct_d >= 12'sd22 && oct_d <= 12'sd31) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd27) ? 6'd17 : 6'd55;
                         end
                     end else if (p2_slash_t >= 4'd10) begin
-                        if (sw_up >= 12'sd5 && sw_up <= 12'sd20 && dot_d >= -12'sd9 && dot_d <= -12'sd1 &&
-                            (dot_d + (sw_up >> 2) >= -12'sd5) && (dot_d + (sw_up >> 2) <= -12'sd2)) begin
-                            on_pb_0 = 1; pb_col_0 = (dot_d + (sw_up >> 2) == -12'sd3) ? 6'd17 : 6'd55;
+                        if (sw_up >= 12'sd6 && sw_up <= 12'sd28 && dot_d >= -12'sd12 && dot_d <= -12'sd1 &&
+                            (dot_d + (sw_up >> 2) >= -12'sd6) && (dot_d + (sw_up >> 2) <= -12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (dot_d + (sw_up >> 2) >= -12'sd4) ? 6'd17 : 6'd55;
                         end
                     end else if (p2_slash_t >= 4'd7) begin
-                        if (sw_up >= -12'sd3 && oct_d >= 12'sd12 && oct_d <= 12'sd25 &&
-                            (dot_d >= -12'sd5 || sw_up >= 12'sd8) && (dot_d + sw_up >= 12'sd6)) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18 || dot_d >= 12'sd14) ? 6'd17 : 6'd55;
+                        if (sw_up >= -12'sd4 && oct_d >= 12'sd16 && oct_d <= 12'sd34 &&
+                            (dot_d >= -12'sd6 || sw_up >= 12'sd10) && (dot_d + sw_up >= 12'sd8)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd25 || dot_d >= 12'sd20) ? 6'd17 : 6'd55;
                         end
                     end else if (p2_slash_t >= 4'd4) begin
-                        if (dot_d >= 12'sd5 && sw_up >= -12'sd9 && sw_up <= 12'sd15 &&
-                            oct_d >= 12'sd12 && oct_d <= 12'sd23 && (dot_d >= (sw_up < 0 ? -sw_up : sw_up) + 12'sd2)) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd17 || sw_up >= 12'sd6) ? 6'd17 : 6'd55;
+                        if (dot_d >= 12'sd6 && sw_up >= -12'sd12 && sw_up <= 12'sd20 &&
+                            oct_d >= 12'sd16 && oct_d <= 12'sd32 && (dot_d >= (sw_up < 0 ? -sw_up : sw_up) + 12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd23 || sw_up >= 12'sd8) ? 6'd17 : 6'd55;
                         end
                     end else begin
-                        if (dot_d >= 12'sd6 && dot_d <= 12'sd24 && sw_up >= -12'sd2 && sw_up <= 12'sd1) begin
-                            on_pb_0 = 1; pb_col_0 = (sw_up == 12'sd0 || dot_d >= 12'sd16) ? 6'd17 : 6'd55;
+                        if (dot_d >= 12'sd8 && dot_d <= 12'sd34 && sw_up >= -12'sd2 && sw_up <= 12'sd1) begin
+                            on_pb_0 = 1; pb_col_0 = (sw_up == 12'sd0 || dot_d >= 12'sd22) ? 6'd17 : 6'd55;
                         end
                     end
                 end
@@ -628,7 +639,7 @@ module vga_renderer_v2 (
     wire [5:0] rank_ch = (combo_cnt >= 7'd25) ? lch("S") : ((combo_cnt >= 7'd15) ? lch("A") : ((combo_cnt >= 7'd8) ? lch("B") : ((combo_cnt >= 7'd3) ? lch("C") : lch("D"))));
     wire [3:0] en_tens = (enemies_left >= 5'd10) ? 4'd1 : 4'd0;
     wire [3:0] en_ones = (enemies_left >= 5'd10) ? (enemies_left - 5'd10) : enemies_left[3:0];
-    wire [8:0] boss_bar_raw = (boss_kind == 2'd2) ? ({1'b0, boss_hp, 1'b0} + {3'd0, boss_hp[6:1]}) : ({1'b0, boss_hp, 1'b0} << 1);
+    wire [8:0] boss_bar_raw = (boss_kind == 2'd2) ? {1'b0, boss_hp} : ((boss_kind == 2'd1) ? ({1'b0, boss_hp} + {3'd0, boss_hp[7:2]}) : ({1'b0, boss_hp} + {2'd0, boss_hp[7:1]}));
     wire [8:0] boss_bar_w = (boss_bar_raw > 9'd240) ? 9'd240 : boss_bar_raw;
 
     reg [5:0] hud_char_code, hud_text_color, hud_bg_color;
@@ -984,15 +995,25 @@ module vga_renderer_v2 (
                         endcase
                     end
                 end
-                if (quiz_wrong_t > 0 && gy >= 9'd184 && gy < 9'd192 && col_1x >= 6'd12 && col_1x < 6'd28) begin
-                    hud_text_en = 1; hud_text_color = 6'd49; hud_char_row = gy - 9'd184;
-                    case (col_1x - 6'd12)
-                        0:hud_char_code=lch("W"); 1:hud_char_code=lch("R"); 2:hud_char_code=lch("O"); 3:hud_char_code=lch("N");
-                        4:hud_char_code=lch("G"); 5:hud_char_code=lch("!"); 6:hud_char_code=C_SP; 7:hud_char_code=lch("T");
-                        8:hud_char_code=lch("R"); 9:hud_char_code=lch("Y"); 10:hud_char_code=C_SP; 11:hud_char_code=lch("A");
-                        12:hud_char_code=lch("G"); 13:hud_char_code=lch("A"); 14:hud_char_code=lch("I"); 15:hud_char_code=lch("N");
-                        default:hud_char_code=C_SP;
-                    endcase
+                // Wrong Answer: Giant Angry Ajarn_V Form 2 + Yellow Caution Tape + Huge "F" & "GO RETAKE !!"
+                if (wrong_boss_active) begin
+                    if (gy >= 9'd117 && gy < 9'd149 && gx >= 9'd40 && gx < 9'd72) begin
+                        // Huge 4x4 "F" in Red
+                        hud_text_en = 1; hud_text_color = 6'd52;
+                        hud_char_row = (gy - 9'd117) >> 2; hud_char_col = (gx - 9'd40) >> 2;
+                        hud_char_code = lch("F");
+                    end else if (gy >= 9'd125 && gy < 9'd141 && gx >= 9'd88 && gx < 9'd280) begin
+                        // Bold 2x2 "GO RETAKE !!" in Black on Yellow Caution Tape
+                        hud_text_en = 1; hud_text_color = 6'd16;
+                        hud_char_row = (gy - 9'd125) >> 1; hud_char_col = (gx - 9'd88) >> 1;
+                        case ((gx - 9'd88) >> 4)
+                            0:hud_char_code=lch("G"); 1:hud_char_code=lch("O"); 2:hud_char_code=C_SP;
+                            3:hud_char_code=lch("R"); 4:hud_char_code=lch("E"); 5:hud_char_code=lch("T");
+                            6:hud_char_code=lch("A"); 7:hud_char_code=lch("K"); 8:hud_char_code=lch("E");
+                            9:hud_char_code=C_SP;     10:hud_char_code=C_EX;    11:hud_char_code=C_EX;
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end
                 end
             end
 
@@ -1129,6 +1150,17 @@ module vga_renderer_v2 (
                         8:hud_char_code=lch("O"); default:hud_char_code=C_SP;
                     endcase
                 end
+                // Bottom hint: "SELECT : MAIN MENU"
+                if (gy >= 9'd184 && gy < 9'd192 && col_1x >= 6'd11 && col_1x < 6'd29) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd184;
+                    case (col_1x - 6'd11)
+                        0:hud_char_code=lch("S"); 1:hud_char_code=lch("E"); 2:hud_char_code=lch("L"); 3:hud_char_code=lch("E");
+                        4:hud_char_code=lch("C"); 5:hud_char_code=lch("T"); 6:hud_char_code=C_SP;     7:hud_char_code=C_COL;
+                        8:hud_char_code=C_SP;     9:hud_char_code=lch("M"); 10:hud_char_code=lch("A"); 11:hud_char_code=lch("I");
+                        12:hud_char_code=lch("N"); 13:hud_char_code=C_SP;    14:hud_char_code=lch("M"); 15:hud_char_code=lch("E");
+                        16:hud_char_code=lch("N"); 17:hud_char_code=lch("U"); default:hud_char_code=C_SP;
+                    endcase
+                end
             end
 
             if (game_state == 3'd3 || game_state == 3'd4) begin
@@ -1190,10 +1222,13 @@ module vga_renderer_v2 (
     reg [5:0] hud_tcol_1=0, hud_bcol_1=0;
 
     reg in_room_1=0, in_room_2=0;
+    reg cur_dead_1=0, cur_dead_2=0;
+    reg wrong_boss_1=0, wrong_boss_2=0, in_caution_1=0, in_caution_2=0;
     wire in_room_0 = (wx >= 11'd64 && wx < 11'd576 && wy >= 10'd64 && wy < 10'd384);
 
     always @(posedge clk) begin
         hs_1 <= hs_0; vs_1 <= vs_0; vid_1 <= vid_0; in_room_1 <= in_room_0;
+        cur_dead_1 <= cur_dead_0; wrong_boss_1 <= wrong_boss_active; in_caution_1 <= in_caution_banner;
         wx_1 <= wx[3:0]; wy_1 <= wy[3:0]; gx_1 <= gx; gy_1 <= gy;
         on_p_1 <= on_player_box; sel_p2_1 <= sel_p2_0; on_aura_1 <= on_aura_0; aura_col_1 <= aura_col_0;
         on_ghost_1 <= on_ghost; on_b_1 <= on_boss_box; on_mon_1 <= on_mon_box; on_item_1 <= on_item_box; on_logo_1 <= in_logo_box;
@@ -1227,6 +1262,7 @@ module vga_renderer_v2 (
 
     always @(posedge clk) begin
         hs_2 <= hs_1; vs_2 <= vs_1; vid_2 <= vid_1; gx_2 <= gx_1; gy_2 <= gy_1; in_room_2 <= in_room_1;
+        cur_dead_2 <= cur_dead_1; wrong_boss_2 <= wrong_boss_1; in_caution_2 <= in_caution_1;
         p_pix_2 <= player_pix_1; b_pix_2 <= boss_pix_1; mon_pix_2 <= mon_pix_1; item_pix_2 <= item_pix_1; logo_pix_2 <= logo_pix_1;
         on_p_2 <= on_p_1; sel_p2_2 <= sel_p2_1; on_aura_2 <= on_aura_1; aura_col_2 <= aura_col_1;
         on_ghost_2 <= on_ghost_1; on_b_2 <= on_b_1; on_mon_2 <= on_mon_1; on_item_2 <= on_item_1; on_logo_2 <= on_logo_1;
@@ -1251,13 +1287,21 @@ module vga_renderer_v2 (
         direct_rgb_2     = 12'h000;
         final_idx_2      = 6'd0;
         if (hud_bit_2)            final_idx_2 = hud_tcol_2;
+        else if (in_caution_2)    final_idx_2 = ((gy_2 < 9'd114 || gy_2 >= 9'd152) ? ((gx_2[3] ^ gy_2[3]) ? 6'd58 : 6'd16) : 6'd58);
+        else if (wrong_boss_2 && on_b_2 && b_pix_2 != 12'd0) begin
+            use_direct_rgb_2 = 1'b1;
+            direct_rgb_2     = { (b_pix_2[11:8] > 4'hA ? 4'hF : (b_pix_2[11:8] + 4'h5)), b_pix_2[7:4] >> 1, b_pix_2[3:0] >> 1 };
+        end
         else if (hud_bg_en_2)     final_idx_2 = hud_bcol_2;
         else if (on_logo_2 && logo_pix_2 != 6'd0) final_idx_2 = logo_pix_2;
         else if (on_tag_2)        final_idx_2 = tag_col_2;
         else if (on_pb_2)         final_idx_2 = pb_col_2;
         else if (on_eb_2)         final_idx_2 = eb_col_2;
-        else if (on_p_2 && p_pix_2 != 12'd0 && !blink_cur) begin
-            if (evolve_flash > 0 && evolve_flash[1]) final_idx_2 = 6'd17;
+        else if (on_p_2 && p_pix_2 != 12'd0 && (!blink_cur || cur_dead_2)) begin
+            if (cur_dead_2) begin
+                use_direct_rgb_2 = 1'b1;
+                direct_rgb_2     = { p_pix_2[11:8] >> 1, p_pix_2[7:4] >> 2, p_pix_2[3:0] >> 2 };
+            end else if (evolve_flash > 0 && evolve_flash[1]) final_idx_2 = 6'd17;
             else if (p_pix_2 == 12'h112 && skin_rim != 2'd0)
                 final_idx_2 = (skin_rim == 2'd1) ? 6'd59 : ((skin_rim == 2'd2) ? 6'd58 : 6'd52);
             else begin

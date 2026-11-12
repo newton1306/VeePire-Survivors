@@ -91,7 +91,7 @@ module tb_vga_capture;
 
     wire [10:0] boss_x;
     wire [9:0]  boss_y, laser_y;
-    wire [6:0]  boss_hp;
+    wire [7:0]  boss_hp;
     wire [1:0]  boss_kind, laser_state;
     wire        boss_active, boss_locked, boss_enraged;
     wire        sfx_shoot, sfx_pickup, sfx_evolve, sfx_hit;
@@ -99,7 +99,8 @@ module tb_vga_capture;
     wire [1:0]  hero_sel_r = sw[3]  ? 2'd3 : (sw[2]  ? 2'd2 : (sw[1]  ? 2'd1 : 2'd0));
     wire [2:0]  room_phase;
     wire [6:0]  wave_banner_t;
-    wire [5:0]  door_slam_t, quiz_wrong_t;
+    wire [5:0]  door_slam_t;
+    wire [6:0]  quiz_wrong_t;
     wire [4:0]  door_slide;
     wire [2:0]  quiz_gate;
     wire [1:0]  quiz_cursor, quiz_ans_slot;
