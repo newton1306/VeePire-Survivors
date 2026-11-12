@@ -194,7 +194,7 @@ def main():
 
     port = args.port or find_nexys_com_port()
     print("==========================================================")
-    print("  DRAGO-NEXUS V2 : Twin USB Joystick -> Nexys A7 Bridge")
+    print("  VeePire Survivors : Twin USB Joystick -> Nexys A7 Bridge")
     print("==========================================================")
     print(f"  UART Port : {port} @ {args.baud} baud")
 
