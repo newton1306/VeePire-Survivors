@@ -1,0 +1,53 @@
+<svg viewBox="0 0 760 270" class="diag-svg" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284C7"/>
+    </marker>
+  </defs>
+  <rect x="2" y="2" width="756" height="266" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+  <!-- Left: Inputs -->
+  <rect x="18" y="24" width="165" height="58" rx="7" fill="#E0F2FE" stroke="#0284C7" stroke-width="1.8"/>
+  <text x="100" y="47" text-anchor="middle" font-size="12" font-weight="700" fill="#0369A1">Twin USB Joysticks</text>
+  <text x="100" y="65" text-anchor="middle" font-size="10" fill="#334155">PC Bridge (joy_bridge.py)</text>
+
+  <rect x="18" y="102" width="165" height="58" rx="7" fill="#FEF3C7" stroke="#D97706" stroke-width="1.8"/>
+  <text x="100" y="125" text-anchor="middle" font-size="12" font-weight="700" fill="#92400E">uart_joy_rx.v</text>
+  <text x="100" y="143" text-anchor="middle" font-size="10" fill="#334155">115200 baud + Pause Bit</text>
+
+  <rect x="18" y="180" width="165" height="62" rx="7" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.8"/>
+  <text x="100" y="203" text-anchor="middle" font-size="12" font-weight="700" fill="#166534">board_io_v2.v</text>
+  <text x="100" y="220" text-anchor="middle" font-size="10" fill="#334155">SW[3:0] Skins + 5ms Debounce</text>
+
+  <!-- Center: Game Engine -->
+  <rect x="245" y="45" width="215" height="175" rx="10" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2.2"/>
+  <text x="352" y="75" text-anchor="middle" font-size="14" font-weight="800" fill="#5B21B6">game_engine_v2.v</text>
+  <text x="352" y="96" text-anchor="middle" font-size="11" fill="#334155">Main FSM &amp; Room Sub-FSM</text>
+  <text x="352" y="116" text-anchor="middle" font-size="10" fill="#475569">• 60 Hz VBlank Tick Update</text>
+  <text x="352" y="134" text-anchor="middle" font-size="10" fill="#475569">• 16-Enemy Time-Multiplex</text>
+  <text x="352" y="152" text-anchor="middle" font-size="10" fill="#475569">• Lunge + 360° Nova + Zoom</text>
+  <text x="352" y="170" text-anchor="middle" font-size="10" fill="#475569">• Logic Gate Quiz &amp; Door</text>
+  <text x="352" y="188" text-anchor="middle" font-size="10" fill="#475569">• 3-Form Boss Portal AI</text>
+  <text x="352" y="206" text-anchor="middle" font-size="10" fill="#475569">• Start-Button Pause</text>
+
+  <!-- Right: Outputs -->
+  <rect x="520" y="24" width="218" height="72" rx="7" fill="#FCE7F3" stroke="#DB2777" stroke-width="1.8"/>
+  <text x="629" y="47" text-anchor="middle" font-size="12" font-weight="700" fill="#9D174D">vga_renderer_v2.v + BRAM</text>
+  <text x="629" y="65" text-anchor="middle" font-size="10" fill="#334155">5-Stage Pipeline (0 Bottleneck)</text>
+  <text x="629" y="81" text-anchor="middle" font-size="10" fill="#334155">VGA 640×480 @ 60 Hz (12-bit)</text>
+
+  <rect x="520" y="112" width="218" height="58" rx="7" fill="#FFEDD5" stroke="#EA580C" stroke-width="1.8"/>
+  <text x="629" y="135" text-anchor="middle" font-size="12" font-weight="700" fill="#9A3412">audio_synth_v2.v</text>
+  <text x="629" y="153" text-anchor="middle" font-size="10" fill="#334155">3-Ch BRAM Chiptune + SFX (PWM)</text>
+
+  <rect x="520" y="186" width="218" height="56" rx="7" fill="#E2E8F0" stroke="#475569" stroke-width="1.8"/>
+  <text x="629" y="209" text-anchor="middle" font-size="12" font-weight="700" fill="#1E293B">Board LEDs &amp; 7-Segment</text>
+  <text x="629" y="227" text-anchor="middle" font-size="10" fill="#334155">Score (BCD), Wave, HP, Stage</text>
+
+  <!-- Arrows -->
+  <line x1="100" y1="82" x2="100" y2="100" stroke="#0284C7" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="183" y1="131" x2="243" y2="131" stroke="#0284C7" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="183" y1="211" x2="243" y2="175" stroke="#0284C7" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="460" y1="95" x2="518" y2="60" stroke="#0284C7" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="460" y1="141" x2="518" y2="141" stroke="#0284C7" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="460" y1="185" x2="518" y2="214" stroke="#0284C7" stroke-width="2" marker-end="url(#arr)"/>
+</svg>

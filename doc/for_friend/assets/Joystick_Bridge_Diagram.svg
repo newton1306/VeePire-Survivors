@@ -1,0 +1,42 @@
+<svg viewBox="0 0 760 220" class="diag-svg" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0F766E"/>
+    </marker>
+  </defs>
+  <rect x="2" y="2" width="756" height="216" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+
+  <rect x="16" y="34" width="150" height="110" rx="8" fill="#E0F2FE" stroke="#0284C7" stroke-width="1.8"/>
+  <text x="91" y="60" text-anchor="middle" font-size="12" font-weight="800" fill="#0369A1">1. Twin USB Joysticks</text>
+  <text x="91" y="82" text-anchor="middle" font-size="10" fill="#334155">จอย 1 &amp; จอย 2 (สาย USB)</text>
+  <text x="91" y="100" text-anchor="middle" font-size="10" fill="#334155">รองรับทั้ง Analog 2 Speed</text>
+  <text x="91" y="118" text-anchor="middle" font-size="10" fill="#334155">และ Digital D-Pad + Start</text>
+
+  <rect x="196" y="34" width="175" height="110" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.8"/>
+  <text x="283" y="60" text-anchor="middle" font-size="12" font-weight="800" fill="#92400E">2. PC Python Bridge</text>
+  <text x="283" y="80" text-anchor="middle" font-size="10" fill="#334155">scripts/joy_bridge.py</text>
+  <text x="283" y="98" text-anchor="middle" font-size="10" fill="#334155">อ่านผ่าน Windows winmm.dll</text>
+  <text x="283" y="116" text-anchor="middle" font-size="10" fill="#334155">แพ็ค 3 ไบต์ทุก 1/60 วินาที</text>
+  <text x="283" y="132" text-anchor="middle" font-size="9.5" fill="#B45309">(ไม่ต้องลง Library เสริม!)</text>
+
+  <rect x="401" y="34" width="165" height="110" rx="8" fill="#CCFBF1" stroke="#0D9488" stroke-width="1.8"/>
+  <text x="483" y="60" text-anchor="middle" font-size="12" font-weight="800" fill="#115E59">3. USB-UART Cable</text>
+  <text x="483" y="82" text-anchor="middle" font-size="10" fill="#334155">ส่งผ่านพอร์ต COM (FTDI)</text>
+  <text x="483" y="100" text-anchor="middle" font-size="10" fill="#334155">ความเร็ว 115,200 bps</text>
+  <text x="483" y="118" text-anchor="middle" font-size="10" fill="#334155">เข้าขา UART_TXD_IN (C4)</text>
+
+  <rect x="596" y="34" width="148" height="110" rx="8" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.8"/>
+  <text x="670" y="60" text-anchor="middle" font-size="12" font-weight="800" fill="#5B21B6">4. FPGA Receiver</text>
+  <text x="670" y="82" text-anchor="middle" font-size="10" fill="#334155">uart_joy_rx.v (25 MHz)</text>
+  <text x="670" y="100" text-anchor="middle" font-size="10" fill="#334155">ตรวจบิต 0x80 Sync</text>
+  <text x="670" y="118" text-anchor="middle" font-size="10" fill="#334155">ถอดรหัส J1, J2 &amp; Pause</text>
+
+  <line x1="166" y1="89" x2="194" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
+  <line x1="371" y1="89" x2="399" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
+  <line x1="566" y1="89" x2="594" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
+
+  <!-- 3-Byte Packet Breakdown -->
+  <rect x="16" y="160" width="728" height="44" rx="6" fill="#0F172A"/>
+  <text x="380" y="178" text-anchor="middle" font-size="10.5" font-weight="700" fill="#38BDF8">โครงสร้างแพ็กเก็ต 3 ไบต์:   Byte 0 = [1 | P1_dy | P1_dx]    |    Byte 1 = [0 | P2_dy | P2_dx]    |    Byte 2 = [0 | Start(Pause) | P2_btn | P1_btn]</text>
+  <text x="380" y="195" text-anchor="middle" font-size="9.5" fill="#CBD5E1">บิตแรกสุด (MSB = 1) ของ Byte 0 ทำหน้าที่เป็นตัวล็อกหัวแถว ป้องกันข้อมูลสลับตำแหน่งแม้เสียบสายกลางคัน</text>
+</svg>
