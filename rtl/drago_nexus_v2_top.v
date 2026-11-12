@@ -140,15 +140,16 @@ module drago_nexus_v2_top (
 
     wire signed [2:0] j1_dx, j1_dy, j2_dx, j2_dy;
     wire [2:0]        j1_btn, j2_btn;
-    wire              joy_link_ok;
+    wire              joy_pause, joy_link_ok;
     uart_joy_rx u_uart_joy (
         .clk(clk25), .rst(rst), .uart_rxd(UART_TXD_IN),
         .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn),
-        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .joy_link_ok(joy_link_ok)
+        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn),
+        .joy_pause(joy_pause), .joy_link_ok(joy_link_ok)
     );
 
-    wire signed [2:0] hud_dx = (control_mode == 2'd0) ? tilt_dx : j1_dx;
-    wire signed [2:0] hud_dy = (control_mode == 2'd0) ? tilt_dy : j1_dy;
+    wire signed [2:0] hud_dx = j1_dx;
+    wire signed [2:0] hud_dy = j1_dy;
 
     // SW[3:0] Priority Human-Face Skin Selector (highest ON switch wins, no mixing!)
     wire [1:0] hero_sel = sw_sync[3] ? 2'd3 :
@@ -162,11 +163,12 @@ module drago_nexus_v2_top (
     wire [2:0] quiz_gate;
     wire [1:0] quiz_cursor, quiz_ans_slot;
     wire [7:0] boss_trans_t;
+    wire       paused;
 
     game_engine_v2 u_engine (
         .clk(clk25), .rst(rst), .tick(game_tick), .btn(btn_sync),
         .tilt_dx(tilt_dx), .tilt_dy(tilt_dy),
-        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn),
+        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .joy_pause(joy_pause),
         .map_addr_b(map_addr_b), .map_tile_b(map_tile_b),
         .control_mode(control_mode), .p2_active(p2_active), .zoom_lvl(zoom_lvl), .zoom_out(zoom_out), .enemies_left(enemies_left),
         .game_state(game_state), .cut_id(cut_id), .cut_timer(cut_timer), .wave(wave),
@@ -201,7 +203,7 @@ module drago_nexus_v2_top (
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
-        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t)
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused)
     );
 
     vga_renderer_v2 u_renderer (
@@ -242,7 +244,7 @@ module drago_nexus_v2_top (
         .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
-        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 

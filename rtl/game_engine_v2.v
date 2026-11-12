@@ -19,6 +19,7 @@ module game_engine_v2 (
     input  wire signed [2:0] j2_dx,
     input  wire signed [2:0] j2_dy,
     input  wire [2:0]        j2_btn,     // {fire, dash, chrono}
+    input  wire              joy_pause,  // Start button on Joystick -> Pause
 
     // Tilemap Dual-Port B (128x64 = 13-bit addr)
     output reg  [12:0] map_addr_b = 0,
@@ -148,25 +149,28 @@ module game_engine_v2 (
     output reg  [1:0]  quiz_cursor   = 2'd0,
     output reg  [1:0]  quiz_ans_slot = 2'd0,
     output reg  [5:0]  quiz_wrong_t  = 6'd0,
-    output reg  [7:0]  boss_trans_t  = 8'd0
+    output reg  [7:0]  boss_trans_t  = 8'd0,
+    output reg         paused        = 1'b0
 );
     localparam [2:0] ST_TITLE=3'd0, ST_CUTSCENE=3'd1, ST_PLAY=3'd2, ST_WIN=3'd3, ST_LOSE=3'd4;
     localparam [2:0] RP_BANNER=3'd0, RP_FIGHT=3'd1, RP_CLEAR=3'd2, RP_QUIZ=3'd3, RP_DOOR=3'd4, RP_BOSS=3'd5;
     localparam [3:0] FINAL_WAVE = 4'd6;
 
     wire btnc = btn[4], btnu = btn[3], btnd = btn[2], btnl = btn[1], btnr = btn[0];
-    wire use_joy   = (control_mode != 2'd0);
-    assign p2_active = (control_mode == 2'd2);
+    wire use_joy   = 1'b1;
+    assign p2_active = (control_mode == 2'd1);
     assign zoom_out  = (zoom_lvl > 7'd0);
 
     wire p1_alive = (hp > 3'd0);
     wire p2_alive = p2_active && (hp2 > 3'd0);
 
-    wire signed [2:0] p1_in_dx = use_joy ? j1_dx : tilt_dx;
-    wire signed [2:0] p1_in_dy = use_joy ? j1_dy : tilt_dy;
+    wire signed [2:0] p1_in_dx = j1_dx;
+    wire signed [2:0] p1_in_dy = j1_dy;
 
     reg [4:0] btn_prev = 0;
     reg [2:0] j1_btn_prev = 0, j2_btn_prev = 0;
+    reg       joy_pause_prev = 1'b0;
+    reg       wave_sub = 1'b0;
     reg signed [2:0] j1_dx_prev = 0, j2_dx_prev = 0;
     reg signed [2:0] j1_dy_prev = 0, j2_dy_prev = 0;
 
@@ -401,30 +405,29 @@ module game_engine_v2 (
 
     task automatic spawn_wave_group;
         input [3:0] wv;
+        input       sub;
         begin
             for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
             case (wv)
-                4'd1: begin // Wave 1: 4 Human-Face Minions (4 HP)
-                    set_en(0, 11'd340, 10'd130, 3'd0, 2'd0, 4'd4, 25);
-                    set_en(1, 11'd420, 10'd190, 3'd1, 2'd0, 4'd4, 40);
-                    set_en(2, 11'd380, 10'd280, 3'd2, 2'd0, 4'd4, 55);
-                    set_en(3, 11'd490, 10'd220, 3'd0, 2'd0, 4'd4, 70);
-                end
-                4'd2: begin // Wave 2: 6 Human-Face Minions (5..6 HP)
+                4'd1: begin // Wave 1: 6 + 6 = 12 Human-Face Minions (6..7 HP)
                     for (idx = 0; idx < 6; idx = idx + 1)
-                        set_en(idx, 11'd310 + ((idx % 3) * 11'd90), 10'd125 + ((idx / 3) * 10'd160), idx[2:0], 2'd1, 4'd6, 25 + idx*8);
+                        set_en(idx, 11'd300 + ((idx % 3) * 11'd90), 10'd120 + ((idx / 3) * 10'd160), idx[2:0] + (sub ? 3'd2 : 3'd0), sub ? 2'd1 : 2'd0, sub ? 4'd7 : 4'd6, 20 + idx*7);
                 end
-                4'd3: begin // Wave 3: 8 Human-Face Strikers (6..8 HP)
+                4'd2: begin // Wave 2: 8 + 8 = 16 Human-Face Minions (8 HP)
                     for (idx = 0; idx < 8; idx = idx + 1)
-                        set_en(idx, 11'd290 + ((idx % 4) * 11'd72), 10'd120 + ((idx / 4) * 10'd170), idx[2:0], 2'd1, 4'd7, 20 + idx*6);
+                        set_en(idx, 11'd280 + ((idx % 4) * 11'd74), 10'd115 + ((idx / 4) * 10'd170), idx[2:0] + (sub ? 3'd1 : 3'd0), 2'd1, 4'd8, 18 + idx*6);
                 end
-                4'd4: begin // Wave 4: 10 Human-Face Raiders (8 HP)
+                4'd3: begin // Wave 3: 10 + 10 = 20 Human-Face Strikers (9..10 HP)
                     for (idx = 0; idx < 10; idx = idx + 1)
-                        set_en(idx, 11'd270 + ((idx % 5) * 11'd60), 10'd120 + ((idx / 5) * 10'd175), idx[2:0], 2'd2, 4'd8, 20 + idx*5);
+                        set_en(idx, 11'd265 + ((idx % 5) * 11'd62), 10'd115 + ((idx / 5) * 10'd175), idx[2:0] + (sub ? 3'd2 : 3'd0), 2'd2, sub ? 4'd10 : 4'd9, 18 + idx*5);
                 end
-                4'd5: begin // Wave 5: 12 Human-Face Elites (10 HP)
+                4'd4: begin // Wave 4: 12 + 12 = 24 Human-Face Raiders (11..12 HP)
                     for (idx = 0; idx < 12; idx = idx + 1)
-                        set_en(idx, 11'd260 + ((idx % 4) * 11'd78), 10'd110 + ((idx / 4) * 10'd95), idx[2:0], 2'd3, 4'd10, 18 + idx*4);
+                        set_en(idx, 11'd255 + ((idx % 4) * 11'd80), 10'd108 + ((idx / 4) * 10'd95), idx[2:0] + (sub ? 3'd3 : 3'd0), 2'd2, sub ? 4'd12 : 4'd11, 16 + idx*4);
+                end
+                4'd5: begin // Wave 5: 14 + 14 = 28 Human-Face Elites (13..14 HP)
+                    for (idx = 0; idx < 14; idx = idx + 1)
+                        set_en(idx, 11'd240 + ((idx % 5) * 11'd68), 10'd108 + ((idx / 5) * 10'd92), idx[2:0] + (sub ? 3'd4 : 3'd0), 2'd3, sub ? 4'd14 : 4'd13, 15 + idx*4);
                 end
                 default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 -> 2 -> Thanos!)
                     boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 7'd40;
@@ -440,7 +443,7 @@ module game_engine_v2 (
             cam_x <= 11'd0; cam_y <= 10'd118; zoom_lvl <= 7'd0;
             hp <= 3'd6; hp2 <= 3'd6; exp <= 6'd0; stage <= 2'd0;
             score_bcd <= 16'd0; chrono_energy <= 7'd100;
-            wave <= 4'd1; zone2_open <= 1'b0; zone3_open <= 1'b0;
+            wave <= 4'd1; wave_sub <= 1'b0; paused <= 1'b0; zone2_open <= 1'b0; zone3_open <= 1'b0;
             room_phase <= RP_BANNER; wave_banner_t <= 7'd90; door_slam_t <= 6'd45;
             door_slide <= 5'd0; boss_trans_t <= 8'd0; quiz_wrong_t <= 6'd0;
             quiz_cursor <= 2'd0; quiz_gate <= 3'd0; quiz_ans_slot <= 2'd0;
@@ -560,10 +563,10 @@ module game_engine_v2 (
             btn_prev <= 0; j1_btn_prev <= 0; j2_btn_prev <= 0; j1_dx_prev <= 0; j2_dx_prev <= 0;
             fire_req <= 0; p2_fire_req <= 0;
         end else begin
-            if (game_state != ST_PLAY || room_phase == RP_QUIZ) begin
+            if (game_state != ST_PLAY || room_phase == RP_QUIZ || paused) begin
                 fire_req <= 1'b0; p2_fire_req <= 1'b0;
             end else begin
-                if (p1_alive && ((btnc && !btnc_prev_clk) || (use_joy && j1_btn[2] && !j1f_prev_clk)))
+                if (p1_alive && j1_btn[2] && !j1f_prev_clk)
                     fire_req <= 1'b1;
                 if (p2_alive && j2_btn[2] && !j2f_prev_clk)
                     p2_fire_req <= 1'b1;
@@ -598,16 +601,15 @@ module game_engine_v2 (
                     btn_prev <= btn; j1_btn_prev <= j1_btn; j2_btn_prev <= j2_btn;
                     j1_dx_prev <= j1_dx; j2_dx_prev <= j2_dx;
                     j1_dy_prev <= j1_dy; j2_dy_prev <= j2_dy;
+                    joy_pause_prev <= joy_pause;
                     frame_cnt <= frame_cnt + 9'd1;
 
                     if (shake_mag > 0) shake_mag <= shake_mag - 4'd1;
                     if (hit_stop > 0)  hit_stop  <= hit_stop - 3'd1;
 
                     if (game_state == ST_TITLE) begin
-                        if (any_right_edge) begin
-                            control_mode <= (control_mode == 2'd2) ? 2'd0 : (control_mode + 2'd1); sfx_pickup <= 1'b1;
-                        end else if (any_left_edge) begin
-                            control_mode <= (control_mode == 2'd0) ? 2'd2 : (control_mode - 2'd1); sfx_pickup <= 1'b1;
+                        if (any_right_edge || any_left_edge) begin
+                            control_mode <= (control_mode == 2'd0) ? 2'd1 : 2'd0; sfx_pickup <= 1'b1;
                         end else if (any_start_edge) begin
                             init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1;
                         end
@@ -620,6 +622,11 @@ module game_engine_v2 (
                         end else if (any_left_edge || any_right_edge) begin
                             init_game(); game_state <= ST_TITLE; sfx_pickup <= 1'b1;
                         end
+                    end else if (joy_pause && !joy_pause_prev && room_phase != RP_QUIZ) begin
+                        paused <= ~paused; sfx_pickup <= 1'b1;
+                    end else if (paused) begin
+                        // Game paused via Joystick Start button: freeze engine cleanly!
+                        step_state <= 6'd0;
                     end else if (room_phase == RP_QUIZ) begin
                         // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR ----
                         if (quiz_wrong_t > 0) quiz_wrong_t <= quiz_wrong_t - 6'd1;
@@ -641,7 +648,8 @@ module game_engine_v2 (
                         if (door_slam_t > 0)   door_slam_t   <= door_slam_t - 6'd1;
                         if (wave_banner_t > 0) wave_banner_t <= wave_banner_t - 7'd1;
                         if (room_phase == RP_BANNER && wave_banner_t == 7'd0) begin
-                            spawn_wave_group(wave);
+                            wave_sub <= 1'b0;
+                            spawn_wave_group(wave, 1'b0);
                             room_phase <= RP_FIGHT;
                         end else if (room_phase == RP_DOOR) begin
                             if (door_slide < 5'd31) door_slide <= door_slide + 5'd1;
@@ -1333,10 +1341,16 @@ module game_engine_v2 (
                         end else hp2 <= hp2 - 3'd1;
                     end
 
-                    // V5 ARENA ROOM PROGRESSION: FIGHT -> CLEAR_ARROW -> LOGIC GATE QUIZ -> DOOR_OPEN -> SLAM + WAVE BANNER!
+                    // V5 ARENA ROOM PROGRESSION: FIGHT (2 sub-waves) -> CLEAR_ARROW -> LOGIC GATE QUIZ -> DOOR_OPEN -> SLAM + WAVE BANNER!
                     if (game_state == ST_PLAY) begin
                         if (room_phase == RP_FIGHT && wave < FINAL_WAVE && en_alive_vec == 16'b0 && !boss_active) begin
-                            room_phase <= RP_CLEAR; sfx_pickup <= 1'b1;
+                            if (!wave_sub) begin
+                                wave_sub <= 1'b1;
+                                spawn_wave_group(wave, 1'b1);
+                                sfx_evolve <= 1'b1; shake_mag <= 4'd4;
+                            end else begin
+                                room_phase <= RP_CLEAR; sfx_pickup <= 1'b1;
+                            end
                         end else if (room_phase == RP_CLEAR) begin
                             if ((p1_alive && px >= 11'd516 && py >= 10'd176 && py <= 10'd272) ||
                                 (p2_alive && p2x >= 11'd516 && p2y >= 10'd176 && p2y <= 10'd272)) begin

@@ -14,6 +14,7 @@ module uart_joy_rx (
     output reg signed [2:0] j2_dx = 3'sd0,
     output reg signed [2:0] j2_dy = 3'sd0,
     output reg  [2:0] j2_btn      = 3'b0, // {fire, dash, chrono}
+    output reg        joy_pause   = 1'b0, // Start button (bit 6 of Byte 2)
     output reg        joy_link_ok = 1'b0
 );
     localparam integer CLKS_PER_BIT = 217; // 25,000,000 / 115,200 = 217.01
@@ -112,6 +113,7 @@ module uart_joy_rx (
             pkt_state   <= 2'd0;
             j1_dx       <= 3'sd0; j1_dy <= 3'sd0; j1_btn <= 3'b0;
             j2_dx       <= 3'sd0; j2_dy <= 3'sd0; j2_btn <= 3'b0;
+            joy_pause   <= 1'b0;
             joy_link_ok <= 1'b0;
             wdog_cnt    <= 25'd0;
         end else begin
@@ -121,6 +123,7 @@ module uart_joy_rx (
                 joy_link_ok <= 1'b0;
                 j1_dx <= 3'sd0; j1_dy <= 3'sd0; j1_btn <= 3'b0;
                 j2_dx <= 3'sd0; j2_dy <= 3'sd0; j2_btn <= 3'b0;
+                joy_pause <= 1'b0;
             end
 
             if (rx_valid) begin
@@ -137,6 +140,7 @@ module uart_joy_rx (
                     j2_dy       <= dec_axis(b1_latch[5:3]);
                     j1_btn      <= rx_byte[2:0];
                     j2_btn      <= rx_byte[5:3];
+                    joy_pause   <= rx_byte[6];
                     joy_link_ok <= 1'b1;
                     wdog_cnt    <= 25'd25000000;
                     pkt_state   <= 2'd0;
