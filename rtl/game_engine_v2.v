@@ -133,7 +133,7 @@ module game_engine_v2 (
     // 3 Distinct Bosses (Ajarn_V_1 Goose, Ajarn_V_2 Iron-Arm, Ajarn_V Thanos)
     output reg  [10:0] boss_x        = 11'd1840,
     output reg  [9:0]  boss_y        = 10'd512,
-    output reg  [6:0]  boss_hp       = 7'd100,
+    output reg  [7:0]  boss_hp       = 8'd140,
     output reg  [1:0]  boss_kind     = 2'd0,
     output reg         boss_active   = 1'b0,
     output wire        boss_locked,
@@ -155,7 +155,7 @@ module game_engine_v2 (
     output reg  [2:0]  quiz_gate     = 3'd0, // 0=AND,1=OR,2=NOT,3=NAND,4=NOR,5=XOR
     output reg  [1:0]  quiz_cursor   = 2'd0,
     output reg  [1:0]  quiz_ans_slot = 2'd0,
-    output reg  [5:0]  quiz_wrong_t  = 6'd0,
+    output reg  [6:0]  quiz_wrong_t  = 7'd0,
     output reg  [7:0]  boss_trans_t  = 8'd0,
     output reg         paused        = 1'b0
 );
@@ -213,7 +213,7 @@ module game_engine_v2 (
     assign blades_active = (game_state == ST_PLAY) && (stage >= 2'd2);
     assign aura_active   = (stage >= 2'd3);
     assign boss_locked   = (wave == FINAL_WAVE) && boss_active && (boss_hp > 0);
-    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 7'd64) : (boss_hp <= 7'd48);
+    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 8'd125) : ((boss_kind == 2'd1) ? (boss_hp <= 8'd95) : (boss_hp <= 8'd70));
 
     reg [1:0] p1_combo_step = 2'd0, p2_combo_step = 2'd0;
     reg [5:0] p1_combo_rst = 6'd0, p2_combo_rst = 6'd0;
@@ -260,9 +260,14 @@ module game_engine_v2 (
     reg signed [4:0] pb_vy [0:7];
     reg [1:0]  pb_dir    [0:7];
     reg        pb_active [0:7];
+    reg [4:0]  pb_tgt    [0:7];
+    reg        pb_homing [0:7];
     reg [3:0]  p1_gun_cd = 4'd0, p2_gun_cd = 4'd0;
     reg [8:0]  p1_ooc_t  = 9'd0, p2_ooc_t  = 9'd0;
-    reg [5:0]  p1_regen_div = 6'd0, p2_regen_div = 6'd0;
+    reg [6:0]  p1_regen_div = 7'd0, p2_regen_div = 7'd0;
+    reg [5:0]  p1_stun_t = 6'd0, p2_stun_t = 6'd0;
+    reg [2:0]  p1_boss_melee_cnt = 3'd0, p2_boss_melee_cnt = 3'd0;
+    reg [6:0]  p1_bmelee_rst = 7'd0, p2_bmelee_rst = 7'd0;
 
     reg [10:0] sp_x      [0:11];
     reg [9:0]  sp_y      [0:11];
@@ -357,6 +362,7 @@ module game_engine_v2 (
     reg        best1_valid = 0, best2_valid = 0;
     reg [10:0] best1_x = 0, best2_x = 0;
     reg        gun1_valid = 0, gun2_valid = 0;
+    reg [4:0]  gun1_idx = 0, gun2_idx = 0;
     reg [10:0] gun1_x = 0, gun2_x = 0;
     reg [9:0]  gun1_y = 0, gun2_y = 0;
     reg [11:0] gun1_d = 12'd260, gun2_d = 12'd260;
@@ -456,8 +462,8 @@ module game_engine_v2 (
                     for (idx = 0; idx < 16; idx = idx + 1)
                         set_en(idx, 11'd205 + ((idx % 4) * 11'd95), 10'd100 + ((idx / 4) * 10'd72), idx[2:0] + sub, 2'd3, (sub >= 3'd2) ? 4'd15 : 4'd14, 10 + idx*3);
                 end
-                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 90 HP -> 110 HP -> 127 HP!)
-                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 7'd90;
+                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 140 HP -> 190 HP -> 250 HP!)
+                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 8'd140;
                 end
             endcase
         end
@@ -470,7 +476,9 @@ module game_engine_v2 (
             cam_x <= 11'd0; cam_y <= 10'd118; zoom_lvl <= 7'd0;
             hp <= 5'd24; hp2 <= 5'd24; exp <= 6'd0; stage <= 2'd0;
             p1_gun_cd <= 4'd0; p2_gun_cd <= 4'd0;
-            p1_ooc_t <= 9'd0; p2_ooc_t <= 9'd0; p1_regen_div <= 6'd0; p2_regen_div <= 6'd0;
+            p1_ooc_t <= 9'd0; p2_ooc_t <= 9'd0; p1_regen_div <= 7'd0; p2_regen_div <= 7'd0;
+            p1_stun_t <= 6'd0; p2_stun_t <= 6'd0; p1_boss_melee_cnt <= 3'd0; p2_boss_melee_cnt <= 3'd0;
+            p1_bmelee_rst <= 7'd0; p2_bmelee_rst <= 7'd0;
             score_bcd <= 16'd0; chrono_energy <= 7'd100;
             wave <= 4'd1; wave_sub <= 3'd0; paused <= 1'b0; zone2_open <= 1'b0; zone3_open <= 1'b0;
             room_phase <= RP_BANNER; wave_banner_t <= 7'd90; door_slam_t <= 6'd45;
@@ -486,8 +494,8 @@ module game_engine_v2 (
             lock_valid <= 0; fire_req <= 0; p2_fire_req <= 0;
             shrine_cd <= 0; sky_drop_timer <= 0; pet_fire_cd <= 0; pet_b_act <= 0;
             face_dx <= 3'sd1; face_dy <= 3'sd0; p2_face_dx <= 3'sd1; p2_face_dy <= 3'sd0;
-            boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 7'd90;
-            gun1_valid <= 1'b0; gun2_valid <= 1'b0;
+            boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 8'd140;
+            gun1_valid <= 1'b0; gun2_valid <= 1'b0; gun1_idx <= 5'd0; gun2_idx <= 5'd0;
             boss_ai_timer <= 0; laser_state <= 0; laser_timer <= 0;
 
             for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
@@ -500,7 +508,7 @@ module game_engine_v2 (
             for (idx = 4; idx < 12; idx = idx + 1) col_alive[idx] <= 1'b0;
 
             for (idx = 0; idx < 4; idx = idx + 1) begin drop_active[idx] <= 1'b0; drop_boom[idx] <= 0; drop_z[idx] <= 0; end
-            for (idx = 0; idx < 8; idx = idx + 1) begin eb_active[idx] <= 1'b0; pb_active[idx] <= 1'b0; end
+            for (idx = 0; idx < 8; idx = idx + 1) begin eb_active[idx] <= 1'b0; pb_active[idx] <= 1'b0; pb_homing[idx] <= 1'b0; pb_tgt[idx] <= 5'd0; end
             for (idx = 0; idx < 12; idx = idx + 1) sp_t[idx] <= 5'd0;
         end
     endtask
@@ -527,7 +535,7 @@ module game_engine_v2 (
         ldx2 = $signed({1'b0, p2_tgt_x}) - $signed({1'b0, p2x});
         ldy2 = $signed({2'b00, p2_tgt_y}) - $signed({2'b00, p2y});
 
-        if (!p1_alive) begin
+        if (!p1_alive || p1_stun_t > 0) begin
             move_dx = 5'sd0; move_dy = 5'sd0;
         end else if (p1_lunge_t > 0) begin
             if (p1_has_tgt) begin
@@ -546,7 +554,7 @@ module game_engine_v2 (
             move_dy = (stage >= 2'd1 && p1_in_dy != 0) ? (p1_in_dy > 0 ? p1_in_dy + 5'sd1 : p1_in_dy - 5'sd1) : p1_in_dy;
         end
 
-        if (!p2_alive) begin
+        if (!p2_alive || p2_stun_t > 0) begin
             p2_move_dx = 5'sd0; p2_move_dy = 5'sd0;
         end else if (p2_lunge_t > 0) begin
             if (p2_has_tgt) begin
@@ -664,16 +672,16 @@ module game_engine_v2 (
                         step_state <= 6'd0;
                     end else if (room_phase == RP_QUIZ) begin
                         // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR ----
-                        if (quiz_wrong_t > 0) quiz_wrong_t <= quiz_wrong_t - 6'd1;
+                        if (quiz_wrong_t > 0) quiz_wrong_t <= quiz_wrong_t - 7'd1;
                         if (any_up_edge || any_left_edge) begin
                             quiz_cursor <= quiz_cursor - 2'd1; sfx_pickup <= 1'b1;
                         end else if (any_down_edge || any_right_edge) begin
                             quiz_cursor <= quiz_cursor + 2'd1; sfx_pickup <= 1'b1;
                         end else if (any_start_edge) begin
                             if (quiz_cursor == quiz_ans_slot) begin
-                                room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 6'd0; sfx_evolve <= 1'b1;
+                                room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
                             end else begin
-                                quiz_wrong_t <= 6'd35; sfx_hit <= 1'b1;
+                                quiz_wrong_t <= 7'd120; sfx_hit <= 1'b1; shake_mag <= 4'd6;
                                 quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
                                 quiz_ans_slot <= frame_cnt[1:0];
                             end
@@ -693,11 +701,11 @@ module game_engine_v2 (
                                 boss_trans_t <= boss_trans_t - 8'd1;
                                 if (boss_trans_t == 8'd1) begin
                                     if (boss_kind == 2'd0) begin
-                                        boss_kind <= 2'd1; boss_hp <= 7'd110; boss_active <= 1'b1;
+                                        boss_kind <= 2'd1; boss_hp <= 8'd190; boss_active <= 1'b1;
                                         boss_ai_timer <= 8'd0;
                                         room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
                                     end else if (boss_kind == 2'd1) begin
-                                        boss_kind <= 2'd2; boss_hp <= 7'd127; boss_active <= 1'b1;
+                                        boss_kind <= 2'd2; boss_hp <= 8'd250; boss_active <= 1'b1;
                                         boss_ai_timer <= 8'd0;
                                         room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
                                     end else begin
@@ -734,7 +742,7 @@ module game_engine_v2 (
                             if (frame_cnt[2:0] == 3'b000) p2_walk_frame <= ~p2_walk_frame;
                         end
 
-                        if (p1_alive && (btnu_edge || (use_joy && j1_dash_edge)) && dash_cd == 0) begin
+                        if (p1_alive && p1_stun_t == 0 && (btnu_edge || (use_joy && j1_dash_edge)) && dash_cd == 0) begin
                             dash_timer <= 5'd10; dash_cd <= 6'd36; invuln_timer <= 6'd15;
                             dash_gx <= px; dash_gy <= py; sfx_shoot <= 1'b1;
                         end else begin
@@ -742,7 +750,7 @@ module game_engine_v2 (
                             if (dash_cd > 0)    dash_cd    <= dash_cd - 6'd1;
                         end
 
-                        if (p2_alive && j2_dash_edge && p2_dash_cd == 0) begin
+                        if (p2_alive && p2_stun_t == 0 && j2_dash_edge && p2_dash_cd == 0) begin
                             p2_dash_timer <= 5'd10; p2_dash_cd <= 6'd36; p2_invuln <= 6'd15;
                             p2_dash_gx <= p2x; p2_dash_gy <= p2y; sfx_shoot <= 1'b1;
                         end else begin
@@ -761,10 +769,14 @@ module game_engine_v2 (
                         if (p2_slash_t > 0) p2_slash_t <= p2_slash_t - 4'd1;
                         if (p1_gun_cd > 0)  p1_gun_cd  <= p1_gun_cd - 4'd1;
                         if (p2_gun_cd > 0)  p2_gun_cd  <= p2_gun_cd - 4'd1;
+                        if (p1_stun_t > 0)  p1_stun_t  <= p1_stun_t - 6'd1;
+                        if (p2_stun_t > 0)  p2_stun_t  <= p2_stun_t - 6'd1;
+                        if (p1_bmelee_rst > 0) p1_bmelee_rst <= p1_bmelee_rst - 7'd1; else p1_boss_melee_cnt <= 3'd0;
+                        if (p2_bmelee_rst > 0) p2_bmelee_rst <= p2_bmelee_rst - 7'd1; else p2_boss_melee_cnt <= 3'd0;
 
-                        // Y Button: Fire Elongated Blue Gun Bullets with Smart Lock-On Aim Assist!
-                        if (p1_alive && j1_shoot && p1_gun_cd == 0) begin
-                            p1_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p1_ooc_t <= 9'd0; p1_regen_div <= 6'd0;
+                        // Y Button: Fire 100% Single-Target Lock-On Homing Blue Gun Bullets!
+                        if (p1_alive && p1_stun_t == 0 && j1_shoot && p1_gun_cd == 0) begin
+                            p1_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p1_ooc_t <= 9'd0; p1_regen_div <= 7'd0;
                             if (gun1_valid) begin
                                 gdx = $signed({1'b0, gun1_x}) - $signed({1'b0, px});
                                 gdy = $signed({2'b00, gun1_y}) - $signed({2'b00, py});
@@ -777,6 +789,7 @@ module game_engine_v2 (
                             for (idx = 0; idx < 4; idx = idx + 1) begin
                                 if (!pb_active[idx] && (idx == 0 || (idx == 1 && pb_active[0]) || (idx == 2 && pb_active[0] && pb_active[1]) || (idx == 3 && pb_active[0] && pb_active[1] && pb_active[2]))) begin
                                     pb_active[idx] <= 1'b1; pb_x[idx] <= px; pb_y[idx] <= py;
+                                    pb_tgt[idx] <= gun1_idx; pb_homing[idx] <= gun1_valid;
                                     if (agx > (agy << 1)) begin
                                         pb_vx[idx] <= (gdx >= 0) ? 5'sd6 : -5'sd6; pb_vy[idx] <= 5'sd0; pb_dir[idx] <= 2'd0;
                                     end else if (agy > (agx << 1)) begin
@@ -788,8 +801,8 @@ module game_engine_v2 (
                                 end
                             end
                         end
-                        if (p2_alive && j2_shoot && p2_gun_cd == 0) begin
-                            p2_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p2_ooc_t <= 9'd0; p2_regen_div <= 6'd0;
+                        if (p2_alive && p2_stun_t == 0 && j2_shoot && p2_gun_cd == 0) begin
+                            p2_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p2_ooc_t <= 9'd0; p2_regen_div <= 7'd0;
                             if (gun2_valid) begin
                                 gdx = $signed({1'b0, gun2_x}) - $signed({1'b0, p2x});
                                 gdy = $signed({2'b00, gun2_y}) - $signed({2'b00, p2y});
@@ -802,6 +815,7 @@ module game_engine_v2 (
                             for (idx = 4; idx < 8; idx = idx + 1) begin
                                 if (!pb_active[idx] && (idx == 4 || (idx == 5 && pb_active[4]) || (idx == 6 && pb_active[4] && pb_active[5]) || (idx == 7 && pb_active[4] && pb_active[5] && pb_active[6]))) begin
                                     pb_active[idx] <= 1'b1; pb_x[idx] <= p2x; pb_y[idx] <= p2y;
+                                    pb_tgt[idx] <= gun2_idx; pb_homing[idx] <= gun2_valid;
                                     if (agx > (agy << 1)) begin
                                         pb_vx[idx] <= (gdx >= 0) ? 5'sd6 : -5'sd6; pb_vy[idx] <= 5'sd0; pb_dir[idx] <= 2'd0;
                                     end else if (agy > (agx << 1)) begin
@@ -814,28 +828,28 @@ module game_engine_v2 (
                             end
                         end
 
-                        // Out-of-combat timer progression (resets on attack/shoot/damage)
+                        // Slower Out-of-Combat Regen (6s wait = 360 frames, +1 HP every 1.5s = 90 frames)
                         if (p1_alive && !fire_req && !j1_shoot) begin
-                            if (p1_ooc_t < 9'd180) p1_ooc_t <= p1_ooc_t + 9'd1;
+                            if (p1_ooc_t < 9'd360) p1_ooc_t <= p1_ooc_t + 9'd1;
                             else if (hp < 5'd24) begin
-                                if (p1_regen_div >= 6'd29) begin hp <= hp + 5'd1; p1_regen_div <= 6'd0; end
-                                else p1_regen_div <= p1_regen_div + 6'd1;
-                            end else p1_regen_div <= 6'd0;
+                                if (p1_regen_div >= 7'd89) begin hp <= hp + 5'd1; p1_regen_div <= 7'd0; end
+                                else p1_regen_div <= p1_regen_div + 7'd1;
+                            end else p1_regen_div <= 7'd0;
                         end else if (fire_req) begin
-                            p1_ooc_t <= 9'd0; p1_regen_div <= 6'd0;
+                            p1_ooc_t <= 9'd0; p1_regen_div <= 7'd0;
                         end
                         if (p2_alive && !p2_fire_req && !j2_shoot) begin
-                            if (p2_ooc_t < 9'd180) p2_ooc_t <= p2_ooc_t + 9'd1;
+                            if (p2_ooc_t < 9'd360) p2_ooc_t <= p2_ooc_t + 9'd1;
                             else if (hp2 < 5'd24) begin
-                                if (p2_regen_div >= 6'd29) begin hp2 <= hp2 + 5'd1; p2_regen_div <= 6'd0; end
-                                else p2_regen_div <= p2_regen_div + 6'd1;
-                            end else p2_regen_div <= 6'd0;
+                                if (p2_regen_div >= 7'd89) begin hp2 <= hp2 + 5'd1; p2_regen_div <= 7'd0; end
+                                else p2_regen_div <= p2_regen_div + 7'd1;
+                            end else p2_regen_div <= 7'd0;
                         end else if (p2_fire_req) begin
-                            p2_ooc_t <= 9'd0; p2_regen_div <= 6'd0;
+                            p2_ooc_t <= 9'd0; p2_regen_div <= 7'd0;
                         end
 
-                        // P1 3-Hit Melee Combo & Magnetic Lunge-Snap (uses latched Lock Target!)
-                        if (fire_req && p1_alive) begin
+                        // P1 3-Hit Melee Combo & Magnetic Lunge-Snap (blocked while stunned!)
+                        if (fire_req && p1_alive && p1_stun_t == 0) begin
                             fire_req <= 1'b0; sfx_shoot <= 1'b1;
                             p1_slash_t <= 4'd12; p1_hit_mask <= 16'b0; p1_boss_hit <= 1'b0;
                             p1_nova_r <= (p1_combo_step == 2'd2);
@@ -860,8 +874,8 @@ module game_engine_v2 (
                             end
                         end else fire_req <= 1'b0;
 
-                        // P2 3-Hit Melee Combo & Magnetic Lunge-Snap
-                        if (p2_fire_req && p2_alive) begin
+                        // P2 3-Hit Melee Combo & Magnetic Lunge-Snap (blocked while stunned!)
+                        if (p2_fire_req && p2_alive && p2_stun_t == 0) begin
                             p2_fire_req <= 1'b0; sfx_shoot <= 1'b1;
                             p2_slash_t <= 4'd12; p2_hit_mask <= 16'b0; p2_boss_hit <= 1'b0;
                             p2_nova_r <= (p2_combo_step == 2'd2);
@@ -1012,16 +1026,8 @@ module game_engine_v2 (
                         cam_y <= cam_y - ((d2_m == 0) ? 10'd1 : ((d2_m > 12'd8) ? 10'd8 : d2_m[9:0]));
                     end
 
-                    if (game_state == ST_PLAY && p2_active && (p1_alive ^ p2_alive)) begin
-                        if (dx_sep <= 11'd24 && dy_sep <= 10'd24) begin
-                            if (revive_prog >= 5'd24) begin
-                                revive_prog <= 0;
-                                if (!p1_alive && p2_alive) begin hp <= 5'd12; invuln_timer <= 6'd60; end
-                                if (!p2_alive && p1_alive) begin hp2 <= 5'd12; p2_invuln <= 6'd60; end
-                                sfx_evolve <= 1'b1;
-                            end else revive_prog <= revive_prog + 5'd1;
-                        end else revive_prog <= 0;
-                    end else revive_prog <= 0;
+                    // 2P dead partner stays down on floor until surviving player clears the wave!
+                    revive_prog <= 5'd0;
 
                     sx_tmp = $signed({2'b00, px}) + (p1_slash_dx * 13'sd16);
                     sy_tmp = $signed({3'b000, py}) + (p1_slash_dy * 13'sd16);
@@ -1089,11 +1095,11 @@ module game_engine_v2 (
                             if (p1_alive && (px + 14 > col_x[idx] && px < col_x[idx] + 14) && (py + 14 > col_y[idx] && py < col_y[idx] + 14)) begin
                                 col_alive[idx] <= 0; sfx_pickup <= 1;
                                 if (col_type[idx] == 0) begin next_exp = (next_exp + 6'd5 > 6'd63) ? 6'd63 : (next_exp + 6'd5); add_score(10'd25); end
-                                else begin if (hp < 5'd24) hp <= ({1'b0, hp} + 6'd8 > 6'd24) ? 5'd24 : (hp + 5'd8); else if (p2_active && hp2 == 0) hp2 <= 5'd8; add_score(10'd50); end
+                                else begin if (hp < 5'd24) hp <= ({1'b0, hp} + 6'd8 > 6'd24) ? 5'd24 : (hp + 5'd8); add_score(10'd50); end
                             end else if (p2_alive && (p2x + 14 > col_x[idx] && p2x < col_x[idx] + 14) && (p2y + 14 > col_y[idx] && p2y < col_y[idx] + 14)) begin
                                 col_alive[idx] <= 0; sfx_pickup <= 1;
                                 if (col_type[idx] == 0) begin next_exp = (next_exp + 6'd5 > 6'd63) ? 6'd63 : (next_exp + 6'd5); add_score(10'd25); end
-                                else begin if (hp2 < 5'd24) hp2 <= ({1'b0, hp2} + 6'd8 > 6'd24) ? 5'd24 : (hp2 + 5'd8); else if (hp == 0) hp <= 5'd8; add_score(10'd50); end
+                                else begin if (hp2 < 5'd24) hp2 <= ({1'b0, hp2} + 6'd8 > 6'd24) ? 5'd24 : (hp2 + 5'd8); add_score(10'd50); end
                             end
                         end
                     end
@@ -1119,8 +1125,8 @@ module game_engine_v2 (
                                 drop_active[idx] <= 0; sfx_pickup <= 1;
                                 next_exp = (next_exp + 6'd10 > 6'd63) ? 6'd63 : (next_exp + 6'd10);
                                 if (drop_type[idx] == 2'd0) begin
-                                    if (p1_alive) hp <= ({1'b0, hp} + 6'd8 > 6'd24) ? 5'd24 : (hp + 5'd8); else if (p2_alive) hp <= 5'd12;
-                                    if (p2_active) begin if (p2_alive) hp2 <= ({1'b0, hp2} + 6'd8 > 6'd24) ? 5'd24 : (hp2 + 5'd8); else if (p1_alive) hp2 <= 5'd12; end
+                                    if (p1_alive) hp <= ({1'b0, hp} + 6'd8 > 6'd24) ? 5'd24 : (hp + 5'd8);
+                                    if (p2_active && p2_alive) hp2 <= ({1'b0, hp2} + 6'd8 > 6'd24) ? 5'd24 : (hp2 + 5'd8);
                                     chrono_energy <= 7'd100; add_score(10'd100);
                                 end else add_score(10'd50);
                             end
@@ -1164,8 +1170,8 @@ module game_engine_v2 (
                         // Lock-On Running Min Update (Melee <=72px, Gun Auto-Aim <=240px)
                         if (d1_m < best1_d) begin best1_valid <= 1'b1; best1_d <= d1_m; best1_x <= en_x[e_idx]; best1_y <= en_y[e_idx]; end
                         if (d2_m < best2_d) begin best2_valid <= 1'b1; best2_d <= d2_m; best2_x <= en_x[e_idx]; best2_y <= en_y[e_idx]; end
-                        if (d1_m < gun1_d)  begin gun1_valid  <= 1'b1; gun1_d  <= d1_m; gun1_x  <= en_x[e_idx]; gun1_y  <= en_y[e_idx]; end
-                        if (d2_m < gun2_d)  begin gun2_valid  <= 1'b1; gun2_d  <= d2_m; gun2_x  <= en_x[e_idx]; gun2_y  <= en_y[e_idx]; end
+                        if (d1_m < gun1_d)  begin gun1_valid  <= 1'b1; gun1_d  <= d1_m; gun1_x  <= en_x[e_idx]; gun1_y  <= en_y[e_idx]; gun1_idx <= {1'b0, e_idx}; end
+                        if (d2_m < gun2_d)  begin gun2_valid  <= 1'b1; gun2_d  <= d2_m; gun2_x  <= en_x[e_idx]; gun2_y  <= en_y[e_idx]; gun2_idx <= {1'b0, e_idx}; end
 
                         // Enemy AI Move & Ranged Bolt
                         if (world_tick) begin
@@ -1180,15 +1186,15 @@ module game_engine_v2 (
                                 end
                                 if (en_type[e_idx] == 3'd1 || en_type[e_idx] == 3'd5 || en_type[e_idx] == 3'd6) begin
                                     if (en_cd[e_idx] == 0) begin
-                                        en_cd[e_idx] <= 8'd125;
+                                        en_cd[e_idx] <= (wave >= 4'd4) ? 8'd45 : 8'd65;
                                         if (!eb_active[0]) begin
                                             eb_active[0]<=1; eb_x[0]<=en_x[e_idx]; eb_y[0]<=en_y[e_idx];
-                                            eb_vx[0]<=(next_x>en_x[e_idx]+12)?5'sd2:((next_x+12<en_x[e_idx])?-5'sd2:5'sd0);
-                                            eb_vy[0]<=(next_y>en_y[e_idx]+12)?5'sd2:((next_y+12<en_y[e_idx])?-5'sd2:5'sd0);
+                                            eb_vx[0]<=(next_x>en_x[e_idx]+12)?5'sd3:((next_x+12<en_x[e_idx])?-5'sd3:5'sd0);
+                                            eb_vy[0]<=(next_y>en_y[e_idx]+12)?5'sd3:((next_y+12<en_y[e_idx])?-5'sd3:5'sd0);
                                         end else if (!eb_active[1]) begin
                                             eb_active[1]<=1; eb_x[1]<=en_x[e_idx]; eb_y[1]<=en_y[e_idx];
-                                            eb_vx[1]<=(next_x>en_x[e_idx]+12)?5'sd2:((next_x+12<en_x[e_idx])?-5'sd2:5'sd0);
-                                            eb_vy[1]<=(next_y>en_y[e_idx]+12)?5'sd2:((next_y+12<en_y[e_idx])?-5'sd2:5'sd0);
+                                            eb_vx[1]<=(next_x>en_x[e_idx]+12)?5'sd3:((next_x+12<en_x[e_idx])?-5'sd3:5'sd0);
+                                            eb_vy[1]<=(next_y>en_y[e_idx]+12)?5'sd3:((next_y+12<en_y[e_idx])?-5'sd3:5'sd0);
                                         end
                                     end else en_cd[e_idx] <= en_cd[e_idx] - 8'd1;
                                 end
@@ -1205,12 +1211,11 @@ module game_engine_v2 (
                             if (combo_cnt < 7'd99) combo_cnt <= combo_cnt + 7'd1;
                             combo_timer <= 8'd180;
                             if (p1_nova) shake_mag <= 4'd4;
-                            spawn_sparks(en_x[e_idx], en_y[e_idx]);
                             if (en_hp[e_idx] <= dmg1_eff) begin
                                 en_alive[e_idx] <= 0; en_hp[e_idx] <= 0; add_score(10'd50);
                                 if (!col_alive[col_slot_e]) begin
                                     col_alive[col_slot_e] <= 1; col_x[col_slot_e] <= en_x[e_idx]; col_y[col_slot_e] <= en_y[e_idx];
-                                    col_type[col_slot_e]  <= ((hp <= 5'd12 || (p2_active && hp2 <= 5'd12)) && e_idx[0]) ? 1'b1 : 1'b0;
+                                    col_type[col_slot_e]  <= ((hp <= 5'd10 || (p2_active && hp2 <= 5'd10)) && e_idx[2:0] == 3'd0 && frame_cnt[1:0] == 2'd0) ? 1'b1 : 1'b0;
                                 end
                             end else begin
                                 en_hp[e_idx] <= en_hp[e_idx] - dmg1_eff;
@@ -1228,12 +1233,11 @@ module game_engine_v2 (
                             if (combo_cnt < 7'd99) combo_cnt <= combo_cnt + 7'd1;
                             combo_timer <= 8'd180;
                             if (p2_nova) shake_mag <= 4'd4;
-                            spawn_sparks(en_x[e_idx], en_y[e_idx]);
                             if (en_hp[e_idx] <= dmg2_eff) begin
                                 en_alive[e_idx] <= 0; en_hp[e_idx] <= 0; add_score(10'd50);
                                 if (!col_alive[col_slot_e]) begin
                                     col_alive[col_slot_e] <= 1; col_x[col_slot_e] <= en_x[e_idx]; col_y[col_slot_e] <= en_y[e_idx];
-                                    col_type[col_slot_e]  <= ((hp <= 5'd12 || (p2_active && hp2 <= 5'd12)) && e_idx[0]) ? 1'b1 : 1'b0;
+                                    col_type[col_slot_e]  <= ((hp <= 5'd10 || (p2_active && hp2 <= 5'd10)) && e_idx[2:0] == 3'd0 && frame_cnt[1:0] == 2'd0) ? 1'b1 : 1'b0;
                                 end
                             end else begin
                                 en_hp[e_idx] <= en_hp[e_idx] - dmg2_eff;
@@ -1313,15 +1317,15 @@ module game_engine_v2 (
                         lock_y     <= p1_alive ? ((d1_m <= 12'd96 && d1_m < best1_d + 12'd16) ? boss_y : best1_y) : ((d2_m <= 12'd96 && d2_m < best2_d + 12'd16) ? boss_y : best2_y);
                         if (d1_m <= 12'd96 && d1_m < best1_d + 12'd16) begin best1_valid <= 1'b1; best1_x <= boss_x; best1_y <= boss_y; end
                         if (d2_m <= 12'd96 && d2_m < best2_d + 12'd16) begin best2_valid <= 1'b1; best2_x <= boss_x; best2_y <= boss_y; end
-                        if (d1_m < gun1_d) begin gun1_valid <= 1'b1; gun1_d <= d1_m; gun1_x <= boss_x; gun1_y <= boss_y; end
-                        if (d2_m < gun2_d) begin gun2_valid <= 1'b1; gun2_d <= d2_m; gun2_x <= boss_x; gun2_y <= boss_y; end
+                        if (d1_m < gun1_d) begin gun1_valid <= 1'b1; gun1_d <= d1_m; gun1_x <= boss_x; gun1_y <= boss_y; gun1_idx <= 5'd16; end
+                        if (d2_m < gun2_d) begin gun2_valid <= 1'b1; gun2_d <= d2_m; gun2_x <= boss_x; gun2_y <= boss_y; gun2_idx <= 5'd16; end
                     end else begin
                         lock_valid <= p1_alive ? best1_valid : best2_valid;
                         lock_x     <= p1_alive ? best1_x     : best2_x;
                         lock_y     <= p1_alive ? best1_y     : best2_y;
                     end
 
-                    // Update 8 Enemy Bullets & 8 Player Gun Bullets
+                    // Update 8 Enemy Bullets & 8 Player Gun Bullets (100% Single-Target Lock-On Homing!)
                     if (world_tick) begin
                         for (idx = 0; idx < 8; idx = idx + 1) begin
                             if (eb_active[idx]) begin
@@ -1336,16 +1340,30 @@ module game_engine_v2 (
                     end
                     for (idx = 0; idx < 8; idx = idx + 1) begin
                         if (pb_active[idx]) begin
-                            if (pb_x[idx] < 11'd80 || pb_x[idx] > 11'd560 || pb_y[idx] < 10'd80 || pb_y[idx] > 10'd368)
-                                pb_active[idx] <= 1'b0;
-                            else begin
+                            if (pb_x[idx] < 11'd80 || pb_x[idx] > 11'd560 || pb_y[idx] < 10'd80 || pb_y[idx] > 10'd368) begin
+                                pb_active[idx] <= 1'b0; pb_homing[idx] <= 1'b0;
+                            end else if (pb_homing[idx] &&
+                                         ((pb_tgt[idx] < 5'd16 && en_alive[pb_tgt[idx][3:0]]) ||
+                                          (pb_tgt[idx] == 5'd16 && boss_active && boss_hp > 0))) begin
+                                next_x = (pb_tgt[idx] == 5'd16) ? boss_x : en_x[pb_tgt[idx][3:0]];
+                                next_y = (pb_tgt[idx] == 5'd16) ? boss_y : en_y[pb_tgt[idx][3:0]];
+                                gdx = $signed({1'b0, next_x}) - $signed({1'b0, pb_x[idx]});
+                                gdy = $signed({2'b00, next_y}) - $signed({2'b00, pb_y[idx]});
+                                agx = (gdx < 0) ? -gdx : gdx;
+                                agy = (gdy < 0) ? -gdy : gdy;
+                                pb_x[idx] <= (agx <= 12'd6) ? next_x : ((gdx >= 0) ? (pb_x[idx] + 11'd6) : (pb_x[idx] - 11'd6));
+                                pb_y[idx] <= (agy <= 12'd6) ? next_y : ((gdy >= 0) ? (pb_y[idx] + 10'd6) : (pb_y[idx] - 10'd6));
+                                if (agx > (agy << 1))      pb_dir[idx] <= 2'd0;
+                                else if (agy > (agx << 1)) pb_dir[idx] <= 2'd1;
+                                else                       pb_dir[idx] <= ((gdx >= 0) == (gdy >= 0)) ? 2'd2 : 2'd3;
+                            end else begin
                                 pb_x[idx] <= $signed({1'b0, pb_x[idx]}) + pb_vx[idx];
                                 pb_y[idx] <= $signed({1'b0, pb_y[idx]}) + pb_vy[idx];
                             end
                         end
                     end
 
-                    // Boss AI (ALL 3 Forms Aggressively Stalk Nearest Alive Player in Both X & Y!)
+                    // Boss AI (HARDCORE! Fast Dual-Axis Chase, Multi-Pattern Attacks, 8-Minion Summons!)
                     if (boss_active && boss_hp > 0) begin
                         if (world_tick) begin
                             boss_ai_timer <= boss_ai_timer + 8'd1;
@@ -1362,52 +1380,53 @@ module game_engine_v2 (
                                 end
                             end
 
-                            // Aggressive Dual-Axis Chase (Form 0: 1..2 px, Form 1: 2 px, Form 2: 2..3 px!)
+                            // Fast Aggressive Dual-Axis Chase (2..4 px/frame!)
                             if (next_x > boss_x + 11'd3 && boss_x < 11'd528)
-                                boss_x <= boss_x + ((boss_kind == 2'd2 && boss_enraged) ? 11'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd2 : 11'd1));
+                                boss_x <= boss_x + ((boss_kind == 2'd2 && boss_enraged) ? 11'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd3 : 11'd2));
                             else if (next_x + 11'd3 < boss_x && boss_x > 11'd100)
-                                boss_x <= boss_x - ((boss_kind == 2'd2 && boss_enraged) ? 11'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd2 : 11'd1));
+                                boss_x <= boss_x - ((boss_kind == 2'd2 && boss_enraged) ? 11'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 11'd3 : 11'd2));
 
                             if (next_y > boss_y + 10'd3 && boss_y < 10'd340)
-                                boss_y <= boss_y + ((boss_kind == 2'd2 && boss_enraged) ? 10'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd2 : 10'd1));
+                                boss_y <= boss_y + ((boss_kind == 2'd2 && boss_enraged) ? 10'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd3 : 10'd2));
                             else if (next_y + 10'd3 < boss_y && boss_y > 10'd100)
-                                boss_y <= boss_y - ((boss_kind == 2'd2 && boss_enraged) ? 10'd3 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd2 : 10'd1));
+                                boss_y <= boss_y - ((boss_kind == 2'd2 && boss_enraged) ? 10'd4 : ((boss_kind >= 2'd1 || boss_enraged) ? 10'd3 : 10'd2));
 
-                            if (boss_kind >= 2'd1) begin
-                                // Meteor Strike on Target Player
-                                if ((boss_ai_timer == 8'd90 || boss_ai_timer == 8'd180 || (boss_enraged && boss_ai_timer == 8'd45)) && !drop_active[2]) begin
-                                    drop_active[2] <= 1'b1; drop_x[2] <= next_x; drop_y[2] <= next_y;
-                                    drop_z[2] <= 7'd65; drop_type[2] <= 2'd2; drop_boom[2] <= 5'd0;
-                                end
-                                // Boss Summons 4 Minions when room is empty!
-                                if ((boss_ai_timer == 8'd110 || (boss_kind == 2'd2 && boss_ai_timer == 8'd220)) && en_alive_vec == 16'b0) begin
-                                    set_en(0, 11'd160, 10'd110, 3'd3, 2'd3, 4'd9, 15);
-                                    set_en(1, 11'd160, 10'd330, 3'd7, 2'd3, 4'd9, 25);
-                                    set_en(2, 11'd480, 10'd110, 3'd1, 2'd3, 4'd9, 35);
-                                    set_en(3, 11'd480, 10'd330, 3'd4, 2'd3, 4'd9, 45);
-                                end
+                            // Meteor Strike on Target Player
+                            if ((boss_ai_timer == 8'd70 || boss_ai_timer == 8'd150 || boss_ai_timer == 8'd220 || (boss_enraged && boss_ai_timer == 8'd35)) && !drop_active[2]) begin
+                                drop_active[2] <= 1'b1; drop_x[2] <= next_x; drop_y[2] <= next_y;
+                                drop_z[2] <= 7'd55; drop_type[2] <= 2'd2; drop_boom[2] <= 5'd0;
                             end
 
-                            // Aimed + Multi-Way Barrages (much faster!)
-                            if (boss_ai_timer == 8'd45 || boss_ai_timer == 8'd95 || boss_ai_timer == 8'd145 || boss_ai_timer == 8'd195 ||
-                                ((boss_kind == 2'd2 || boss_enraged) && (boss_ai_timer == 8'd20 || boss_ai_timer == 8'd70 || boss_ai_timer == 8'd120 || boss_ai_timer == 8'd170))) begin
+                            // Boss Summons 8 Minions around the arena when empty!
+                            if ((boss_ai_timer == 8'd80 || boss_ai_timer == 8'd190) && en_alive_vec == 16'b0) begin
+                                set_en(0, 11'd140, 10'd110, 3'd3, 2'd3, 4'd10, 12);
+                                set_en(1, 11'd140, 10'd330, 3'd7, 2'd3, 4'd10, 18);
+                                set_en(2, 11'd500, 10'd110, 3'd1, 2'd3, 4'd10, 24);
+                                set_en(3, 11'd500, 10'd330, 3'd5, 2'd3, 4'd10, 30);
+                                set_en(4, 11'd320, 10'd105, 3'd6, 2'd3, 4'd10, 36);
+                                set_en(5, 11'd320, 10'd335, 3'd4, 2'd3, 4'd10, 42);
+                                set_en(6, 11'd160, 10'd224, 3'd2, 2'd3, 4'd10, 48);
+                                set_en(7, 11'd480, 10'd224, 3'd0, 2'd3, 4'd10, 54);
+                            end
+
+                            // Multi-Pattern Rapid Barrages (Aimed + 8-Way + Cross)
+                            if (boss_ai_timer == 8'd30 || boss_ai_timer == 8'd65 || boss_ai_timer == 8'd100 ||
+                                boss_ai_timer == 8'd135 || boss_ai_timer == 8'd170 || boss_ai_timer == 8'd205 || boss_ai_timer == 8'd240) begin
                                 eb_active[2]<=1; eb_x[2]<=boss_x; eb_y[2]<=boss_y;
-                                eb_vx[2]<=(next_x>boss_x+12)?5'sd3:((next_x+12<boss_x)?-5'sd3:5'sd0);
-                                eb_vy[2]<=(next_y>boss_y+12)?5'sd3:((next_y+12<boss_y)?-5'sd3:5'sd0);
+                                eb_vx[2]<=(next_x>boss_x+10)?5'sd4:((next_x+10<boss_x)?-5'sd4:5'sd0);
+                                eb_vy[2]<=(next_y>boss_y+10)?5'sd4:((next_y+10<boss_y)?-5'sd4:5'sd0);
                                 eb_active[3]<=1; eb_x[3]<=boss_x-16; eb_y[3]<=boss_y; eb_vx[3]<=-5'sd3; eb_vy[3]<=-5'sd2;
                                 eb_active[4]<=1; eb_x[4]<=boss_x-16; eb_y[4]<=boss_y; eb_vx[4]<=-5'sd3; eb_vy[4]<= 5'sd2;
-                                if (boss_kind >= 2'd1 || boss_enraged) begin
-                                    eb_active[5]<=1; eb_x[5]<=boss_x; eb_y[5]<=boss_y; eb_vx[5]<=5'sd0; eb_vy[5]<=(next_y>boss_y)?5'sd3:-5'sd3;
-                                    eb_active[6]<=1; eb_x[6]<=boss_x+16; eb_y[6]<=boss_y; eb_vx[6]<=5'sd3; eb_vy[6]<=5'sd2;
-                                    eb_active[7]<=1; eb_x[7]<=boss_x+16; eb_y[7]<=boss_y; eb_vx[7]<=5'sd3; eb_vy[7]<=-5'sd2;
-                                end
+                                eb_active[5]<=1; eb_x[5]<=boss_x; eb_y[5]<=boss_y; eb_vx[5]<=5'sd0; eb_vy[5]<=(next_y>boss_y)?5'sd4:-5'sd4;
+                                eb_active[6]<=1; eb_x[6]<=boss_x+16; eb_y[6]<=boss_y; eb_vx[6]<=5'sd3; eb_vy[6]<=5'sd2;
+                                eb_active[7]<=1; eb_x[7]<=boss_x+16; eb_y[7]<=boss_y; eb_vx[7]<=5'sd3; eb_vy[7]<=-5'sd2;
                             end
 
                             if (boss_kind >= 2'd1) begin
                                 if (laser_state == 2'd0) begin
-                                    if ((boss_enraged && (boss_ai_timer == 8'd75 || boss_ai_timer == 8'd165)) ||
-                                        (!boss_enraged && boss_ai_timer == 8'd185)) begin
-                                        laser_state <= 2'd1; laser_timer <= (boss_kind == 2'd2 && boss_enraged) ? 8'd40 : 8'd55;
+                                    if ((boss_enraged && (boss_ai_timer == 8'd55 || boss_ai_timer == 8'd140 || boss_ai_timer == 8'd215)) ||
+                                        (!boss_enraged && (boss_ai_timer == 8'd90 || boss_ai_timer == 8'd190))) begin
+                                        laser_state <= 2'd1; laser_timer <= (boss_kind == 2'd2 && boss_enraged) ? 8'd35 : 8'd50;
                                         laser_y <= next_y;
                                     end
                                 end else if (laser_state == 2'd1) begin
@@ -1419,7 +1438,7 @@ module game_engine_v2 (
                             end
                         end
 
-                        // Heroes Melee vs Active Boss
+                        // Heroes Melee vs Active Boss (with Anti-Spam Knockback + Stun!)
                         if (p1_alive && p1_slash_t > 4'd1 && !p1_boss_hit &&
                             ($signed({1'b0, boss_x}) >= $signed({1'b0, p1_slash_x}) - $signed({1'b0, reach1_eff}) - 12'sd20) &&
                             ($signed({1'b0, boss_x}) <= $signed({1'b0, p1_slash_x}) + $signed({1'b0, reach1_eff}) + 12'sd20) &&
@@ -1427,14 +1446,19 @@ module game_engine_v2 (
                             ($signed({2'b00, boss_y}) <= $signed({2'b00, p1_slash_y}) + $signed({2'b00, reach1_eff}) + 12'sd20)) begin
                             p1_boss_hit <= 1'b1; sfx_hit <= 1'b1; add_score(10'd25); shake_mag <= 4'd3;
                             if (combo_cnt < 7'd99) combo_cnt <= combo_cnt + 7'd1; combo_timer <= 8'd180;
-                            spawn_sparks(boss_x, boss_y);
-                            if (boss_hp <= {3'd0, dmg1_eff}) begin
+                            p1_bmelee_rst <= 7'd90;
+                            if (p1_boss_melee_cnt >= 3'd2) begin
+                                p1_boss_melee_cnt <= 3'd0; p1_stun_t <= 6'd45; shake_mag <= 4'd8;
+                                px <= (px >= boss_x) ? ((px > 11'd502) ? 11'd550 : (px + 11'd48)) : ((px < 11'd132) ? 11'd84 : (px - 11'd48));
+                                py <= (py >= boss_y) ? ((py > 10'd326) ? 10'd358 : (py + 10'd32)) : ((py < 10'd116) ? 10'd84 : (py - 10'd32));
+                            end else p1_boss_melee_cnt <= p1_boss_melee_cnt + 3'd1;
+                            if (boss_hp <= {4'd0, dmg1_eff}) begin
                                 boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
                                 add_score(10'd500); sfx_evolve <= 1'b1;
                                 for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
                                 for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
                                 room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
-                            end else boss_hp <= boss_hp - {3'd0, dmg1_eff};
+                            end else boss_hp <= boss_hp - {4'd0, dmg1_eff};
                         end else if (p2_alive && p2_slash_t > 4'd1 && !p2_boss_hit &&
                             ($signed({1'b0, boss_x}) >= $signed({1'b0, p2_slash_x}) - $signed({1'b0, reach2_eff}) - 12'sd20) &&
                             ($signed({1'b0, boss_x}) <= $signed({1'b0, p2_slash_x}) + $signed({1'b0, reach2_eff}) + 12'sd20) &&
@@ -1442,27 +1466,32 @@ module game_engine_v2 (
                             ($signed({2'b00, boss_y}) <= $signed({2'b00, p2_slash_y}) + $signed({2'b00, reach2_eff}) + 12'sd20)) begin
                             p2_boss_hit <= 1'b1; sfx_hit <= 1'b1; add_score(10'd25); shake_mag <= 4'd3;
                             if (combo_cnt < 7'd99) combo_cnt <= combo_cnt + 7'd1; combo_timer <= 8'd180;
-                            spawn_sparks(boss_x, boss_y);
-                            if (boss_hp <= {3'd0, dmg2_eff}) begin
+                            p2_bmelee_rst <= 7'd90;
+                            if (p2_boss_melee_cnt >= 3'd2) begin
+                                p2_boss_melee_cnt <= 3'd0; p2_stun_t <= 6'd45; shake_mag <= 4'd8;
+                                p2x <= (p2x >= boss_x) ? ((p2x > 11'd502) ? 11'd550 : (p2x + 11'd48)) : ((p2x < 11'd132) ? 11'd84 : (p2x - 11'd48));
+                                p2y <= (p2y >= boss_y) ? ((p2y > 10'd326) ? 10'd358 : (p2y + 10'd32)) : ((p2y < 10'd116) ? 10'd84 : (p2y - 10'd32));
+                            end else p2_boss_melee_cnt <= p2_boss_melee_cnt + 3'd1;
+                            if (boss_hp <= {4'd0, dmg2_eff}) begin
                                 boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
                                 add_score(10'd500); sfx_evolve <= 1'b1;
                                 for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
                                 for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
                                 room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
-                            end else boss_hp <= boss_hp - {3'd0, dmg2_eff};
+                            end else boss_hp <= boss_hp - {4'd0, dmg2_eff};
                         end else if (pet_b_act &&
                             ($signed({1'b0, boss_x}) >= $signed({1'b0, pet_bx}) - 12'sd28) &&
                             ($signed({1'b0, boss_x}) <= $signed({1'b0, pet_bx}) + 12'sd28) &&
                             ($signed({2'b00, boss_y}) >= $signed({2'b00, pet_by}) - 12'sd28) &&
                             ($signed({2'b00, boss_y}) <= $signed({2'b00, pet_by}) + 12'sd28)) begin
                             pet_b_act <= 0; sfx_hit <= 1;
-                            if (boss_hp <= 7'd1) begin
+                            if (boss_hp <= 8'd1) begin
                                 boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
                                 add_score(10'd500); sfx_evolve <= 1'b1;
                                 for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
                                 for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
                                 room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
-                            end else boss_hp <= boss_hp - 7'd1;
+                            end else boss_hp <= boss_hp - 8'd1;
                         end else begin
                             pb_hit_found = 1'b0; pb_hit_idx = 3'd0;
                             for (idx = 0; idx < 8; idx = idx + 1) begin
@@ -1476,15 +1505,15 @@ module game_engine_v2 (
                                 end
                             end
                             if (pb_hit_found) begin
-                                pb_active[pb_hit_idx] <= 1'b0; sfx_hit <= 1'b1; add_score(10'd15);
+                                pb_active[pb_hit_idx] <= 1'b0; pb_homing[pb_hit_idx] <= 1'b0; sfx_hit <= 1'b1; add_score(10'd15);
                                 spawn_sparks(boss_x, boss_y);
-                                if (boss_hp <= 7'd2) begin
+                                if (boss_hp <= 8'd2) begin
                                     boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
                                     add_score(10'd500); sfx_evolve <= 1'b1;
                                     for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
                                     for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
                                     room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
-                                end else boss_hp <= boss_hp - 7'd2;
+                                end else boss_hp <= boss_hp - 8'd2;
                             end
                         end
                     end
