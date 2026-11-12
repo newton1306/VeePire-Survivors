@@ -143,12 +143,12 @@
       <rect x="1" y="1" width="318" height="178" rx="6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
       <rect x="1" y="1" width="318" height="22" rx="6" fill="#0F172A"/>
       <text x="12" y="15" fill="#38BDF8" font-size="8.5" font-weight="700">SLIDE 3: HARDWARE & SPECS</text>
-      <rect x="16" y="34" width="138" height="60" rx="4" fill="#0284C7" fill-opacity="0.16" stroke="#0284C7" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="85.0" y="61.75">VGA 640x480@60Hz</tspan><tspan x="85.0" y="71.25">12-bit (4,096 สี)</tspan></text><rect x="166" y="34" width="138" height="60" rx="4" fill="#D97706" fill-opacity="0.16" stroke="#D97706" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="235.0" y="61.75">Board I/O: SW0-3</tspan><tspan x="235.0" y="71.25">LEDs + 7-Seg + Debounce</tspan></text><rect x="16" y="104" width="138" height="60" rx="4" fill="#7C3AED" fill-opacity="0.16" stroke="#7C3AED" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="85.0" y="131.75">Pure Verilog</tspan><tspan x="85.0" y="141.25">VBlank Update</tspan></text><rect x="166" y="104" width="138" height="60" rx="4" fill="#16A34A" fill-opacity="0.16" stroke="#16A34A" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="235.0" y="131.75">Extras: Joy Bridge</tspan><tspan x="235.0" y="141.25">Audio + Credit FPGADude</tspan></text>
+      <rect x="16" y="34" width="138" height="60" rx="4" fill="#0284C7" fill-opacity="0.16" stroke="#0284C7" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="85.0" y="61.75">VGA 640x480@60Hz</tspan><tspan x="85.0" y="71.25">12-bit (4,096 สี)</tspan></text><rect x="166" y="34" width="138" height="60" rx="4" fill="#D97706" fill-opacity="0.16" stroke="#D97706" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="235.0" y="61.75">Board I/O: SW15-12 / 3-0</tspan><tspan x="235.0" y="71.25">LEDs + 7-Seg + Debounce</tspan></text><rect x="16" y="104" width="138" height="60" rx="4" fill="#7C3AED" fill-opacity="0.16" stroke="#7C3AED" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="85.0" y="131.75">Pure Verilog</tspan><tspan x="85.0" y="141.25">VBlank Update</tspan></text><rect x="166" y="104" width="138" height="60" rx="4" fill="#16A34A" fill-opacity="0.16" stroke="#16A34A" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="235.0" y="131.75">Extras: Joy Bridge</tspan><tspan x="235.0" y="141.25">Audio + Credit FPGADude</tspan></text>
     </svg>
         </div>
         <div class="txt-col">
           <div class="sub-lbl">ข้อความสำหรับใส่ใน Canva</div>
-          <ul><li><b>Display:</b> จอ VGA <code>640×480 @ 60 Hz</code> 12-bit RGB (<code>4,096</code> สี)</li><li><b>Board I/O:</b> <code>SW[3:0]</code> เลือกสกิน, <code>16 LEDs</code> + <code>8-Digit 7-Segment</code> แสดงคะแนน/HP/Wave, ปุ่มกดผ่าน <code>5 ms Debouncer</code></li><li><b>Design Rules:</b> Pure Verilog บน Vivado (ไม่ใช้ MicroBlaze) + อัปเดตภาพเฉพาะช่วง <b>VBlank</b> (ภาพไม่ฉีก)</li><li><b>Credit:</b> ระบุเครดิตโค้ด SPI Accelerometer จาก <code>FPGADude</code> ตามกฎ Brief หน้า 3</li></ul>
+          <ul><li><b>Display:</b> จอ VGA <code>640×480 @ 60 Hz</code> 12-bit RGB (<code>4,096</code> สี)</li><li><b>Board I/O:</b> <code>SW[15:12]</code> เลือกสกินฝั่งซ้าย (P1), <code>SW[3:0]</code> เลือกสกินฝั่งขวา (P2), <code>16 LEDs</code> + <code>8-Digit 7-Segment</code> แสดงคะแนน/HP/Wave, ปุ่มกดผ่าน <code>5 ms Debouncer</code></li><li><b>Design Rules:</b> Pure Verilog บน Vivado (ไม่ใช้ MicroBlaze) + อัปเดตภาพเฉพาะช่วง <b>VBlank</b> (ภาพไม่ฉีก)</li><li><b>Credit:</b> ระบุเครดิตโค้ด SPI Accelerometer จาก <code>FPGADude</code> ตามกฎ Brief หน้า 3</li></ul>
           <div class="tip"><b>ทริคตอนพูด:</b> ย้ำว่าทำครบตามสเปกบังคับของวิชาทุกข้อ และให้เครดิตโค้ดภายนอกเรียบร้อย</div>
         </div>
       </div>
@@ -173,7 +173,7 @@
         </div>
         <div class="txt-col">
           <div class="sub-lbl">ข้อความสำหรับใส่ใน Canva</div>
-          <ul><li><b>Joystick-Only 8-Direction:</b> เดิน 8 ทิศทาง (Analog 2 ความเร็ว / D-Pad) ทั้งโหมด <b>1P</b> และ <b>2P Co-op</b></li><li><b>Single-Room Boundary:</b> เห็นเฉพาะห้องสี่เหลี่ยมของด่านนั้น รอบนอกดำสนิท ชนกำแพง/ศัตรู/ประตูแม่นยำ</li><li><b>Extra Complexity:</b> พุ่งดูดระยะใกล้ (<code>≤72 px</code>) + คอมโบ 3 จังหวะ (ท่า 3 ปล่อย <b>360° Nova</b>), <b>Smooth Auto-Zoom</b>, <b>Shadow Dash</b>, <b>Chrono-Shift</b></li><li><b>ปุ่ม Start = Pause:</b> หยุดเกมพร้อมโชว์รูปจอยชี้บอกว่าปุ่มไหนทำอะไร</li></ul>
+          <ul><li><b>Joystick-Only 8-Direction:</b> เดิน 8 ทิศทาง (Analog 2 ความเร็ว / D-Pad) ทั้งโหมด <b>1P</b> และ <b>2P Co-op</b></li><li><b>Single-Room Boundary:</b> เห็นเฉพาะห้องสี่เหลี่ยมของด่านนั้น รอบนอกดำสนิท ชนกำแพง/ศัตรู/ประตูแม่นยำ</li><li><b>Extra Complexity:</b> พุ่งดูดระยะใกล้ (<code>≤72 px</code>) + คอมโบฟันดาบเสี้ยวจันทรา 3 จังหวะ (ท่า 3 ปล่อย <b>360° Nova</b>) + <b>ปุ่ม Y ยิงกระสุนฟ้าเรียวยาว</b>, <b>Smooth Auto-Zoom</b>, <b>Shadow Dash</b>, <b>Chrono-Shift (L2/R2)</b></li><li><b>Start = Pause / Select = Menu:</b> กด Start ขึ้นหน้า <code>PAUSED</code> พร้อมรูปจอยชี้ปุ่มกด, กด Select กลับหน้า Menu</li></ul>
           <div class="tip"><b>ทริคตอนพูด:</b> ชี้รูป shot_combat_lunge.png ให้ดูวงคลื่นสีเหลือง 360° และกรอบห้องเดี่ยว</div>
         </div>
       </div>
@@ -182,7 +182,7 @@
     
     <div class="slide-card">
       <div class="slide-hdr">
-        <span class="slide-title">Slide 5 — Feature 2: Sprite Evolutions & SW0–SW3 Skins (15%)</span>
+        <span class="slide-title">Slide 5 — Feature 2: Sprite Evolutions, HP Regen & Skins (15%)</span>
         <span class="badge">คนที่ 2 · 1:55 – 2:35</span>
       </div>
       <div class="slide-grid">
@@ -193,12 +193,12 @@
       <rect x="1" y="1" width="318" height="178" rx="6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
       <rect x="1" y="1" width="318" height="22" rx="6" fill="#0F172A"/>
       <text x="12" y="15" fill="#38BDF8" font-size="8.5" font-weight="700">SLIDE 5: FEATURE 2 (15%)</text>
-      <rect x="16" y="34" width="288" height="54" rx="4" fill="#7C3AED" fill-opacity="0.16" stroke="#7C3AED" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="160.0" y="63.5">4 ขั้น Evolution (ไร้ Cutscene): UP0 → UP1(Pet) → UP2(ดาบหมุน) → UP3(Apex)</tspan></text><rect x="16" y="96" width="288" height="68" rx="4" fill="#D97706" fill-opacity="0.16" stroke="#D97706" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="160.0" y="132.5">รูปจริง: sprite_preview.png (ฮีโร่หน้าคน 4 + ศัตรูหน้าคน 8 + บอส 3 + หัวใจ)</tspan></text>
+      <rect x="16" y="34" width="288" height="54" rx="4" fill="#7C3AED" fill-opacity="0.16" stroke="#7C3AED" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="160.0" y="63.5">4 ขั้น Evolution (ไร้ Cutscene) + หลอดเลือด Regen</tspan></text><rect x="16" y="96" width="288" height="68" rx="4" fill="#D97706" fill-opacity="0.16" stroke="#D97706" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="160.0" y="132.5">รูปจริง: sprite_preview.png (ฮีโร่หน้าคน 4 + ศัตรูหน้าคน 8 + บอส 3 + หัวใจ)</tspan></text>
     </svg>
         </div>
         <div class="txt-col">
           <div class="sub-lbl">ข้อความสำหรับใส่ใน Canva</div>
-          <ul><li><b>Event-Driven Evolution (≥3 Forms, ไร้ Cutscene):</b> เก็บ Blue Evo Gem (แม่เหล็กดูด) อัปเกรดต่อเนื่องโดยไม่ขัดจังหวะเล่น: <code>UP1 (GEM≥10)</code> ได้ Pet ช่วยยิง → <code>UP2 (GEM≥25)</code> ได้ดาบคู่หมุนรอบตัว → <code>UP3 (GEM≥45)</code> Apex Aura + ฟื้นเต็ม 6 หัวใจ</li><li><b>สกินฮีโร่หน้าคนล้วน (SW0–SW3 Priority):</b> ตรวจจาก <code>SW0 → SW3</code> ยึดสวิตช์ตัวบนสุดที่เปิดอยู่ตัวเดียวไม่ผสม (PF, PPuen, PPeem, PPing)</li><li><b>ไอเทมฟื้นพลัง:</b> ตัดเห็ดออก เหลือเฉพาะหัวใจ (<code>♥</code>)</li></ul>
+          <ul><li><b>Event-Driven Evolution (≥3 Forms, ไร้ Cutscene):</b> เก็บ Blue Evo Gem (แม่เหล็กดูด) อัปเกรดต่อเนื่องโดยไม่ขัดจังหวะเล่น: <code>UP1 (GEM≥10)</code> ได้ Pet ช่วยยิง → <code>UP2 (GEM≥25)</code> ได้ดาบคู่หมุนรอบตัว → <code>UP3 (GEM≥45)</code> Apex Aura + ฟื้นเต็มหลอด 24 HP</li><li><b>สกินฮีโร่หน้าคนแยกฝั่ง (SW15–12 ซ้าย / SW3–0 ขวา):</b> ฝั่งซ้าย (P1) ใช้ <code>SW15–SW12</code> และฝั่งขวา (P2) ใช้ <code>SW3–SW0</code> ยึดสวิตช์ตัวบนสุดในกลุ่มที่เปิด</li><li><b>หลอดเลือด HP Bar + Out-of-Combat Regen + หัวใจ (<code>♥</code>):</b> เปลี่ยนเป็นหลอดเลือด (<code>0–24 HP</code>) มีหัวใจให้เก็บ และหากพักจากการต่อสู้ ~3 วินาที เลือดจะค่อยๆ ฟื้นฟูอัตโนมัติ</li></ul>
           <div class="tip"><b>ทริคตอนพูด:</b> ชี้รูป sprite_preview.png ว่ารอบนี้ใช้หน้าคนจริงทั้งหมดทั้งฮีโร่ ศัตรู และบอส</div>
         </div>
       </div>
@@ -417,12 +417,12 @@
       <rect x="1" y="1" width="318" height="178" rx="6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
       <rect x="1" y="1" width="318" height="22" rx="6" fill="#0F172A"/>
       <text x="12" y="15" fill="#38BDF8" font-size="8.5" font-weight="700">SLIDE 9: JOYSTICK BRIDGE</text>
-      <rect x="16" y="36" width="64" height="76" rx="4" fill="#0284C7" fill-opacity="0.16" stroke="#0284C7" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="48.0" y="71.75">1. Twin USB</tspan><tspan x="48.0" y="81.25">Joysticks</tspan></text><rect x="90" y="36" width="70" height="76" rx="4" fill="#D97706" fill-opacity="0.16" stroke="#D97706" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="125.0" y="71.75">2. PC Python</tspan><tspan x="125.0" y="81.25">winmm.dll</tspan></text><rect x="170" y="36" width="64" height="76" rx="4" fill="#0D9488" fill-opacity="0.16" stroke="#0D9488" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="202.0" y="71.75">3. USB-UART</tspan><tspan x="202.0" y="81.25">115200 bps</tspan></text><rect x="244" y="36" width="60" height="76" rx="4" fill="#7C3AED" fill-opacity="0.16" stroke="#7C3AED" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="274.0" y="71.75">4. FPGA</tspan><tspan x="274.0" y="81.25">uart_joy_rx</tspan></text><rect x="16" y="122" width="288" height="40" rx="4" fill="#0F172A" fill-opacity="0.16" stroke="#0F172A" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="160.0" y="144.5">Packet 3 Bytes: Byte0[0x80+P1] | Byte1[P2] | Byte2[Start(Pause)+Btns]</tspan></text>
+      <rect x="16" y="36" width="64" height="76" rx="4" fill="#0284C7" fill-opacity="0.16" stroke="#0284C7" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="48.0" y="71.75">1. Twin USB</tspan><tspan x="48.0" y="81.25">Joysticks</tspan></text><rect x="90" y="36" width="70" height="76" rx="4" fill="#D97706" fill-opacity="0.16" stroke="#D97706" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="125.0" y="71.75">2. PC Python</tspan><tspan x="125.0" y="81.25">winmm.dll</tspan></text><rect x="170" y="36" width="64" height="76" rx="4" fill="#0D9488" fill-opacity="0.16" stroke="#0D9488" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="202.0" y="71.75">3. USB-UART</tspan><tspan x="202.0" y="81.25">115200 bps</tspan></text><rect x="244" y="36" width="60" height="76" rx="4" fill="#7C3AED" fill-opacity="0.16" stroke="#7C3AED" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="274.0" y="71.75">4. FPGA</tspan><tspan x="274.0" y="81.25">uart_joy_rx</tspan></text><rect x="16" y="122" width="288" height="40" rx="4" fill="#0F172A" fill-opacity="0.16" stroke="#0F172A" stroke-width="1.5"/><text text-anchor="middle" fill="#111827" font-size="6.8" font-weight="700"><tspan x="160.0" y="144.5">Packet 4 Bytes: B0[0x80+P1_Y] | B1[P2_Y] | B2[Start+Btns] | B3[Select]</tspan></text>
     </svg>
         </div>
         <div class="txt-col">
           <div class="sub-lbl">ข้อความสำหรับใส่ใน Canva</div>
-          <ul><li><b>ปัญหาที่เจอ:</b> บอร์ด Nexys A7 อ่านจอย USB Gamepad คู่โดยตรงไม่ได้ (บอร์ดรองรับแค่คีย์บอร์ด/เมาส์มาตรฐาน)</li><li><b>วิธีแก้:</b> ใช้โปรแกรม <code>joy_bridge.py</code> บนคอมเป็น 'สะพานเชื่อม' อ่านจอย 1 &amp; 2 ผ่าน Windows API (<code>winmm.dll</code>) 60 ครั้ง/วิ แล้วส่งข้อมูล <b>3 ไบต์</b> ผ่านสาย Micro-USB (<code>UART 115,200 bps</code>) เข้าชิป FPGA</li><li><b>ความฉลาดของโปรโตคอล:</b> ใส่บิตหัวแถว <code>0x80</code> ใน Byte 0 กันข้อมูลสลับตำแหน่ง และส่งปุ่ม <code>Start</code> ในบิตที่ 6 ของ Byte 2 เพื่อกด <b>Pause</b></li></ul>
+          <ul><li><b>ปัญหาที่เจอ:</b> บอร์ด Nexys A7 อ่านจอย USB Gamepad คู่โดยตรงไม่ได้ (บอร์ดรองรับแค่คีย์บอร์ด/เมาส์มาตรฐาน)</li><li><b>วิธีแก้:</b> ใช้โปรแกรม <code>joy_bridge.py</code> บนคอมเป็น 'สะพานเชื่อม' อ่านจอย 1 &amp; 2 ผ่าน Windows API (<code>winmm.dll</code>) 60 ครั้ง/วิ แล้วส่งข้อมูล <b>4 ไบต์</b> ผ่านสาย Micro-USB (<code>UART 115,200 bps</code>) เข้าชิป FPGA</li><li><b>ความฉลาดของโปรโตคอล:</b> ใส่บิตหัวแถว <code>0x80</code> ใน Byte 0 กันข้อมูลสลับตำแหน่ง, ปุ่ม <code>Y</code> ยิงกระสุนฟ้า, ปุ่ม <code>Start</code> สั่ง <b>Pause</b> และปุ่ม <code>Select</code> กลับหน้า <b>Menu</b></li></ul>
           <div class="tip"><b>ทริคตอนพูด:</b> หน้านี้โชว์ความสามารถแก้ปัญหา Hardware Limitation ด้วยการทำ Software-to-Hardware Bridge</div>
         </div>
       </div>
@@ -464,10 +464,10 @@
   <line x1="371" y1="89" x2="399" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
   <line x1="566" y1="89" x2="594" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
 
-  <!-- 3-Byte Packet Breakdown -->
+  <!-- 4-Byte Packet Breakdown -->
   <rect x="16" y="160" width="728" height="44" rx="6" fill="#0F172A"/>
-  <text x="380" y="178" text-anchor="middle" font-size="10.5" font-weight="700" fill="#38BDF8">โครงสร้างแพ็กเก็ต 3 ไบต์:   Byte 0 = [1 | P1_dy | P1_dx]    |    Byte 1 = [0 | P2_dy | P2_dx]    |    Byte 2 = [0 | Start(Pause) | P2_btn | P1_btn]</text>
-  <text x="380" y="195" text-anchor="middle" font-size="9.5" fill="#CBD5E1">บิตแรกสุด (MSB = 1) ของ Byte 0 ทำหน้าที่เป็นตัวล็อกหัวแถว ป้องกันข้อมูลสลับตำแหน่งแม้เสียบสายกลางคัน</text>
+  <text x="380" y="178" text-anchor="middle" font-size="10" font-weight="700" fill="#38BDF8">แพ็กเก็ต 4 ไบต์: B0=[1|P1_Y|P1_dy|P1_dx] | B1=[0|P2_Y|P2_dy|P2_dx] | B2=[0|Start|P2_btn|P1_btn] | B3=[0..Select]</text>
+  <text x="380" y="195" text-anchor="middle" font-size="9.5" fill="#CBD5E1">บิตแรกสุด (MSB = 1) ของ Byte 0 ล็อกหัวแถว + ปุ่ม Y ยิงปืน, Start=Pause, Select=กลับหน้า Menu</text>
 </svg>
 </div>
     </div>

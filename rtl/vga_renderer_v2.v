@@ -33,7 +33,7 @@ module vga_renderer_v2 (
     input  wire [9:0]  py, dash_gy, cam_y, p2y, p2_dash_gy,
     input  wire        p2_mirror, p2_walk_frame,
     input  wire [4:0]  p2_dash_timer,
-    input  wire [2:0]  hp, hp2,
+    input  wire [4:0]  hp, hp2,
     input  wire [5:0]  exp,
     input  wire [1:0]  stage,
     input  wire [15:0] score_bcd,
@@ -81,9 +81,10 @@ module vga_renderer_v2 (
     input  wire signed [1:0] p1_slash_dx, p1_slash_dy, p2_slash_dx, p2_slash_dy,
     input  wire             lock_valid,
 
-    input  wire [8*11-1:0] eb_x_vec,
-    input  wire [8*10-1:0] eb_y_vec,
-    input  wire [7:0]      eb_active_vec,
+    input  wire [8*11-1:0] eb_x_vec, pb_x_vec,
+    input  wire [8*10-1:0] eb_y_vec, pb_y_vec,
+    input  wire [8*2-1:0]  pb_dir_vec,
+    input  wire [7:0]      eb_active_vec, pb_active_vec,
 
     input  wire [10:0] boss_x,
     input  wire [9:0]  boss_y, laser_y,
@@ -92,7 +93,7 @@ module vga_renderer_v2 (
     input  wire        boss_active, boss_locked, boss_enraged,
     input  wire [1:0]  laser_state,
 
-    input  wire [1:0]  hero_sel,
+    input  wire [1:0]  hero_sel_l, hero_sel_r,
     input  wire [2:0]  room_phase,
     input  wire [6:0]  wave_banner_t,
     input  wire [5:0]  door_slam_t,
@@ -191,7 +192,7 @@ module vga_renderer_v2 (
     wire signed [11:0] p2sy = $signed({2'b00, p_ref_y}) - $signed({2'b00, target_p2y}) + 12'sd16;
 
     wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < 32) && ((game_state == 3'd0) || (in_playfield && !(hp == 0 && anim_cnt[21])));
-    wire show_p2   = (game_state == 3'd0 && control_mode == 2'd2) || (p2_active && in_playfield && !(hp2 == 0 && anim_cnt[21]));
+    wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_playfield && !(hp2 == 0 && anim_cnt[21]));
     wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < 32);
     wire on_player_box = on_p1_box || on_p2_box;
     wire sel_p2_0      = !on_p1_box && on_p2_box;
@@ -218,8 +219,8 @@ module vga_renderer_v2 (
     wire on_p2_tag = (game_state == 3'd2 && in_playfield) && p2_active && ((p2sy == -12'sd2 && p2sx >= 12'sd14 && p2sx <= 12'sd18) || (p2sy == -12'sd1 && p2sx >= 12'sd15 && p2sx <= 12'sd17));
 
     // 2. 32x32 Human-Face Heroes ONLY (4 Models x 4 Frames -> 16K x 12-bit RGB444!)
-    //    SW[3:0] priority selector passed via hero_sel (highest ON switch wins!)
-    wire [1:0] p_form_idx = sel_p2_0 ? (hero_sel + 2'd1) : hero_sel;
+    //    SW[15:12] = Left Character (P1), SW[3:0] = Right Character (P2)
+    wire [1:0] p_form_idx = sel_p2_0 ? hero_sel_r : hero_sel_l;
     wire [1:0] p_pose = (game_state == 3'd0) ? {1'b0, anim_cnt[23]} :
                         (sel_p2_0 ? ((p2_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, p2_walk_frame})) :
                                     ((p1_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, walk_frame})));
@@ -395,43 +396,68 @@ module vga_renderer_v2 (
             end
 
             // P1 Clear 12-px Crescent Slash + Sword Beam OR 360 Double-Ring Nova!
+            // Compact Sleek Crescent Sword-Swing Effect (P1 & P2)
             if (p1_slash_t > 0) begin
-                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p1_nova ? px : p1_slash_x});
-                by_d = $signed({2'b00, wy}) - $signed({2'b00, p1_nova ? py : p1_slash_y});
-                if (bx_d >= -12'sd52 && bx_d <= 12'sd52 && by_d >= -12'sd52 && by_d <= 12'sd52) begin
+                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p1_nova ? px : (px + (p1_slash_dx * 12'sd5))});
+                by_d = $signed({2'b00, wy}) - $signed({2'b00, p1_nova ? py : (py + (p1_slash_dy * 12'sd5))});
+                if (bx_d >= -12'sd24 && bx_d <= 12'sd24 && by_d >= -12'sd24 && by_d <= 12'sd24) begin
                     ax_d  = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
                     oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
                     dot_d = ((p1_slash_dx == 0) ? 12'sd0 : ((p1_slash_dx > 0) ? bx_d : -bx_d)) +
                             ((p1_slash_dy == 0) ? 12'sd0 : ((p1_slash_dy > 0) ? by_d : -by_d));
-                    if ((p1_nova || dot_d >= -12'sd6) &&
-                        oct_d <= (12'sd42 - $signed({7'd0, p1_slash_t, 1'b0})) + $signed({8'd0, stage, 2'b00}) + (p1_nova ? 12'sd8 : 12'sd0) &&
-                        oct_d >= (12'sd28 - $signed({7'd0, p1_slash_t, 1'b0})) + $signed({9'd0, stage, 1'b0})) begin
+                    if (p1_nova) begin
+                        if (oct_d >= 12'sd15 && oct_d <= 12'sd21) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18) ? 6'd17 : 6'd59;
+                        end
+                    end else if (dot_d >= 12'sd2 &&
+                                 oct_d <= (12'sd21 - {8'd0, p1_slash_t[3:1]}) &&
+                                 oct_d >= (12'sd13 - {8'd0, p1_slash_t[3:2]})) begin
                         on_pb_0  = 1;
-                        pb_col_0 = (oct_d >= (12'sd38 - $signed({7'd0, p1_slash_t, 1'b0})) + $signed({8'd0, stage, 2'b00}) + (p1_nova ? 12'sd8 : 12'sd0))
-                                   ? 6'd17 : (p1_nova ? 6'd58 : wpn_skin_col);
-                    end else if (p1_nova && oct_d >= 12'sd12 && oct_d <= 12'sd18) begin
-                        on_pb_0 = 1; pb_col_0 = 6'd17;
+                        pb_col_0 = (oct_d >= (12'sd18 - {8'd0, p1_slash_t[3:1]})) ? 6'd17 : 6'd59;
                     end
                 end
             end
 
             if (p2_active && p2_slash_t > 0) begin
-                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p2_nova ? p2x : p2_slash_x});
-                by_d = $signed({2'b00, wy}) - $signed({2'b00, p2_nova ? p2y : p2_slash_y});
-                if (bx_d >= -12'sd52 && bx_d <= 12'sd52 && by_d >= -12'sd52 && by_d <= 12'sd52) begin
+                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p2_nova ? p2x : (p2x + (p2_slash_dx * 12'sd5))});
+                by_d = $signed({2'b00, wy}) - $signed({2'b00, p2_nova ? p2y : (p2y + (p2_slash_dy * 12'sd5))});
+                if (bx_d >= -12'sd24 && bx_d <= 12'sd24 && by_d >= -12'sd24 && by_d <= 12'sd24) begin
                     ax_d  = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
                     oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
                     dot_d = ((p2_slash_dx == 0) ? 12'sd0 : ((p2_slash_dx > 0) ? bx_d : -bx_d)) +
                             ((p2_slash_dy == 0) ? 12'sd0 : ((p2_slash_dy > 0) ? by_d : -by_d));
-                    if ((p2_nova || dot_d >= -12'sd6) &&
-                        oct_d <= (12'sd42 - $signed({7'd0, p2_slash_t, 1'b0})) + $signed({8'd0, stage, 2'b00}) + (p2_nova ? 12'sd8 : 12'sd0) &&
-                        oct_d >= (12'sd28 - $signed({7'd0, p2_slash_t, 1'b0})) + $signed({9'd0, stage, 1'b0})) begin
+                    if (p2_nova) begin
+                        if (oct_d >= 12'sd15 && oct_d <= 12'sd21) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18) ? 6'd17 : 6'd60;
+                        end
+                    end else if (dot_d >= 12'sd2 &&
+                                 oct_d <= (12'sd21 - {8'd0, p2_slash_t[3:1]}) &&
+                                 oct_d >= (12'sd13 - {8'd0, p2_slash_t[3:2]})) begin
                         on_pb_0  = 1;
-                        pb_col_0 = (oct_d >= (12'sd38 - $signed({7'd0, p2_slash_t, 1'b0})) + $signed({8'd0, stage, 2'b00}) + (p2_nova ? 12'sd8 : 12'sd0))
-                                   ? 6'd17 : (p2_nova ? 6'd58 : 6'd60);
-                    end else if (p2_nova && oct_d >= 12'sd12 && oct_d <= 12'sd18) begin
-                        on_pb_0 = 1; pb_col_0 = 6'd17;
+                        pb_col_0 = (oct_d >= (12'sd18 - {8'd0, p2_slash_t[3:1]})) ? 6'd17 : 6'd60;
                     end
+                end
+            end
+
+            // Elongated Blue Gun Bullets (Y Button)
+            for (k_fx = 0; k_fx < 8; k_fx = k_fx + 1) begin
+                if (pb_active_vec[k_fx]) begin
+                    bx_d = $signed({1'b0, wx}) - $signed({1'b0, pb_x_vec[k_fx*11 +: 11]});
+                    by_d = $signed({2'b00, wy}) - $signed({2'b00, pb_y_vec[k_fx*10 +: 10]});
+                    case (pb_dir_vec[k_fx*2 +: 2])
+                        2'd0: if (bx_d >= -7 && bx_d <= 7 && by_d >= -1 && by_d <= 1) begin
+                            on_pb_0 = 1; pb_col_0 = (by_d == 0 && bx_d >= -4 && bx_d <= 4) ? 6'd17 : 6'd59;
+                        end
+                        2'd1: if (bx_d >= -1 && bx_d <= 1 && by_d >= -7 && by_d <= 7) begin
+                            on_pb_0 = 1; pb_col_0 = (bx_d == 0 && by_d >= -4 && by_d <= 4) ? 6'd17 : 6'd59;
+                        end
+                        2'd2: if (bx_d >= -5 && bx_d <= 5 && by_d >= -5 && by_d <= 5 && (bx_d - by_d >= -1) && (bx_d - by_d <= 1)) begin
+                            on_pb_0 = 1; pb_col_0 = (bx_d == by_d) ? 6'd17 : 6'd59;
+                        end
+                        default: if (bx_d >= -5 && bx_d <= 5 && by_d >= -5 && by_d <= 5 && (bx_d + by_d >= -1) && (bx_d + by_d <= 1)) begin
+                            on_pb_0 = 1; pb_col_0 = (bx_d == -by_d) ? 6'd17 : 6'd59;
+                        end
+                    endcase
                 end
             end
 
@@ -633,14 +659,14 @@ module vga_renderer_v2 (
                     15:hud_char_code=C_SP;     16:hud_char_code=lch("B"); 17:hud_char_code=lch("T"); 18:hud_char_code=lch("N"); 19:hud_char_code=lch("C");
                     default:hud_char_code=C_SP;
                 endcase
-            end else if (gy >= 9'd218 && gy < 9'd226 && col_1x >= 6'd9 && col_1x < 6'd31) begin
+            end else if (gy >= 9'd218 && gy < 9'd226 && col_1x >= 6'd10 && col_1x < 6'd30) begin
                 hud_text_en = 1; hud_text_color = 6'd60; hud_char_row = gy - 9'd218;
-                case (col_1x - 6'd9)
-                    0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("3"); 3:hud_char_code=lch("-");
-                    4:hud_char_code=lch("S"); 5:hud_char_code=lch("W"); 6:hud_char_code=lch("0"); 7:hud_char_code=lch(":");
-                    8:hud_char_code=C_SP;     9:hud_char_code=lch("H"); 10:hud_char_code=lch("E"); 11:hud_char_code=lch("R");
-                    12:hud_char_code=lch("O"); 13:hud_char_code=C_SP;   14:hud_char_code=lch("S"); 15:hud_char_code=lch("K");
-                    16:hud_char_code=lch("I"); 17:hud_char_code=lch("N"); default:hud_char_code=C_SP;
+                case (col_1x - 6'd10)
+                    0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("1"); 3:hud_char_code=lch("5");
+                    4:hud_char_code=C_DSH;    5:hud_char_code=lch("1"); 6:hud_char_code=lch("2"); 7:hud_char_code=C_COL;
+                    8:hud_char_code=lch("P"); 9:hud_char_code=lch("1"); 10:hud_char_code=C_SP;    11:hud_char_code=lch("S");
+                    12:hud_char_code=lch("W");13:hud_char_code=lch("3"); 14:hud_char_code=C_DSH;   15:hud_char_code=lch("0");
+                    16:hud_char_code=C_COL;   17:hud_char_code=lch("P"); 18:hud_char_code=lch("2"); default:hud_char_code=C_SP;
                 endcase
             end
         end else if (game_state == 3'd1) begin
@@ -720,11 +746,17 @@ module vga_renderer_v2 (
                     else hud_bg_color = 6'd16;
                 end else if (gy >= 9'd4 && gy < 9'd12) begin
                     hud_char_row = gy - 9'd4;
-                    if (col_1x == 6'd0) begin hud_text_en = p2_active; hud_char_code = lch("1"); hud_text_color = 6'd58; end
-                    else if (col_1x >= 6'd1 && col_1x <= 6'd6) begin hud_text_en = 1; hud_char_code = C_HRT; hud_text_color = (col_1x <= {3'd0, hp}) ? 6'd49 : 6'd42; end
-                    else if (p2_active && col_1x == 6'd8) begin hud_text_en = 1; hud_char_code = lch("2"); hud_text_color = 6'd59; end
-                    else if (p2_active && col_1x >= 6'd9 && col_1x <= 6'd14) begin hud_text_en = 1; hud_char_code = C_HRT; hud_text_color = ((col_1x - 6'd8) <= {3'd0, hp2}) ? 6'd59 : 6'd42; end
-                    else if (col_1x >= 6'd16 && col_1x <= 6'd18) begin
+                    if (col_1x == 6'd0) begin hud_text_en = 1'b1; hud_char_code = p2_active ? lch("1") : lch("H"); hud_text_color = 6'd58; end
+                    else if (gx >= 9'd10 && gx <= 9'd59 && gy >= 9'd5 && gy <= 9'd10) begin
+                        if (gx == 9'd10 || gx == 9'd59 || gy == 9'd5 || gy == 9'd10) hud_bg_color = 6'd55;
+                        else if ((gx - 9'd11) < {4'd0, hp, 1'b0}) hud_bg_color = (hp >= 5'd13) ? 6'd51 : ((hp >= 5'd7) ? 6'd58 : 6'd52);
+                        else hud_bg_color = 6'd16;
+                    end else if (p2_active && col_1x == 6'd8) begin hud_text_en = 1; hud_char_code = lch("2"); hud_text_color = 6'd59; end
+                    else if (p2_active && gx >= 9'd74 && gx <= 9'd123 && gy >= 9'd5 && gy <= 9'd10) begin
+                        if (gx == 9'd74 || gx == 9'd123 || gy == 9'd5 || gy == 9'd10) hud_bg_color = 6'd55;
+                        else if ((gx - 9'd75) < {4'd0, hp2, 1'b0}) hud_bg_color = (hp2 >= 5'd7) ? 6'd59 : 6'd52;
+                        else hud_bg_color = 6'd16;
+                    end else if (col_1x >= 6'd16 && col_1x <= 6'd18) begin
                         hud_text_en = 1; hud_text_color = 6'd59;
                         if (col_1x == 6'd16) hud_char_code = lch("W");
                         else if (wave == 4'd10) hud_char_code = (col_1x == 6'd17) ? lch("1") : lch("0");
@@ -977,16 +1009,12 @@ module vga_renderer_v2 (
                 hud_bg_en = 1;
                 hud_bg_color = (gx==9'd24||gx==9'd295||gy==9'd38||gy==9'd205) ? 6'd58 : 6'd54;
 
-                // Header: "PAUSED - PRESS START"
-                if (gy >= 9'd46 && gy < 9'd54 && col_1x >= 6'd10 && col_1x < 6'd30) begin
+                // Header: "PAUSED" ONLY (no "- PRESS START")
+                if (gy >= 9'd46 && gy < 9'd54 && col_1x >= 6'd17 && col_1x < 6'd23) begin
                     hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd46;
-                    case (col_1x - 6'd10)
+                    case (col_1x - 6'd17)
                         0:hud_char_code=lch("P"); 1:hud_char_code=lch("A"); 2:hud_char_code=lch("U"); 3:hud_char_code=lch("S");
-                        4:hud_char_code=lch("E"); 5:hud_char_code=lch("D"); 6:hud_char_code=C_SP;     7:hud_char_code=C_DSH;
-                        8:hud_char_code=C_SP;     9:hud_char_code=lch("P"); 10:hud_char_code=lch("R"); 11:hud_char_code=lch("E");
-                        12:hud_char_code=lch("S"); 13:hud_char_code=lch("S"); 14:hud_char_code=C_SP; 15:hud_char_code=lch("S");
-                        16:hud_char_code=lch("T"); 17:hud_char_code=lch("A"); 18:hud_char_code=lch("R"); 19:hud_char_code=lch("T");
-                        default:hud_char_code=C_SP;
+                        4:hud_char_code=lch("E"); 5:hud_char_code=lch("D"); default:hud_char_code=C_SP;
                     endcase
                 end
 
@@ -1019,19 +1047,17 @@ module vga_renderer_v2 (
 
                 // Pointer Lines from Labels directly to each Joystick Button!
                 if (gy == 9'd117 && gx >= 9'd104 && gx <= 9'd128) hud_bg_color = 6'd59; // D-Pad <- MOVE
-                if (gx == 9'd160 && gy >= 9'd78  && gy <= 9'd114) hud_bg_color = 6'd58; // START ^ PAUSE
                 if (gy == 9'd97  && gx >= 9'd194 && gx <= 9'd206) hud_bg_color = 6'd58; // L1/[] -> DASH
                 if (gy == 9'd117 && gx >= 9'd194 && gx <= 9'd206) hud_bg_color = 6'd60; // O/X -> ATTACK
-                if (gy == 9'd136 && gx >= 9'd186 && gx <= 9'd206) hud_bg_color = 6'd50; // ^/L2 -> CHRONO
+                if (gy == 9'd136 && gx >= 9'd186 && gx <= 9'd206) hud_bg_color = 6'd50; // L2 -> CHRONO
                 if (gx == 9'd186 && gy >= 9'd113 && gy <= 9'd136) hud_bg_color = 6'd50;
 
-                // Callout Labels
-                if (gy >= 9'd68 && gy < 9'd76 && col_1x >= 6'd14 && col_1x < 6'd26) begin
-                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd68;
-                    case (col_1x - 6'd14)
-                        0:hud_char_code=lch("S"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("A"); 3:hud_char_code=lch("R");
-                        4:hud_char_code=lch("T"); 5:hud_char_code=lch(":"); 6:hud_char_code=C_SP;     7:hud_char_code=lch("P");
-                        8:hud_char_code=lch("A"); 9:hud_char_code=lch("U"); 10:hud_char_code=lch("S"); 11:hud_char_code=lch("E");
+                // Callout Labels (NO "START: PAUSE", added Y: SHOOT & SEL: MENU)
+                if (gy >= 9'd93 && gy < 9'd101 && col_1x >= 6'd4 && col_1x < 6'd13) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd93;
+                    case (col_1x - 6'd4)
+                        0:hud_char_code=lch("S"); 1:hud_char_code=lch("E"); 2:hud_char_code=lch("L"); 3:hud_char_code=C_COL;
+                        4:hud_char_code=lch("M"); 5:hud_char_code=lch("E"); 6:hud_char_code=lch("N"); 7:hud_char_code=lch("U");
                         default:hud_char_code=C_SP;
                     endcase
                 end else if (gy >= 9'd113 && gy < 9'd121 && col_1x >= 6'd4 && col_1x < 6'd13) begin
@@ -1040,6 +1066,13 @@ module vga_renderer_v2 (
                         0:hud_char_code=lch("M"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("V"); 3:hud_char_code=lch("E");
                         4:hud_char_code=lch("/"); 5:hud_char_code=lch("Q"); 6:hud_char_code=lch("U"); 7:hud_char_code=lch("I");
                         8:hud_char_code=lch("Z"); default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd132 && gy < 9'd140 && col_1x >= 6'd4 && col_1x < 6'd13) begin
+                    hud_text_en = 1; hud_text_color = 6'd59; hud_char_row = gy - 9'd132;
+                    case (col_1x - 6'd4)
+                        0:hud_char_code=lch("Y"); 1:hud_char_code=C_COL;    2:hud_char_code=C_SP;     3:hud_char_code=lch("S");
+                        4:hud_char_code=lch("H"); 5:hud_char_code=lch("O"); 6:hud_char_code=lch("O"); 7:hud_char_code=lch("T");
+                        default:hud_char_code=C_SP;
                     endcase
                 end else if (gy >= 9'd93 && gy < 9'd101 && col_1x >= 6'd26 && col_1x < 6'd35) begin
                     hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd93;

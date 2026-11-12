@@ -62,7 +62,7 @@ module drago_nexus_v2_top (
     wire [9:0]  py, dash_gy, cam_y, p2y, p2_dash_gy;
     wire        p2_mirror, p2_walk_frame;
     wire [4:0]  p2_dash_timer;
-    wire [2:0]  hp, hp2;
+    wire [4:0]  hp, hp2;
     wire [5:0]  exp;
     wire [15:0] score_bcd;
     wire [6:0]  chrono_energy;
@@ -104,9 +104,10 @@ module drago_nexus_v2_top (
     wire [3:0]        p1_slash_t, p2_slash_t;
     wire signed [1:0] p1_slash_dx, p1_slash_dy, p2_slash_dx, p2_slash_dy;
     wire              lock_valid;
-    wire [8*11-1:0]   eb_x_vec;
-    wire [8*10-1:0]   eb_y_vec;
-    wire [7:0]        eb_active_vec;
+    wire [8*11-1:0]   eb_x_vec, pb_x_vec;
+    wire [8*10-1:0]   eb_y_vec, pb_y_vec;
+    wire [8*2-1:0]    pb_dir_vec;
+    wire [7:0]        eb_active_vec, pb_active_vec;
 
     wire [10:0] boss_x;
     wire [9:0]  boss_y, laser_y;
@@ -140,21 +141,25 @@ module drago_nexus_v2_top (
 
     wire signed [2:0] j1_dx, j1_dy, j2_dx, j2_dy;
     wire [2:0]        j1_btn, j2_btn;
-    wire              joy_pause, joy_link_ok;
+    wire              j1_shoot, j2_shoot;
+    wire              joy_pause, joy_select, joy_link_ok;
     uart_joy_rx u_uart_joy (
         .clk(clk25), .rst(rst), .uart_rxd(UART_TXD_IN),
-        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn),
-        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn),
-        .joy_pause(joy_pause), .joy_link_ok(joy_link_ok)
+        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j1_shoot(j1_shoot),
+        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(j2_shoot),
+        .joy_pause(joy_pause), .joy_select(joy_select), .joy_link_ok(joy_link_ok)
     );
 
     wire signed [2:0] hud_dx = j1_dx;
     wire signed [2:0] hud_dy = j1_dy;
 
-    // SW[3:0] Priority Human-Face Skin Selector (highest ON switch wins, no mixing!)
-    wire [1:0] hero_sel = sw_sync[3] ? 2'd3 :
-                          sw_sync[2] ? 2'd2 :
-                          sw_sync[1] ? 2'd1 : 2'd0;
+    // SW[15:12] = Left Character (P1), SW[3:0] = Right Character (P2)
+    wire [1:0] hero_sel_l = sw_sync[15] ? 2'd3 :
+                            sw_sync[14] ? 2'd2 :
+                            sw_sync[13] ? 2'd1 : 2'd0;
+    wire [1:0] hero_sel_r = sw_sync[3]  ? 2'd3 :
+                            sw_sync[2]  ? 2'd2 :
+                            sw_sync[1]  ? 2'd1 : 2'd0;
 
     wire [2:0] room_phase;
     wire [6:0] wave_banner_t;
@@ -168,7 +173,9 @@ module drago_nexus_v2_top (
     game_engine_v2 u_engine (
         .clk(clk25), .rst(rst), .tick(game_tick), .btn(btn_sync),
         .tilt_dx(tilt_dx), .tilt_dy(tilt_dy),
-        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .joy_pause(joy_pause),
+        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j1_shoot(j1_shoot),
+        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(j2_shoot),
+        .joy_pause(joy_pause), .joy_select(joy_select),
         .map_addr_b(map_addr_b), .map_tile_b(map_tile_b),
         .control_mode(control_mode), .p2_active(p2_active), .zoom_lvl(zoom_lvl), .zoom_out(zoom_out), .enemies_left(enemies_left),
         .game_state(game_state), .cut_id(cut_id), .cut_timer(cut_timer), .wave(wave),
@@ -197,6 +204,7 @@ module drago_nexus_v2_top (
         .p2_slash_dx(p2_slash_dx), .p2_slash_dy(p2_slash_dy),
         .lock_x(lock_x), .lock_y(lock_y), .lock_valid(lock_valid),
         .eb_x_vec(eb_x_vec), .eb_y_vec(eb_y_vec), .eb_active_vec(eb_active_vec),
+        .pb_x_vec(pb_x_vec), .pb_y_vec(pb_y_vec), .pb_dir_vec(pb_dir_vec), .pb_active_vec(pb_active_vec),
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
@@ -238,10 +246,11 @@ module drago_nexus_v2_top (
         .p2_slash_dx(p2_slash_dx), .p2_slash_dy(p2_slash_dy),
         .lock_x(lock_x), .lock_y(lock_y), .lock_valid(lock_valid),
         .eb_x_vec(eb_x_vec), .eb_y_vec(eb_y_vec), .eb_active_vec(eb_active_vec),
+        .pb_x_vec(pb_x_vec), .pb_y_vec(pb_y_vec), .pb_dir_vec(pb_dir_vec), .pb_active_vec(pb_active_vec),
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),

@@ -206,10 +206,10 @@ BRIDGE_DIAGRAM_SVG = '''
   <line x1="371" y1="89" x2="399" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
   <line x1="566" y1="89" x2="594" y2="89" stroke="#0F766E" stroke-width="2.2" marker-end="url(#arr3)"/>
 
-  <!-- 3-Byte Packet Breakdown -->
+  <!-- 4-Byte Packet Breakdown -->
   <rect x="16" y="160" width="728" height="44" rx="6" fill="#0F172A"/>
-  <text x="380" y="178" text-anchor="middle" font-size="10.5" font-weight="700" fill="#38BDF8">โครงสร้างแพ็กเก็ต 3 ไบต์:   Byte 0 = [1 | P1_dy | P1_dx]    |    Byte 1 = [0 | P2_dy | P2_dx]    |    Byte 2 = [0 | Start(Pause) | P2_btn | P1_btn]</text>
-  <text x="380" y="195" text-anchor="middle" font-size="9.5" fill="#CBD5E1">บิตแรกสุด (MSB = 1) ของ Byte 0 ทำหน้าที่เป็นตัวล็อกหัวแถว ป้องกันข้อมูลสลับตำแหน่งแม้เสียบสายกลางคัน</text>
+  <text x="380" y="178" text-anchor="middle" font-size="10" font-weight="700" fill="#38BDF8">แพ็กเก็ต 4 ไบต์: B0=[1|P1_Y|P1_dy|P1_dx] | B1=[0|P2_Y|P2_dy|P2_dx] | B2=[0|Start|P2_btn|P1_btn] | B3=[0..Select]</text>
+  <text x="380" y="195" text-anchor="middle" font-size="9.5" fill="#CBD5E1">บิตแรกสุด (MSB = 1) ของ Byte 0 ล็อกหัวแถว + ปุ่ม Y ยิงปืน, Start=Pause, Select=กลับหน้า Menu</text>
 </svg>
 '''
 
@@ -233,10 +233,10 @@ SLIDES = [
      "อธิบายสั้นๆ ว่าเกมเราสร้างเป็นวงจรฮาร์ดแวร์ล้วนๆ บนบอร์ด ไม่ได้เขียนโปรแกรมรันบน Windows"),
 
     ("Slide 3 — ฮาร์ดแวร์และข้อกำหนด (Hardware & Requirements)", "0:50 – 1:15", "คนที่ 1",
-     wireframe_svg("SLIDE 3: HARDWARE & SPECS", [(16,34,138,60,"VGA 640x480@60Hz\n12-bit (4,096 สี)","#0284C7"), (166,34,138,60,"Board I/O: SW0-3\nLEDs + 7-Seg + Debounce","#D97706"), (16,104,138,60,"Pure Verilog\nVBlank Update","#7C3AED"), (166,104,138,60,"Extras: Joy Bridge\nAudio + Credit FPGADude","#16A34A")]),
+     wireframe_svg("SLIDE 3: HARDWARE & SPECS", [(16,34,138,60,"VGA 640x480@60Hz\n12-bit (4,096 สี)","#0284C7"), (166,34,138,60,"Board I/O: SW15-12 / 3-0\nLEDs + 7-Seg + Debounce","#D97706"), (16,104,138,60,"Pure Verilog\nVBlank Update","#7C3AED"), (166,104,138,60,"Extras: Joy Bridge\nAudio + Credit FPGADude","#16A34A")]),
      [
          "<b>Display:</b> จอ VGA <code>640×480 @ 60 Hz</code> 12-bit RGB (<code>4,096</code> สี)",
-         "<b>Board I/O:</b> <code>SW[3:0]</code> เลือกสกิน, <code>16 LEDs</code> + <code>8-Digit 7-Segment</code> แสดงคะแนน/HP/Wave, ปุ่มกดผ่าน <code>5 ms Debouncer</code>",
+         "<b>Board I/O:</b> <code>SW[15:12]</code> เลือกสกินฝั่งซ้าย (P1), <code>SW[3:0]</code> เลือกสกินฝั่งขวา (P2), <code>16 LEDs</code> + <code>8-Digit 7-Segment</code> แสดงคะแนน/HP/Wave, ปุ่มกดผ่าน <code>5 ms Debouncer</code>",
          "<b>Design Rules:</b> Pure Verilog บน Vivado (ไม่ใช้ MicroBlaze) + อัปเดตภาพเฉพาะช่วง <b>VBlank</b> (ภาพไม่ฉีก)",
          "<b>Credit:</b> ระบุเครดิตโค้ด SPI Accelerometer จาก <code>FPGADude</code> ตามกฎ Brief หน้า 3"
      ],
@@ -247,17 +247,17 @@ SLIDES = [
      [
          "<b>Joystick-Only 8-Direction:</b> เดิน 8 ทิศทาง (Analog 2 ความเร็ว / D-Pad) ทั้งโหมด <b>1P</b> และ <b>2P Co-op</b>",
          "<b>Single-Room Boundary:</b> เห็นเฉพาะห้องสี่เหลี่ยมของด่านนั้น รอบนอกดำสนิท ชนกำแพง/ศัตรู/ประตูแม่นยำ",
-         "<b>Extra Complexity:</b> พุ่งดูดระยะใกล้ (<code>≤72 px</code>) + คอมโบ 3 จังหวะ (ท่า 3 ปล่อย <b>360° Nova</b>), <b>Smooth Auto-Zoom</b>, <b>Shadow Dash</b>, <b>Chrono-Shift</b>",
-         "<b>ปุ่ม Start = Pause:</b> หยุดเกมพร้อมโชว์รูปจอยชี้บอกว่าปุ่มไหนทำอะไร"
+         "<b>Extra Complexity:</b> พุ่งดูดระยะใกล้ (<code>≤72 px</code>) + คอมโบฟันดาบเสี้ยวจันทรา 3 จังหวะ (ท่า 3 ปล่อย <b>360° Nova</b>) + <b>ปุ่ม Y ยิงกระสุนฟ้าเรียวยาว</b>, <b>Smooth Auto-Zoom</b>, <b>Shadow Dash</b>, <b>Chrono-Shift (L2/R2)</b>",
+         "<b>Start = Pause / Select = Menu:</b> กด Start ขึ้นหน้า <code>PAUSED</code> พร้อมรูปจอยชี้ปุ่มกด, กด Select กลับหน้า Menu"
      ],
      "ชี้รูป shot_combat_lunge.png ให้ดูวงคลื่นสีเหลือง 360° และกรอบห้องเดี่ยว"),
 
-    ("Slide 5 — Feature 2: Sprite Evolutions & SW0–SW3 Skins (15%)", "1:55 – 2:35", "คนที่ 2",
-     wireframe_svg("SLIDE 5: FEATURE 2 (15%)", [(16,34,288,54,"4 ขั้น Evolution (ไร้ Cutscene): UP0 → UP1(Pet) → UP2(ดาบหมุน) → UP3(Apex)","#7C3AED"), (16,96,288,68,"รูปจริง: sprite_preview.png (ฮีโร่หน้าคน 4 + ศัตรูหน้าคน 8 + บอส 3 + หัวใจ)","#D97706")]),
+    ("Slide 5 — Feature 2: Sprite Evolutions, HP Regen & Skins (15%)", "1:55 – 2:35", "คนที่ 2",
+     wireframe_svg("SLIDE 5: FEATURE 2 (15%)", [(16,34,288,54,"4 ขั้น Evolution (ไร้ Cutscene) + หลอดเลือด Regen","#7C3AED"), (16,96,288,68,"รูปจริง: sprite_preview.png (ฮีโร่หน้าคน 4 + ศัตรูหน้าคน 8 + บอส 3 + หัวใจ)","#D97706")]),
      [
-         "<b>Event-Driven Evolution (≥3 Forms, ไร้ Cutscene):</b> เก็บ Blue Evo Gem (แม่เหล็กดูด) อัปเกรดต่อเนื่องโดยไม่ขัดจังหวะเล่น: <code>UP1 (GEM≥10)</code> ได้ Pet ช่วยยิง → <code>UP2 (GEM≥25)</code> ได้ดาบคู่หมุนรอบตัว → <code>UP3 (GEM≥45)</code> Apex Aura + ฟื้นเต็ม 6 หัวใจ",
-         "<b>สกินฮีโร่หน้าคนล้วน (SW0–SW3 Priority):</b> ตรวจจาก <code>SW0 → SW3</code> ยึดสวิตช์ตัวบนสุดที่เปิดอยู่ตัวเดียวไม่ผสม (PF, PPuen, PPeem, PPing)",
-         "<b>ไอเทมฟื้นพลัง:</b> ตัดเห็ดออก เหลือเฉพาะหัวใจ (<code>♥</code>)"
+         "<b>Event-Driven Evolution (≥3 Forms, ไร้ Cutscene):</b> เก็บ Blue Evo Gem (แม่เหล็กดูด) อัปเกรดต่อเนื่องโดยไม่ขัดจังหวะเล่น: <code>UP1 (GEM≥10)</code> ได้ Pet ช่วยยิง → <code>UP2 (GEM≥25)</code> ได้ดาบคู่หมุนรอบตัว → <code>UP3 (GEM≥45)</code> Apex Aura + ฟื้นเต็มหลอด 24 HP",
+         "<b>สกินฮีโร่หน้าคนแยกฝั่ง (SW15–12 ซ้าย / SW3–0 ขวา):</b> ฝั่งซ้าย (P1) ใช้ <code>SW15–SW12</code> และฝั่งขวา (P2) ใช้ <code>SW3–SW0</code> ยึดสวิตช์ตัวบนสุดในกลุ่มที่เปิด",
+         "<b>หลอดเลือด HP Bar + Out-of-Combat Regen + หัวใจ (<code>♥</code>):</b> เปลี่ยนเป็นหลอดเลือด (<code>0–24 HP</code>) มีหัวใจให้เก็บ และหากพักจากการต่อสู้ ~3 วินาที เลือดจะค่อยๆ ฟื้นฟูอัตโนมัติ"
      ],
      "ชี้รูป sprite_preview.png ว่ารอบนี้ใช้หน้าคนจริงทั้งหมดทั้งฮีโร่ ศัตรู และบอส"),
 
@@ -288,11 +288,11 @@ SLIDES = [
      "เล่าเรียงตามลูกศรเลยครับ อาจารย์จะเห็นภาพ Flow ของเกมทั้งหมดชัดเจนมาก"),
 
     ("Slide 9 — PC-to-FPGA Joystick Bridge (คอมเป็นสะพานเชื่อมจอย)", "4:50 – 5:40", "คนที่ 4",
-     wireframe_svg("SLIDE 9: JOYSTICK BRIDGE", [(16,36,64,76,"1. Twin USB\nJoysticks","#0284C7"), (90,36,70,76,"2. PC Python\nwinmm.dll","#D97706"), (170,36,64,76,"3. USB-UART\n115200 bps","#0D9488"), (244,36,60,76,"4. FPGA\nuart_joy_rx","#7C3AED"), (16,122,288,40,"Packet 3 Bytes: Byte0[0x80+P1] | Byte1[P2] | Byte2[Start(Pause)+Btns]","#0F172A")]),
+     wireframe_svg("SLIDE 9: JOYSTICK BRIDGE", [(16,36,64,76,"1. Twin USB\nJoysticks","#0284C7"), (90,36,70,76,"2. PC Python\nwinmm.dll","#D97706"), (170,36,64,76,"3. USB-UART\n115200 bps","#0D9488"), (244,36,60,76,"4. FPGA\nuart_joy_rx","#7C3AED"), (16,122,288,40,"Packet 4 Bytes: B0[0x80+P1_Y] | B1[P2_Y] | B2[Start+Btns] | B3[Select]","#0F172A")]),
      [
          "<b>ปัญหาที่เจอ:</b> บอร์ด Nexys A7 อ่านจอย USB Gamepad คู่โดยตรงไม่ได้ (บอร์ดรองรับแค่คีย์บอร์ด/เมาส์มาตรฐาน)",
-         "<b>วิธีแก้:</b> ใช้โปรแกรม <code>joy_bridge.py</code> บนคอมเป็น 'สะพานเชื่อม' อ่านจอย 1 &amp; 2 ผ่าน Windows API (<code>winmm.dll</code>) 60 ครั้ง/วิ แล้วส่งข้อมูล <b>3 ไบต์</b> ผ่านสาย Micro-USB (<code>UART 115,200 bps</code>) เข้าชิป FPGA",
-         "<b>ความฉลาดของโปรโตคอล:</b> ใส่บิตหัวแถว <code>0x80</code> ใน Byte 0 กันข้อมูลสลับตำแหน่ง และส่งปุ่ม <code>Start</code> ในบิตที่ 6 ของ Byte 2 เพื่อกด <b>Pause</b>"
+         "<b>วิธีแก้:</b> ใช้โปรแกรม <code>joy_bridge.py</code> บนคอมเป็น 'สะพานเชื่อม' อ่านจอย 1 &amp; 2 ผ่าน Windows API (<code>winmm.dll</code>) 60 ครั้ง/วิ แล้วส่งข้อมูล <b>4 ไบต์</b> ผ่านสาย Micro-USB (<code>UART 115,200 bps</code>) เข้าชิป FPGA",
+         "<b>ความฉลาดของโปรโตคอล:</b> ใส่บิตหัวแถว <code>0x80</code> ใน Byte 0 กันข้อมูลสลับตำแหน่ง, ปุ่ม <code>Y</code> ยิงกระสุนฟ้า, ปุ่ม <code>Start</code> สั่ง <b>Pause</b> และปุ่ม <code>Select</code> กลับหน้า <b>Menu</b>"
      ],
      "หน้านี้โชว์ความสามารถแก้ปัญหา Hardware Limitation ด้วยการทำ Software-to-Hardware Bridge"),
 

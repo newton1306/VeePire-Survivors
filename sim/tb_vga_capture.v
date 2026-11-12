@@ -42,7 +42,7 @@ module tb_vga_capture;
     wire [9:0]  py, dash_gy, cam_y, p2y, p2_dash_gy;
     wire        p2_mirror, p2_walk_frame;
     wire [4:0]  p2_dash_timer;
-    wire [2:0]  hp, hp2;
+    wire [4:0]  hp, hp2;
     wire [5:0]  exp;
     wire [15:0] score_bcd;
     wire [6:0]  chrono_energy;
@@ -84,9 +84,10 @@ module tb_vga_capture;
     wire [3:0]        p1_slash_t, p2_slash_t;
     wire signed [1:0] p1_slash_dx, p1_slash_dy, p2_slash_dx, p2_slash_dy;
     wire              lock_valid;
-    wire [8*11-1:0]   eb_x_vec;
-    wire [8*10-1:0]   eb_y_vec;
-    wire [7:0]        eb_active_vec;
+    wire [8*11-1:0]   eb_x_vec, pb_x_vec;
+    wire [8*10-1:0]   eb_y_vec, pb_y_vec;
+    wire [8*2-1:0]    pb_dir_vec;
+    wire [7:0]        eb_active_vec, pb_active_vec;
 
     wire [10:0] boss_x;
     wire [9:0]  boss_y, laser_y;
@@ -94,7 +95,8 @@ module tb_vga_capture;
     wire [1:0]  boss_kind, laser_state;
     wire        boss_active, boss_locked, boss_enraged;
     wire        sfx_shoot, sfx_pickup, sfx_evolve, sfx_hit;
-    wire [1:0]  hero_sel = sw[3] ? 2'd3 : (sw[2] ? 2'd2 : (sw[1] ? 2'd1 : 2'd0));
+    wire [1:0]  hero_sel_l = sw[15] ? 2'd3 : (sw[14] ? 2'd2 : (sw[13] ? 2'd1 : 2'd0));
+    wire [1:0]  hero_sel_r = sw[3]  ? 2'd3 : (sw[2]  ? 2'd2 : (sw[1]  ? 2'd1 : 2'd0));
     wire [2:0]  room_phase;
     wire [6:0]  wave_banner_t;
     wire [5:0]  door_slam_t, quiz_wrong_t;
@@ -107,8 +109,8 @@ module tb_vga_capture;
     game_engine_v2 u_engine (
         .clk(clk), .rst(rst), .tick(tick), .btn(btn),
         .tilt_dx(tilt_dx), .tilt_dy(tilt_dy),
-        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn),
-        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .joy_pause(1'b0),
+        .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j1_shoot(1'b0),
+        .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(1'b0), .joy_pause(1'b0), .joy_select(1'b0),
         .map_addr_b(map_addr_b), .map_tile_b(map_tile_b),
         .control_mode(control_mode), .p2_active(p2_active),
         .zoom_lvl(zoom_lvl), .zoom_out(zoom_out), .enemies_left(enemies_left),
@@ -138,6 +140,7 @@ module tb_vga_capture;
         .p2_slash_dx(p2_slash_dx), .p2_slash_dy(p2_slash_dy),
         .lock_x(lock_x), .lock_y(lock_y), .lock_valid(lock_valid),
         .eb_x_vec(eb_x_vec), .eb_y_vec(eb_y_vec), .eb_active_vec(eb_active_vec),
+        .pb_x_vec(pb_x_vec), .pb_y_vec(pb_y_vec), .pb_dir_vec(pb_dir_vec), .pb_active_vec(pb_active_vec),
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
@@ -149,12 +152,12 @@ module tb_vga_capture;
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
     wire [2:0]        rx_j1_btn, rx_j2_btn;
-    wire              rx_joy_pause, joy_link_ok;
+    wire              rx_j1_shoot, rx_j2_shoot, rx_joy_pause, rx_joy_select, joy_link_ok;
     uart_joy_rx u_uart_joy (
         .clk(clk), .rst(rst), .uart_rxd(uart_rxd),
-        .j1_dx(rx_j1_dx), .j1_dy(rx_j1_dy), .j1_btn(rx_j1_btn),
-        .j2_dx(rx_j2_dx), .j2_dy(rx_j2_dy), .j2_btn(rx_j2_btn),
-        .joy_pause(rx_joy_pause), .joy_link_ok(joy_link_ok)
+        .j1_dx(rx_j1_dx), .j1_dy(rx_j1_dy), .j1_btn(rx_j1_btn), .j1_shoot(rx_j1_shoot),
+        .j2_dx(rx_j2_dx), .j2_dy(rx_j2_dy), .j2_btn(rx_j2_btn), .j2_shoot(rx_j2_shoot),
+        .joy_pause(rx_joy_pause), .joy_select(rx_joy_select), .joy_link_ok(joy_link_ok)
     );
 
     wire [3:0] VGA_R, VGA_G, VGA_B;
@@ -191,10 +194,11 @@ module tb_vga_capture;
         .p2_slash_dx(p2_slash_dx), .p2_slash_dy(p2_slash_dy),
         .lock_x(lock_x), .lock_y(lock_y), .lock_valid(lock_valid),
         .eb_x_vec(eb_x_vec), .eb_y_vec(eb_y_vec), .eb_active_vec(eb_active_vec),
+        .pb_x_vec(pb_x_vec), .pb_y_vec(pb_y_vec), .pb_dir_vec(pb_dir_vec), .pb_active_vec(pb_active_vec),
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .paused(paused),

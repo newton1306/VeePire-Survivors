@@ -306,14 +306,14 @@
       <img src="screenshots/shot_combat_lunge.png" alt="Active 3-Hit Combo &amp; 360 Nova Combat">
       <div class="shot-cap">
         <strong>ภาพจริงจากวงจรเกม — 3-Hit Melee Combo, 360° Nova &amp; Combo Rank</strong>
-        กรอบล็อกเป้า <code>[ ]</code> พุ่งดูดเข้าฟันต่อเนื่อง 3 จังหวะ (จังหวะ 3 ปล่อยคลื่นพายุ 360° Nova + Hit-Stop + Screen Shake + Hit Sparks 12 จุด) พร้อมหลอดเลือดศัตรู <code>16×2 px</code> และหัวใจแยก P1/P2
+        กรอบล็อกเป้า <code>[ ]</code> พุ่งดูดเข้าฟันต่อเนื่อง 3 จังหวะ (เอฟเฟคเสี้ยวจันทราคมชัด, จังหวะ 3 ปล่อยคลื่น 360° Nova + Hit-Stop + Screen Shake) พร้อมปุ่ม <code>Y</code> ยิงกระสุนฟ้าเรียวยาว และหลอดเลือด HP Bar แยก P1/P2
       </div>
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       <div class="card-dark">
-        <h3>3-Hit Melee Lunge-Snap Combo + 360° Nova Finisher</h3>
+        <h3>3-Hit Crescent Melee + 360° Nova + Blue Gun (Y)</h3>
         <p>
-          การโจมตีทั้งหมดเป็น <b>Melee 100%</b> พร้อมกรอบล็อกเป้า <code>[ ]</code> พุ่งดูดตัว (สูงสุด 10 px/frame): จังหวะ 1–2 ฟาดคลื่นเสี้ยวพระจันทร์ความเร็วสูง จังหวะ 3 ปลดปล่อย <b>360° Nova Whirlwind</b> + แรงสั่นสะเทือนหน้าจอ (Screen Shake) + จังหวะปะทะ (Hit-Stop) และเกจ <b>Combo Rank (`C→B→A→S→X`)</b>!
+          โจมตีประชิดด้วยกรอบล็อกเป้า <code>[ ]</code> พุ่งดูดตัวพร้อมเอฟเฟคฟันดาบเสี้ยวจันทรา 3 จังหวะ (จังหวะ 3 ปล่อย <b>360° Nova</b> + Screen Shake + Hit-Stop) และกดปุ่ม <b><code>Y</code></b> เพื่อยิง<b>กระสุนปืนสีฟ้า-ขาวเรียวยาว</b>!
         </p>
       </div>
       <div class="card">
@@ -339,8 +339,8 @@
   <div class="sec-title">3. ภาพรวมระบบ HUD บนจอ (Display Layout)</div>
   <div class="grid-3">
     <div class="card">
-      <h3>หัวใจ &amp; คอมโบ Rank (Top-Left)</h3>
-      <p>แสดงหัวใจแยก <code>1♥♥♥♥♥♥</code> / <code>2♥♥♥♥♥♥</code>, เกจ <code>GEM</code> สีฟ้า, เกจ <code>CHR</code> ชะลอเวลา และป้ายแรงก์คอมโบ <code>x&lt;n&gt; C/B/A/S/X</code></p>
+      <h3>หลอดเลือด HP Bar + Regen &amp; คอมโบ Rank</h3>
+      <p>แสดงหลอดเลือด <code>HP Bar (0–24)</code> แยก P1/P2 พร้อมฟื้นฟูอัตโนมัติเมื่ออยู่นอกการต่อสู้ ~3 วิ, เกจ <code>GEM</code>, เกจ <code>CHR</code> และป้ายคอมโบ <code>x&lt;n&gt; C/B/A/S/X</code></p>
     </div>
     <div class="card">
       <h3>ข้อมูล Wave &amp; ศัตรู (Top-Center/Right)</h3>
@@ -495,11 +495,11 @@
     </tbody>
   </table>
 
-  <div class="sec-title">7. ระบบ Co-op, แยกหัวใจ, กล้อง Brawlhalla และเสียง BGM 4 แทร็ก</div>
+  <div class="sec-title">7. ระบบ Co-op, หลอดเลือด Regen, กล้อง Brawlhalla และเสียง BGM 4 แทร็ก</div>
   <div class="grid-3">
     <div class="card">
-      <h3>หัวใจแยก P1/P2 + ชุบชีวิต 3 วิธี</h3>
-      <p>P1 และ P2 แยก 6 หัวใจอิสระ เพื่อน KO ชุบได้โดย: 1) ยืนชิดเพื่อน ~0.5 วิ 2) เก็บ Heart/Supply Crate 3) เคลียร์ Wave</p>
+      <h3>หลอดเลือดแยก P1/P2 + Out-of-Combat Regen + ชุบชีวิต 3 วิธี</h3>
+      <p>P1 (สกิน <code>SW15–12</code>) และ P2 (สกิน <code>SW3–0</code>) แยกหลอดเลือด 24 HP + ฟื้นฟูอัตโนมัติหลังพักสู้ ~3 วิ + เก็บหัวใจ หากตายทั้งคู่เข้าหน้า Game Over ทันที</p>
     </div>
     <div class="card">
       <h3>17-Step Brawlhalla Zoom</h3>
