@@ -217,10 +217,10 @@ module tb_game_v2;
         j2_dx = 3'sd2; step_frame(); j2_dx = 0; step_frame();
         j2_btn[2] = 1'b1; step_frame(); j2_btn[2] = 0;
         repeat (95) step_frame();
-        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 5'd24 || hp2 !== 5'd24 || enemies_left !== 5'd6) begin
-            $display("FAIL: J2 Start / 6 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d hp=%d hp2=%d", game_state, room_phase, p2_active, enemies_left, hp, hp2);
+        if (game_state !== 3'd2 || room_phase !== 3'd1 || !p2_active || hp !== 5'd24 || hp2 !== 5'd24 || enemies_left !== 5'd10) begin
+            $display("FAIL: J2 Start / 10 W1 Enemies / Separate 2P HP failed! st=%d rp=%d p2=%b en=%d hp=%d hp2=%d", game_state, room_phase, p2_active, enemies_left, hp, hp2);
             fail_cnt = fail_cnt + 1;
-        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 6 Wave1 Enemies, & 24/24 HP Bars active!");
+        end else $display("OK: Joy2 Menu/Start, Wave Banner Slide-Out, 10 Wave1 Enemies, & 24/24 HP Bars active!");
 
         // 2b. Start button Pause toggle test
         joy_pause = 1'b1; step_frame(); joy_pause = 1'b0; step_frame();
@@ -271,12 +271,14 @@ module tb_game_v2;
             $display("FAIL: Seamless Evo / Heart-no-wrap failed! stg=%d pet=%b st=%d hp=%d", stage, pet_active, game_state, hp); fail_cnt = fail_cnt + 1;
         end else $display("OK: Seamless Evo (NO cutscene!) & Heart-only pickup at 24 HP stayed 24!");
 
-        // 5. Clear Sub-wave 0 -> Sub-wave 1 Reinforcement -> Room Clear -> Arrow -> Logic Gate Quiz -> Sliding Door Open -> Slam + Wave 2 Banner!
+        // 5. Clear Sub-wave 0 -> Sub-wave 1..2 Reinforcements -> Room Clear -> Arrow -> Logic Gate Quiz -> Sliding Door Open -> Slam + Wave 2 Banner!
         for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
         repeat (3) step_frame();
-        if (enemies_left !== 5'd6 || room_phase !== 3'd1) begin
+        if (enemies_left !== 5'd10 || room_phase !== 3'd1) begin
             $display("FAIL: Sub-wave 1 reinforcement did not spawn! en=%d rp=%d", enemies_left, room_phase); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Sub-wave 1 reinforcement spawned (6 more enemies)!");
+        end else $display("OK: Sub-wave 1 reinforcement spawned (10 more enemies)!");
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
+        repeat (3) step_frame();
         for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
         repeat (3) step_frame();
         if (room_phase !== 3'd2) begin
@@ -306,23 +308,24 @@ module tb_game_v2;
         end else $display("OK: Entered door -> Door Slam ('PANG!') + Wave 2 Banner Slide-Out!");
         repeat (95) step_frame();
 
-        // 6. Final Boss (Wave 6): 3-Form Death -> Chuunibyou Quote + Portal Regrowth -> Victory!
+        // 6. Final Boss (Wave 6): 3-Form Death -> Chuunibyou Quote + Portal Regrowth AT DEATH LOCATION -> Victory!
         u_engine.wave = 4'd6; u_engine.room_phase = 3'd1;
-        u_engine.spawn_wave_group(4'd6, 1'b0);
+        u_engine.spawn_wave_group(4'd6, 3'd0);
         step_frame();
         if (!boss_active || boss_kind !== 2'd0) begin
             $display("FAIL: Wave 6 Boss Form 0 failed to spawn!"); fail_cnt = fail_cnt + 1;
         end
-        // Kill Form 0 -> Portal -> Form 1
-        u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;
+        // Move Boss Form 0 to (300, 200), kill it -> Form 1 MUST spawn at (300, 200)!
+        u_engine.boss_x = 11'd300; u_engine.boss_y = 10'd200;
+        u_engine.boss_hp = 7'd1; u_engine.px = 11'd288; u_engine.py = 10'd200;
         j1_btn[2] = 1'b1; repeat (4) step_frame(); j1_btn[2] = 0;
         if (room_phase !== 3'd5 || boss_trans_t == 0) begin
             $display("FAIL: Boss Form 0 death did not enter RP_BOSS portal transition!"); fail_cnt = fail_cnt + 1;
         end else $display("OK: Boss Form 0 defeated -> Death FX + Portal Regrowth!");
         repeat (165) step_frame();
-        if (!boss_active || boss_kind !== 2'd1) begin
-            $display("FAIL: Boss Form 1 did not regrow from portal! act=%b kind=%d", boss_active, boss_kind); fail_cnt = fail_cnt + 1;
-        end else $display("OK: Boss Form 1 regrew from portal!");
+        if (!boss_active || boss_kind !== 2'd1 || u_engine.boss_x > 11'd330) begin
+            $display("FAIL: Boss Form 1 did not regrow at death portal! act=%b kind=%d bx=%d", boss_active, boss_kind, u_engine.boss_x); fail_cnt = fail_cnt + 1;
+        end else $display("OK: Boss Form 1 regrew right out of death Portal!");
 
         // Kill Form 1 -> Portal -> Form 2 (Thanos)
         u_engine.boss_hp = 7'd1; u_engine.px = u_engine.boss_x - 11'd12; u_engine.py = u_engine.boss_y;

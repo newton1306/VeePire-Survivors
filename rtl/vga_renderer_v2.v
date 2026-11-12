@@ -335,7 +335,7 @@ module vga_renderer_v2 (
     // 6. VFX OVERLAYS: SLASHES, 360 NOVA FINISHER, 16x2 MINI HP BARS, 12 HIT SPARKS, LOCK RETICLE
     reg       on_pb_0, on_eb_0, on_dropfx_0, on_laser_0;
     reg [5:0] pb_col_0, eb_col_0, dropfx_col_0, laser_col_0;
-    reg signed [11:0] bx_d, by_d, ax_d, ay_d, oct_d, dot_d;
+    reg signed [11:0] bx_d, by_d, ax_d, ay_d, oct_d, dot_d, sw_up;
     reg [5:0] wpn_skin_col;
     reg [3:0] e_hp_k;
     reg [4:0] hp_bar_w;
@@ -344,7 +344,7 @@ module vga_renderer_v2 (
     always @(*) begin
         on_pb_0 = 0; pb_col_0 = 0; on_eb_0 = 0; eb_col_0 = 0;
         on_dropfx_0 = 0; dropfx_col_0 = 0; on_laser_0 = 0; laser_col_0 = 0;
-        bx_d = 0; by_d = 0; ax_d = 0; ay_d = 0; oct_d = 0; dot_d = 0; e_hp_k = 0; hp_bar_w = 0;
+        bx_d = 0; by_d = 0; ax_d = 0; ay_d = 0; oct_d = 0; dot_d = 0; sw_up = 0; e_hp_k = 0; hp_bar_w = 0;
 
         case (skin_wpn)
             3'd0: wpn_skin_col = 6'd59; 3'd1: wpn_skin_col = 6'd52; 3'd2: wpn_skin_col = 6'd58; 3'd3: wpn_skin_col = 6'd45;
@@ -396,45 +396,79 @@ module vga_renderer_v2 (
             end
 
             // P1 Clear 12-px Crescent Slash + Sword Beam OR 360 Double-Ring Nova!
-            // Compact Sleek Crescent Sword-Swing Effect (P1 & P2)
+            // 4-Phase Pixel-Art Sword Swing Animation (Anticipation -> Smear 1 -> Hit Crescent -> Follow Through)
             if (p1_slash_t > 0) begin
-                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p1_nova ? px : (px + (p1_slash_dx * 12'sd5))});
-                by_d = $signed({2'b00, wy}) - $signed({2'b00, p1_nova ? py : (py + (p1_slash_dy * 12'sd5))});
-                if (bx_d >= -12'sd24 && bx_d <= 12'sd24 && by_d >= -12'sd24 && by_d <= 12'sd24) begin
+                bx_d = $signed({1'b0, wx}) - $signed({1'b0, px});
+                by_d = $signed({2'b00, wy}) - $signed({2'b00, py});
+                if (bx_d >= -12'sd26 && bx_d <= 12'sd26 && by_d >= -12'sd26 && by_d <= 12'sd26) begin
                     ax_d  = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
                     oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
                     dot_d = ((p1_slash_dx == 0) ? 12'sd0 : ((p1_slash_dx > 0) ? bx_d : -bx_d)) +
                             ((p1_slash_dy == 0) ? 12'sd0 : ((p1_slash_dy > 0) ? by_d : -by_d));
+                    sw_up = (p1_slash_dy == 0) ? -by_d : ((p1_slash_dx == 0) ? bx_d : -by_d);
                     if (p1_nova) begin
-                        if (oct_d >= 12'sd15 && oct_d <= 12'sd21) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18) ? 6'd17 : 6'd59;
+                        if (oct_d >= 12'sd15 && oct_d <= 12'sd22) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd19) ? 6'd17 : 6'd59;
                         end
-                    end else if (dot_d >= 12'sd2 &&
-                                 oct_d <= (12'sd21 - {8'd0, p1_slash_t[3:1]}) &&
-                                 oct_d >= (12'sd13 - {8'd0, p1_slash_t[3:2]})) begin
-                        on_pb_0  = 1;
-                        pb_col_0 = (oct_d >= (12'sd18 - {8'd0, p1_slash_t[3:1]})) ? 6'd17 : 6'd59;
+                    end else if (p1_slash_t >= 4'd10) begin
+                        // Phase 1: Anticipation (blade cocked up-back)
+                        if (sw_up >= 12'sd5 && sw_up <= 12'sd20 && dot_d >= -12'sd9 && dot_d <= -12'sd1 &&
+                            (dot_d + (sw_up >> 2) >= -12'sd5) && (dot_d + (sw_up >> 2) <= -12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (dot_d + (sw_up >> 2) == -12'sd3) ? 6'd17 : 6'd55;
+                        end
+                    end else if (p1_slash_t >= 4'd7) begin
+                        // Phase 2: Smear 1 (wide white sweeping arc from top-back to front)
+                        if (sw_up >= -12'sd3 && oct_d >= 12'sd12 && oct_d <= 12'sd25 &&
+                            (dot_d >= -12'sd5 || sw_up >= 12'sd8) && (dot_d + sw_up >= 12'sd6)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18 || dot_d >= 12'sd14) ? 6'd17 : 6'd55;
+                        end
+                    end else if (p1_slash_t >= 4'd4) begin
+                        // Phase 3: Hit (sharp hooked white crescent in front)
+                        if (dot_d >= 12'sd5 && sw_up >= -12'sd9 && sw_up <= 12'sd15 &&
+                            oct_d >= 12'sd12 && oct_d <= 12'sd23 && (dot_d >= (sw_up < 0 ? -sw_up : sw_up) + 12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd17 || sw_up >= 12'sd6) ? 6'd17 : 6'd55;
+                        end
+                    end else begin
+                        // Phase 4: Follow Through (forward extended blade)
+                        if (dot_d >= 12'sd6 && dot_d <= 12'sd24 && sw_up >= -12'sd2 && sw_up <= 12'sd1) begin
+                            on_pb_0 = 1; pb_col_0 = (sw_up == 12'sd0 || dot_d >= 12'sd16) ? 6'd17 : 6'd55;
+                        end
                     end
                 end
             end
 
             if (p2_active && p2_slash_t > 0) begin
-                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p2_nova ? p2x : (p2x + (p2_slash_dx * 12'sd5))});
-                by_d = $signed({2'b00, wy}) - $signed({2'b00, p2_nova ? p2y : (p2y + (p2_slash_dy * 12'sd5))});
-                if (bx_d >= -12'sd24 && bx_d <= 12'sd24 && by_d >= -12'sd24 && by_d <= 12'sd24) begin
+                bx_d = $signed({1'b0, wx}) - $signed({1'b0, p2x});
+                by_d = $signed({2'b00, wy}) - $signed({2'b00, p2y});
+                if (bx_d >= -12'sd26 && bx_d <= 12'sd26 && by_d >= -12'sd26 && by_d <= 12'sd26) begin
                     ax_d  = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
                     oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
                     dot_d = ((p2_slash_dx == 0) ? 12'sd0 : ((p2_slash_dx > 0) ? bx_d : -bx_d)) +
                             ((p2_slash_dy == 0) ? 12'sd0 : ((p2_slash_dy > 0) ? by_d : -by_d));
+                    sw_up = (p2_slash_dy == 0) ? -by_d : ((p2_slash_dx == 0) ? bx_d : -by_d);
                     if (p2_nova) begin
-                        if (oct_d >= 12'sd15 && oct_d <= 12'sd21) begin
-                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18) ? 6'd17 : 6'd60;
+                        if (oct_d >= 12'sd15 && oct_d <= 12'sd22) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd19) ? 6'd17 : 6'd60;
                         end
-                    end else if (dot_d >= 12'sd2 &&
-                                 oct_d <= (12'sd21 - {8'd0, p2_slash_t[3:1]}) &&
-                                 oct_d >= (12'sd13 - {8'd0, p2_slash_t[3:2]})) begin
-                        on_pb_0  = 1;
-                        pb_col_0 = (oct_d >= (12'sd18 - {8'd0, p2_slash_t[3:1]})) ? 6'd17 : 6'd60;
+                    end else if (p2_slash_t >= 4'd10) begin
+                        if (sw_up >= 12'sd5 && sw_up <= 12'sd20 && dot_d >= -12'sd9 && dot_d <= -12'sd1 &&
+                            (dot_d + (sw_up >> 2) >= -12'sd5) && (dot_d + (sw_up >> 2) <= -12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (dot_d + (sw_up >> 2) == -12'sd3) ? 6'd17 : 6'd55;
+                        end
+                    end else if (p2_slash_t >= 4'd7) begin
+                        if (sw_up >= -12'sd3 && oct_d >= 12'sd12 && oct_d <= 12'sd25 &&
+                            (dot_d >= -12'sd5 || sw_up >= 12'sd8) && (dot_d + sw_up >= 12'sd6)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd18 || dot_d >= 12'sd14) ? 6'd17 : 6'd55;
+                        end
+                    end else if (p2_slash_t >= 4'd4) begin
+                        if (dot_d >= 12'sd5 && sw_up >= -12'sd9 && sw_up <= 12'sd15 &&
+                            oct_d >= 12'sd12 && oct_d <= 12'sd23 && (dot_d >= (sw_up < 0 ? -sw_up : sw_up) + 12'sd2)) begin
+                            on_pb_0 = 1; pb_col_0 = (oct_d >= 12'sd17 || sw_up >= 12'sd6) ? 6'd17 : 6'd55;
+                        end
+                    end else begin
+                        if (dot_d >= 12'sd6 && dot_d <= 12'sd24 && sw_up >= -12'sd2 && sw_up <= 12'sd1) begin
+                            on_pb_0 = 1; pb_col_0 = (sw_up == 12'sd0 || dot_d >= 12'sd16) ? 6'd17 : 6'd55;
+                        end
                     end
                 end
             end
@@ -917,15 +951,15 @@ module vga_renderer_v2 (
                         // NOT triangle
                         if (gx >= 9'd148 && gx <= 9'd170 && qdy <= ((170 - gx) >> 1) + 2) hud_bg_color = 6'd17;
                     end else begin
-                        // OR / NOR / XOR
-                        if (gx >= 9'd148 + ((qdy*qdy) >> 5) && gx <= 9'd172 - ((qdy*qdy) >> 4) && qdy <= 14)
+                        // OR / NOR / XOR (Pointed IEEE tip + Concave input curve)
+                        if (gx >= (9'd153 - ((qdy * 5) >> 4)) && gx <= (9'd174 - qdy - (qdy >> 1)) && qdy <= 14)
                             hud_bg_color = 6'd17;
-                        if (quiz_gate == 3'd5 && gx >= 9'd143 + ((qdy*qdy) >> 5) && gx <= 9'd145 + ((qdy*qdy) >> 5) && qdy <= 14)
+                        if (quiz_gate == 3'd5 && gx >= (9'd148 - ((qdy * 5) >> 4)) && gx <= (9'd150 - ((qdy * 5) >> 4)) && qdy <= 14)
                             hud_bg_color = 6'd58; // XOR extra input curve
                     end
                     // Inversion bubble for NOT(2), NAND(3), NOR(4)
                     if ((quiz_gate == 3'd2 || quiz_gate == 3'd3 || quiz_gate == 3'd4) &&
-                        gx >= 9'd172 && gx <= 9'd176 && qdy <= 2)
+                        gx >= 9'd174 && gx <= 9'd178 && qdy <= 2)
                         hud_bg_color = 6'd52;
                 end
                 // 4 Answer Options (gy = 114, 130, 146, 162)
