@@ -9,3 +9,8 @@ sim_work/
 *.str
 *.backup.*
 scripts/__pycache__/
+
+xsim.dir/
+*.sdb
+*.rlx
+
