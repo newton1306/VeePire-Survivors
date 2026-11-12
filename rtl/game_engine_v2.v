@@ -137,9 +137,22 @@ module game_engine_v2 (
     output reg         sfx_shoot     = 1'b0,
     output reg         sfx_pickup    = 1'b0,
     output reg         sfx_evolve    = 1'b0,
-    output reg         sfx_hit       = 1'b0
+    output reg         sfx_hit       = 1'b0,
+
+    // V5 Arena Room, Sliding Door, Logic Gate Quiz & 3-Form Boss Portal Transition
+    output reg  [2:0]  room_phase    = 3'd0, // 0=BANNER, 1=FIGHT, 2=CLEAR_ARROW, 3=QUIZ, 4=DOOR_OPEN, 5=BOSS_TRANS
+    output reg  [6:0]  wave_banner_t = 7'd0,
+    output reg  [5:0]  door_slam_t   = 6'd0,
+    output reg  [4:0]  door_slide    = 5'd0,
+    output reg  [2:0]  quiz_gate     = 3'd0, // 0=AND,1=OR,2=NOT,3=NAND,4=NOR,5=XOR
+    output reg  [1:0]  quiz_cursor   = 2'd0,
+    output reg  [1:0]  quiz_ans_slot = 2'd0,
+    output reg  [5:0]  quiz_wrong_t  = 6'd0,
+    output reg  [7:0]  boss_trans_t  = 8'd0
 );
     localparam [2:0] ST_TITLE=3'd0, ST_CUTSCENE=3'd1, ST_PLAY=3'd2, ST_WIN=3'd3, ST_LOSE=3'd4;
+    localparam [2:0] RP_BANNER=3'd0, RP_FIGHT=3'd1, RP_CLEAR=3'd2, RP_QUIZ=3'd3, RP_DOOR=3'd4, RP_BOSS=3'd5;
+    localparam [3:0] FINAL_WAVE = 4'd6;
 
     wire btnc = btn[4], btnu = btn[3], btnd = btn[2], btnl = btn[1], btnr = btn[0];
     wire use_joy   = (control_mode != 2'd0);
@@ -155,9 +168,11 @@ module game_engine_v2 (
     reg [4:0] btn_prev = 0;
     reg [2:0] j1_btn_prev = 0, j2_btn_prev = 0;
     reg signed [2:0] j1_dx_prev = 0, j2_dx_prev = 0;
+    reg signed [2:0] j1_dy_prev = 0, j2_dy_prev = 0;
 
     wire btnc_edge    = btnc && !btn_prev[4];
     wire btnu_edge    = btnu && !btn_prev[3];
+    wire btnd_edge    = btnd && !btn_prev[2];
     wire btnl_edge    = btnl && !btn_prev[1];
     wire btnr_edge    = btnr && !btn_prev[0];
     wire j1_fire_edge = j1_btn[2] && !j1_btn_prev[2];
@@ -168,20 +183,26 @@ module game_engine_v2 (
     wire j1_right_edge= (j1_dx > 0) && (j1_dx_prev <= 0);
     wire j2_left_edge = (j2_dx < 0) && (j2_dx_prev >= 0);
     wire j2_right_edge= (j2_dx > 0) && (j2_dx_prev <= 0);
+    wire j1_up_edge   = (j1_dy < 0) && (j1_dy_prev >= 0);
+    wire j1_down_edge = (j1_dy > 0) && (j1_dy_prev <= 0);
+    wire j2_up_edge   = (j2_dy < 0) && (j2_dy_prev >= 0);
+    wire j2_down_edge = (j2_dy > 0) && (j2_dy_prev <= 0);
 
     wire any_left_edge  = btnl_edge || j1_left_edge  || j2_left_edge;
     wire any_right_edge = btnr_edge || j1_right_edge || j2_right_edge;
+    wire any_up_edge    = btnu_edge || j1_up_edge    || j2_up_edge;
+    wire any_down_edge  = btnd_edge || j1_down_edge  || j2_down_edge;
     wire any_start_edge = btnc_edge || j1_fire_edge  || j2_fire_edge || j1_dash_edge || j2_dash_edge;
     wire any_skip_edge  = btnc_edge || j1_fire_edge  || j2_fire_edge;
 
-    assign chrono_active = (game_state == ST_PLAY) &&
+    assign chrono_active = (game_state == ST_PLAY) && (room_phase == RP_FIGHT) &&
                            ((p1_alive && (btnd || (use_joy && j1_btn[0]))) || (p2_alive && j2_btn[0])) &&
                            (chrono_energy > 0);
     assign pet_active    = (stage >= 2'd1);
-    assign blades_active = (game_state == ST_PLAY || (game_state == ST_CUTSCENE && cut_id == 2'd3)) && (stage >= 2'd2);
+    assign blades_active = (game_state == ST_PLAY) && (stage >= 2'd2);
     assign aura_active   = (stage >= 2'd3);
-    assign boss_locked   = (wave == 4'd10) && boss_active && (boss_hp > 0);
-    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 7'd50) : (boss_hp <= 7'd24);
+    assign boss_locked   = (wave == FINAL_WAVE) && boss_active && (boss_hp > 0);
+    assign boss_enraged  = (boss_kind == 2'd2) ? (boss_hp <= 7'd45) : (boss_hp <= 7'd24);
 
     reg [1:0] p1_combo_step = 2'd0, p2_combo_step = 2'd0;
     reg [5:0] p1_combo_rst = 6'd0, p2_combo_rst = 6'd0;
@@ -383,52 +404,30 @@ module game_engine_v2 (
         begin
             for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
             case (wv)
-                4'd1: begin // 8 enemies in Emerald Citadel West (4..6 HP)
-                    set_en(0, 11'd240, 10'd120, 3'd0, 2'd0, 4'd4, 20);
-                    set_en(1, 11'd280, 10'd260, 3'd0, 2'd0, 4'd4, 40);
-                    set_en(2, 11'd100, 10'd340, 3'd1, 2'd1, 4'd6, 50);
-                    set_en(3, 11'd240, 10'd380, 3'd3, 2'd1, 4'd6, 60);
-                    set_en(4, 11'd80,  10'd250, 3'd0, 2'd0, 4'd4, 30);
-                    set_en(5, 11'd290, 10'd170, 3'd1, 2'd1, 4'd6, 70);
-                    set_en(6, 11'd190, 10'd420, 3'd0, 2'd0, 4'd4, 45);
-                    set_en(7, 11'd270, 10'd310, 3'd5, 2'd1, 4'd6, 80);
+                4'd1: begin // Wave 1: 4 Human-Face Minions (4 HP)
+                    set_en(0, 11'd340, 10'd130, 3'd0, 2'd0, 4'd4, 25);
+                    set_en(1, 11'd420, 10'd190, 3'd1, 2'd0, 4'd4, 40);
+                    set_en(2, 11'd380, 10'd280, 3'd2, 2'd0, 4'd4, 55);
+                    set_en(3, 11'd490, 10'd220, 3'd0, 2'd0, 4'd4, 70);
                 end
-                4'd2: begin // 10 enemies across East Emerald Courtyard!
-                    set_en(0, 11'd410, 10'd190, 3'd3, 2'd1, 4'd6, 30);
-                    set_en(1, 11'd480, 10'd320, 3'd1, 2'd1, 4'd6, 45);
-                    set_en(2, 11'd420, 10'd460, 3'd2, 2'd2, 4'd8, 60);
-                    set_en(3, 11'd240, 10'd560, 3'd0, 2'd1, 4'd6, 35);
-                    set_en(4, 11'd150, 10'd680, 3'd3, 2'd2, 4'd8, 75);
-                    set_en(5, 11'd480, 10'd700, 3'd5, 2'd1, 4'd6, 85);
-                    set_en(6, 11'd390, 10'd600, 3'd1, 2'd1, 4'd6, 55);
-                    set_en(7, 11'd520, 10'd420, 3'd3, 2'd2, 4'd8, 40);
-                    set_en(8, 11'd450, 10'd800, 3'd2, 2'd2, 4'd8, 65);
-                    set_en(9, 11'd380, 10'd740, 3'd0, 2'd1, 4'd6, 50);
+                4'd2: begin // Wave 2: 6 Human-Face Minions (5..6 HP)
+                    for (idx = 0; idx < 6; idx = idx + 1)
+                        set_en(idx, 11'd310 + ((idx % 3) * 11'd90), 10'd125 + ((idx / 3) * 10'd160), idx[2:0], 2'd1, 4'd6, 25 + idx*8);
                 end
-                4'd3: begin // 8 Knights + BOSS #0: IRON BERSERKER TITAN!
-                    set_en(0, 11'd420, 10'd260, 3'd3, 2'd2, 4'd8, 30);
-                    set_en(1, 11'd510, 10'd380, 3'd7, 2'd2, 4'd8, 50);
-                    set_en(2, 11'd450, 10'd520, 3'd1, 2'd1, 4'd6, 40);
-                    set_en(3, 11'd380, 10'd640, 3'd3, 2'd2, 4'd8, 70);
-                    set_en(4, 11'd530, 10'd680, 3'd5, 2'd1, 4'd6, 60);
-                    set_en(5, 11'd420, 10'd820, 3'd7, 2'd2, 4'd8, 80);
-                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd520; boss_y <= 10'd480; boss_hp <= 7'd40;
-                end
-                4'd4, 4'd5: begin // 12 enemies in Twilight Chasm & Bridges!
-                    for (idx = 0; idx < 12; idx = idx + 1)
-                        set_en(idx, 11'd660 + ((idx % 4) * 11'd95), 10'd220 + ((idx / 4) * 10'd210), (idx % 3 == 0) ? 3'd6 : ((idx % 2) ? 3'd2 : 3'd5), 2'd2, 4'd8, 30 + idx*5);
-                end
-                4'd6: begin // 8 Phantoms/Mages + BOSS #1: AJARN_V IRON-ARM!
+                4'd3: begin // Wave 3: 8 Human-Face Strikers (6..8 HP)
                     for (idx = 0; idx < 8; idx = idx + 1)
-                        set_en(idx, 11'd720 + ((idx % 2) * 11'd180), 10'd300 + ((idx / 2) * 10'd140), (idx % 2) ? 3'd6 : 3'd2, 2'd2, 4'd8, 35 + idx*7);
-                    boss_kind <= 2'd1; boss_active <= 1'b1; boss_x <= 11'd1040; boss_y <= 10'd500; boss_hp <= 7'd48;
+                        set_en(idx, 11'd290 + ((idx % 4) * 11'd72), 10'd120 + ((idx / 4) * 10'd170), idx[2:0], 2'd1, 4'd7, 20 + idx*6);
                 end
-                4'd7, 4'd8, 4'd9: begin // 16-Enemy Mega Horde in LX / Bangmod Canal!
-                    for (idx = 0; idx < 16; idx = idx + 1)
-                        set_en(idx, 11'd1220 + ((idx % 4) * 11'd90), 10'd180 + ((idx / 4) * 10'd180), (idx % 3 == 0) ? 3'd7 : ((idx % 2) ? 3'd4 : 3'd3), 2'd3, 4'd12, 25 + idx*4);
+                4'd4: begin // Wave 4: 10 Human-Face Raiders (8 HP)
+                    for (idx = 0; idx < 10; idx = idx + 1)
+                        set_en(idx, 11'd270 + ((idx % 5) * 11'd60), 10'd120 + ((idx / 5) * 10'd175), idx[2:0], 2'd2, 4'd8, 20 + idx*5);
                 end
-                default: begin // Wave 10: AJARN_V THANOS (VERY HARD 100 HP!)
-                    boss_kind <= 2'd2; boss_active <= 1'b1; boss_x <= 11'd1860; boss_y <= 10'd512; boss_hp <= 7'd100;
+                4'd5: begin // Wave 5: 12 Human-Face Elites (10 HP)
+                    for (idx = 0; idx < 12; idx = idx + 1)
+                        set_en(idx, 11'd260 + ((idx % 4) * 11'd78), 10'd110 + ((idx / 4) * 10'd95), idx[2:0], 2'd3, 4'd10, 18 + idx*4);
+                end
+                default: begin // Wave 6 (FINAL): Boss Form 0 (Ajarn_V_1 -> 2 -> Thanos!)
+                    boss_kind <= 2'd0; boss_active <= 1'b1; boss_x <= 11'd480; boss_y <= 10'd224; boss_hp <= 7'd40;
                 end
             endcase
         end
@@ -436,40 +435,38 @@ module game_engine_v2 (
 
     task automatic init_game;
         begin
-            px <= 11'd128; py <= 10'd192; dash_gx <= 11'd128; dash_gy <= 10'd192;
-            p2x <= 11'd128; p2y <= 10'd220; p2_dash_gx <= 11'd128; p2_dash_gy <= 10'd220;
-            cam_x <= 11'd0; cam_y <= 10'd86; zoom_lvl <= 7'd0;
+            px <= 11'd104; py <= 10'd224; dash_gx <= 11'd104; dash_gy <= 10'd224;
+            p2x <= 11'd104; p2y <= 10'd252; p2_dash_gx <= 11'd104; p2_dash_gy <= 10'd252;
+            cam_x <= 11'd0; cam_y <= 10'd118; zoom_lvl <= 7'd0;
             hp <= 3'd6; hp2 <= 3'd6; exp <= 6'd0; stage <= 2'd0;
             score_bcd <= 16'd0; chrono_energy <= 7'd100;
             wave <= 4'd1; zone2_open <= 1'b0; zone3_open <= 1'b0;
+            room_phase <= RP_BANNER; wave_banner_t <= 7'd90; door_slam_t <= 6'd45;
+            door_slide <= 5'd0; boss_trans_t <= 8'd0; quiz_wrong_t <= 6'd0;
+            quiz_cursor <= 2'd0; quiz_gate <= 3'd0; quiz_ans_slot <= 2'd0;
             mirror <= 1'b0; walk_frame <= 1'b0; p2_mirror <= 1'b0; p2_walk_frame <= 1'b0;
             dash_timer <= 0; dash_cd <= 0; invuln_timer <= 0; p2_invuln <= 0; evolve_flash <= 0;
             p2_dash_timer <= 0; p2_dash_cd <= 0; end_lockout <= 7'd0; revive_prog <= 5'd0;
             p1_lunge_t <= 0; p2_lunge_t <= 0; p1_slash_t <= 0; p2_slash_t <= 0;
             p1_hit_mask <= 0; p2_hit_mask <= 0; p1_boss_hit <= 0; p2_boss_hit <= 0;
             p1_combo_step <= 0; p2_combo_step <= 0; p1_nova_r <= 0; p2_nova_r <= 0;
-            combo_cnt <= 0; combo_timer <= 0; shake_mag <= 0; hit_stop <= 0;
+            combo_cnt <= 0; combo_timer <= 0; shake_mag <= 4'd6; hit_stop <= 0;
             lock_valid <= 0; fire_req <= 0; p2_fire_req <= 0;
             shrine_cd <= 0; sky_drop_timer <= 0; pet_fire_cd <= 0; pet_b_act <= 0;
             face_dx <= 3'sd1; face_dy <= 3'sd0; p2_face_dx <= 3'sd1; p2_face_dy <= 3'sd0;
             boss_active <= 1'b0; boss_kind <= 2'd0; boss_hp <= 7'd40;
             boss_ai_timer <= 0; laser_state <= 0; laser_timer <= 0;
 
-            spawn_wave_group(4'd1);
+            for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
 
-            // 12 Initial Map Blue Gems + Hearts
-            col_x[0] <= 11'd200; col_y[0] <= 10'd192; col_type[0] <= 1'b0; col_alive[0] <= 1'b1;
-            col_x[1] <= 11'd160; col_y[1] <= 10'd260; col_type[1] <= 1'b0; col_alive[1] <= 1'b1;
-            col_x[2] <= 11'd420; col_y[2] <= 10'd320; col_type[2] <= 1'b0; col_alive[2] <= 1'b1;
-            col_x[3] <= 11'd800; col_y[3] <= 10'd56;  col_type[3] <= 1'b0; col_alive[3] <= 1'b1;
-            col_x[4] <= 11'd848; col_y[4] <= 10'd56;  col_type[4] <= 1'b0; col_alive[4] <= 1'b1;
-            col_x[5] <= 11'd896; col_y[5] <= 10'd56;  col_type[5] <= 1'b0; col_alive[5] <= 1'b1;
-            col_x[6] <= 11'd1280; col_y[6] <= 10'd512; col_type[6] <= 1'b1; col_alive[6] <= 1'b1;
-            col_x[7] <= 11'd1700; col_y[7] <= 10'd512; col_type[7] <= 1'b1; col_alive[7] <= 1'b1;
-            for (idx = 8; idx < 12; idx = idx + 1) col_alive[idx] <= 1'b0;
+            // Ground Blue Evo Gems + Hearts inside the room (NO mushrooms!)
+            col_x[0] <= 11'd200; col_y[0] <= 10'd150; col_type[0] <= 1'b0; col_alive[0] <= 1'b1;
+            col_x[1] <= 11'd240; col_y[1] <= 10'd290; col_type[1] <= 1'b0; col_alive[1] <= 1'b1;
+            col_x[2] <= 11'd360; col_y[2] <= 10'd150; col_type[2] <= 1'b0; col_alive[2] <= 1'b1;
+            col_x[3] <= 11'd360; col_y[3] <= 10'd290; col_type[3] <= 1'b1; col_alive[3] <= 1'b1;
+            for (idx = 4; idx < 12; idx = idx + 1) col_alive[idx] <= 1'b0;
 
-            drop_x[0] <= 11'd185; drop_y[0] <= 10'd165; drop_z[0] <= 7'd90; drop_type[0] <= 2'd1; drop_active[0] <= 1'b1; drop_boom[0] <= 0;
-            for (idx = 1; idx < 4; idx = idx + 1) begin drop_active[idx] <= 1'b0; drop_boom[idx] <= 0; drop_z[idx] <= 0; end
+            for (idx = 0; idx < 4; idx = idx + 1) begin drop_active[idx] <= 1'b0; drop_boom[idx] <= 0; drop_z[idx] <= 0; end
             for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
             for (idx = 0; idx < 12; idx = idx + 1) sp_t[idx] <= 5'd0;
         end
@@ -563,7 +560,7 @@ module game_engine_v2 (
             btn_prev <= 0; j1_btn_prev <= 0; j2_btn_prev <= 0; j1_dx_prev <= 0; j2_dx_prev <= 0;
             fire_req <= 0; p2_fire_req <= 0;
         end else begin
-            if (game_state != ST_PLAY) begin
+            if (game_state != ST_PLAY || room_phase == RP_QUIZ) begin
                 fire_req <= 1'b0; p2_fire_req <= 1'b0;
             end else begin
                 if (p1_alive && ((btnc && !btnc_prev_clk) || (use_joy && j1_btn[2] && !j1f_prev_clk)))
@@ -600,6 +597,7 @@ module game_engine_v2 (
                 6'd0: if (tick) begin
                     btn_prev <= btn; j1_btn_prev <= j1_btn; j2_btn_prev <= j2_btn;
                     j1_dx_prev <= j1_dx; j2_dx_prev <= j2_dx;
+                    j1_dy_prev <= j1_dy; j2_dy_prev <= j2_dy;
                     frame_cnt <= frame_cnt + 9'd1;
 
                     if (shake_mag > 0) shake_mag <= shake_mag - 4'd1;
@@ -611,23 +609,60 @@ module game_engine_v2 (
                         end else if (any_left_edge) begin
                             control_mode <= (control_mode == 2'd0) ? 2'd2 : (control_mode - 2'd1); sfx_pickup <= 1'b1;
                         end else if (any_start_edge) begin
-                            init_game(); game_state <= ST_CUTSCENE; cut_id <= 2'd0; cut_timer <= 8'd135; sfx_evolve <= 1'b1;
+                            init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1;
                         end
                     end else if (game_state == ST_CUTSCENE) begin
-                        if (frame_cnt[1:0] == 2'b00) blade_ang <= blade_ang + 4'd1;
-                        for (idx = 0; idx < 4; idx = idx + 1)
-                            if (drop_active[idx] && drop_z[idx] > 0) drop_z[idx] <= drop_z[idx] - 7'd1;
-                        if (cut_timer > 0) cut_timer <= cut_timer - 8'd1;
-                        if (cut_timer == 0 || (cut_timer < 8'd85 && any_skip_edge)) game_state <= ST_PLAY;
+                        game_state <= ST_PLAY;
                     end else if (game_state == ST_WIN || game_state == ST_LOSE) begin
                         if (end_lockout > 0) end_lockout <= end_lockout - 7'd1;
                         else if (any_start_edge) begin
-                            init_game(); game_state <= ST_CUTSCENE; cut_id <= 2'd0; cut_timer <= 8'd120; sfx_evolve <= 1'b1;
+                            init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1;
                         end else if (any_left_edge || any_right_edge) begin
                             init_game(); game_state <= ST_TITLE; sfx_pickup <= 1'b1;
                         end
+                    end else if (room_phase == RP_QUIZ) begin
+                        // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR ----
+                        if (quiz_wrong_t > 0) quiz_wrong_t <= quiz_wrong_t - 6'd1;
+                        if (any_up_edge || any_left_edge) begin
+                            quiz_cursor <= quiz_cursor - 2'd1; sfx_pickup <= 1'b1;
+                        end else if (any_down_edge || any_right_edge) begin
+                            quiz_cursor <= quiz_cursor + 2'd1; sfx_pickup <= 1'b1;
+                        end else if (any_start_edge) begin
+                            if (quiz_cursor == quiz_ans_slot) begin
+                                room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 6'd0; sfx_evolve <= 1'b1;
+                            end else begin
+                                quiz_wrong_t <= 6'd35; sfx_hit <= 1'b1;
+                                quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
+                                quiz_ans_slot <= frame_cnt[1:0];
+                            end
+                        end
                     end else begin
-                        // ---- ST_PLAY ----
+                        // ---- ST_PLAY (WAVE_BANNER / FIGHT / CLEAR_ARROW / DOOR_OPEN / BOSS_TRANS) ----
+                        if (door_slam_t > 0)   door_slam_t   <= door_slam_t - 6'd1;
+                        if (wave_banner_t > 0) wave_banner_t <= wave_banner_t - 7'd1;
+                        if (room_phase == RP_BANNER && wave_banner_t == 7'd0) begin
+                            spawn_wave_group(wave);
+                            room_phase <= RP_FIGHT;
+                        end else if (room_phase == RP_DOOR) begin
+                            if (door_slide < 5'd31) door_slide <= door_slide + 5'd1;
+                        end else if (room_phase == RP_BOSS) begin
+                            if (boss_trans_t > 8'd0) begin
+                                boss_trans_t <= boss_trans_t - 8'd1;
+                                if (boss_trans_t == 8'd1) begin
+                                    if (boss_kind == 2'd0) begin
+                                        boss_kind <= 2'd1; boss_hp <= 7'd55; boss_active <= 1'b1;
+                                        boss_x <= 11'd480; boss_y <= 10'd224; boss_ai_timer <= 8'd0;
+                                        room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
+                                    end else if (boss_kind == 2'd1) begin
+                                        boss_kind <= 2'd2; boss_hp <= 7'd85; boss_active <= 1'b1;
+                                        boss_x <= 11'd480; boss_y <= 10'd224; boss_ai_timer <= 8'd0;
+                                        room_phase <= RP_FIGHT; sfx_evolve <= 1'b1;
+                                    end else begin
+                                        game_state <= ST_WIN; end_lockout <= 7'd90; sfx_evolve <= 1'b1;
+                                    end
+                                end
+                            end
+                        end
                         if (chrono_active) begin
                             chrono_div <= (chrono_div >= 2'd2) ? 2'd0 : chrono_div + 2'd1;
                             world_tick <= (chrono_div == 2'd0);
@@ -734,15 +769,16 @@ module game_engine_v2 (
                             end
                         end else p2_fire_req <= 1'b0;
 
-                        // World Bounds (Biome Gates + Locked Wave 10 Boss Room!)
-                        min_px = boss_locked ? 11'd1600 : 11'd28;
-                        max_px = (wave <= 4'd6) ? 11'd1156 : 11'd2015;
+                        // Single Rectangular Arena Bounds (x=[84..550], y=[84..358], doorway x=564)
+                        min_px = 11'd84;
+                        max_px = ((room_phase == RP_DOOR) && (py >= 10'd192 && py <= 10'd256)) ? 11'd566 : 11'd548;
 
                         sx_tmp = $signed({2'b00, px}) + move_dx;
                         sy_tmp = $signed({3'b000, py}) + move_dy;
                         cand_px <= (sx_tmp < $signed({2'b00, min_px})) ? min_px : ((sx_tmp > $signed({2'b00, max_px})) ? max_px : sx_tmp[10:0]);
-                        cand_py <= (sy_tmp < 13'sd28) ? 10'd28 : ((sy_tmp > 13'sd988) ? 10'd988 : sy_tmp[9:0]);
+                        cand_py <= (sy_tmp < 13'sd84) ? 10'd84 : ((sy_tmp > 13'sd358) ? 10'd358 : sy_tmp[9:0]);
 
+                        max_px = ((room_phase == RP_DOOR) && (p2y >= 10'd192 && p2y <= 10'd256)) ? 11'd566 : 11'd548;
                         sx_tmp = $signed({2'b00, p2x}) + p2_move_dx;
                         sy_tmp = $signed({3'b000, p2y}) + p2_move_dy;
                         if (p1_alive && p2_alive) begin
@@ -752,7 +788,7 @@ module game_engine_v2 (
                             else if (sy_tmp < $signed({3'b000, py}) - 13'sd260) sy_tmp = $signed({3'b000, py}) - 13'sd260;
                         end
                         cand_p2x <= (sx_tmp < $signed({2'b00, min_px})) ? min_px : ((sx_tmp > $signed({2'b00, max_px})) ? max_px : sx_tmp[10:0]);
-                        cand_p2y <= (sy_tmp < 13'sd28) ? 10'd28 : ((sy_tmp > 13'sd988) ? 10'd988 : sy_tmp[9:0]);
+                        cand_p2y <= (sy_tmp < 13'sd84) ? 10'd84 : ((sy_tmp > 13'sd358) ? 10'd358 : sy_tmp[9:0]);
 
                         x_blocked <= 0; y_blocked <= 0; p2_x_blk <= 0; p2_y_blk <= 0;
                         map_addr_b <= tile_addr(px, py);
@@ -827,13 +863,21 @@ module game_engine_v2 (
                     else if (p2_alive)        begin next_x = p2x; next_y = p2y; end
                     else                      begin next_x = px;  next_y = py; end
 
-                    min_cx = boss_locked ? 11'd1568 : 11'd0;
-                    max_cx = 11'd2047 - {1'b0, view_w} + 11'd1;
-                    max_cy = 10'd1023 - view_h + 10'd1;
-                    t_cam_x = (next_x < (min_cx + {1'b0, view_w >> 1})) ? min_cx :
-                              ((next_x > (max_cx + {1'b0, view_w >> 1})) ? max_cx : (next_x - {1'b0, view_w >> 1}));
-                    t_cam_y = (next_y < (view_h >> 1)) ? 10'd0 :
-                              ((next_y > (max_cy + (view_h >> 1))) ? max_cy : (next_y - (view_h >> 1)));
+                    if (view_w >= 10'd512)
+                        t_cam_x = 11'd320 - {1'b0, view_w >> 1};
+                    else begin
+                        min_cx = 11'd48;
+                        max_cx = 11'd592 - {1'b0, view_w};
+                        t_cam_x = (next_x < (min_cx + {1'b0, view_w >> 1})) ? min_cx :
+                                  ((next_x > (max_cx + {1'b0, view_w >> 1})) ? max_cx : (next_x - {1'b0, view_w >> 1}));
+                    end
+                    if (view_h >= 10'd320)
+                        t_cam_y = 10'd224 - (view_h >> 1);
+                    else begin
+                        max_cy = 10'd400 - view_h;
+                        t_cam_y = (next_y < (10'd48 + (view_h >> 1))) ? 10'd48 :
+                                  ((next_y > (max_cy + (view_h >> 1))) ? max_cy : (next_y - (view_h >> 1)));
+                    end
 
                     // Smooth Proportional Camera Follow (1..8 px/frame)
                     if (cam_x < t_cam_x) begin
@@ -958,8 +1002,8 @@ module game_engine_v2 (
                                 drop_active[idx] <= 0; sfx_pickup <= 1;
                                 next_exp = (next_exp + 6'd10 > 6'd63) ? 6'd63 : (next_exp + 6'd10);
                                 if (drop_type[idx] == 2'd0) begin
-                                    if (p1_alive) hp <= (hp + 3'd2 > 3'd6) ? 3'd6 : (hp + 3'd2); else hp <= 3'd3;
-                                    if (p2_active) begin if (p2_alive) hp2 <= (hp2 + 3'd2 > 3'd6) ? 3'd6 : (hp2 + 3'd2); else hp2 <= 3'd3; end
+                                    if (p1_alive) hp <= ({1'b0, hp} + 4'd2 > 4'd6) ? 3'd6 : (hp + 3'd2); else hp <= 3'd3;
+                                    if (p2_active) begin if (p2_alive) hp2 <= ({1'b0, hp2} + 4'd2 > 4'd6) ? 3'd6 : (hp2 + 3'd2); else hp2 <= 3'd3; end
                                     chrono_energy <= 7'd100; add_score(10'd100);
                                 end else add_score(10'd50);
                             end
@@ -972,8 +1016,8 @@ module game_engine_v2 (
                     else if (stage == 2'd2 && next_exp >= 6'd45) begin stage <= 2'd3; evolved_now = 1; hp <= 3'd6; if (p2_active) hp2 <= 3'd6; end
                     exp <= next_exp;
                     if (evolved_now && game_state == ST_PLAY) begin
+                        // Seamless real-time evolution (NO cutscene pause!)
                         evolve_flash <= 5'd24; sfx_evolve <= 1'b1; add_score(10'd100);
-                        game_state <= ST_CUTSCENE; cut_id <= 2'd3; cut_timer <= 8'd105;
                     end
 
                     step_state <= 6'd42;
@@ -1134,7 +1178,7 @@ module game_engine_v2 (
                     if (world_tick) begin
                         for (idx = 0; idx < 8; idx = idx + 1) begin
                             if (eb_active[idx]) begin
-                                if (eb_x[idx] < 11'd24 || eb_x[idx] > 11'd2020 || eb_y[idx] < 10'd24 || eb_y[idx] > 10'd996)
+                                if (eb_x[idx] < 11'd80 || eb_x[idx] > 11'd560 || eb_y[idx] < 10'd80 || eb_y[idx] > 10'd368)
                                     eb_active[idx] <= 0;
                                 else begin
                                     eb_x[idx] <= $signed({1'b0, eb_x[idx]}) + eb_vx[idx];
@@ -1149,34 +1193,34 @@ module game_engine_v2 (
                         if (world_tick) begin
                             boss_ai_timer <= boss_ai_timer + 8'd1;
                             if (boss_kind == 2'd0) begin
-                                // Boss 0 (Ajarn_V_1): Chases Target Steadily!
-                                if (px > boss_x + 2) boss_x <= boss_x + 11'd1; else if (px + 2 < boss_x) boss_x <= boss_x - 11'd1;
-                                if (py > boss_y + 2) boss_y <= boss_y + 10'd1; else if (py + 2 < boss_y) boss_y <= boss_y - 10'd1;
+                                // Boss 0 (Ajarn_V_1): Chases Target Steadily inside Room!
+                                if (px > boss_x + 2 && boss_x < 11'd528) boss_x <= boss_x + 11'd1; else if (px + 2 < boss_x && boss_x > 11'd100) boss_x <= boss_x - 11'd1;
+                                if (py > boss_y + 2 && boss_y < 10'd340) boss_y <= boss_y + 10'd1; else if (py + 2 < boss_y && boss_y > 10'd100) boss_y <= boss_y - 10'd1;
                             end else if (boss_kind == 2'd1) begin
                                 // Boss 1 (Ajarn_V_2): Patrolling Y + Orb Waves + Laser
-                                if (boss_dir_y == 0) begin if (boss_y < 10'd760) boss_y <= boss_y + 10'd2; else boss_dir_y <= 1'b1; end
-                                else                 begin if (boss_y > 10'd240) boss_y <= boss_y - 10'd2; else boss_dir_y <= 1'b0; end
+                                if (boss_dir_y == 0) begin if (boss_y < 10'd330) boss_y <= boss_y + 10'd2; else boss_dir_y <= 1'b1; end
+                                else                 begin if (boss_y > 10'd110) boss_y <= boss_y - 10'd2; else boss_dir_y <= 1'b0; end
                             end else begin
-                                // Boss 2 (Ajarn_V THANOS): Relentless Stalk + Infinity Blink + Meteor Storm + 8-Way Barrage!
+                                // Boss 2 (Ajarn_V THANOS): Relentless Stalk + Meteor Storm + 8-Way Barrage!
                                 if (p1_alive ? (px > boss_x + 4) : (p2x > boss_x + 4)) begin
-                                    if (boss_x < 11'd1960) boss_x <= boss_x + (boss_enraged ? 11'd2 : 11'd1);
+                                    if (boss_x < 11'd528) boss_x <= boss_x + (boss_enraged ? 11'd2 : 11'd1);
                                 end else if (p1_alive ? (px + 4 < boss_x) : (p2x + 4 < boss_x)) begin
-                                    if (boss_x > 11'd1640) boss_x <= boss_x - (boss_enraged ? 11'd2 : 11'd1);
+                                    if (boss_x > 11'd100) boss_x <= boss_x - (boss_enraged ? 11'd2 : 11'd1);
                                 end
-                                if (boss_dir_y == 0) begin if (boss_y < 10'd780) boss_y <= boss_y + (boss_enraged ? 10'd3 : 10'd2); else boss_dir_y <= 1'b1; end
-                                else                 begin if (boss_y > 10'd220) boss_y <= boss_y - (boss_enraged ? 10'd3 : 10'd2); else boss_dir_y <= 1'b0; end
+                                if (boss_dir_y == 0) begin if (boss_y < 10'd336) boss_y <= boss_y + (boss_enraged ? 10'd3 : 10'd2); else boss_dir_y <= 1'b1; end
+                                else                 begin if (boss_y > 10'd104) boss_y <= boss_y - (boss_enraged ? 10'd3 : 10'd2); else boss_dir_y <= 1'b0; end
 
                                 // Infinity Stone Meteor Strike every ~2.5s (faster when Enraged!)
                                 if ((boss_ai_timer == 8'd120 || (boss_enraged && boss_ai_timer == 8'd240)) && !drop_active[2]) begin
                                     drop_active[2] <= 1'b1; drop_x[2] <= p1_alive ? px : p2x; drop_y[2] <= p1_alive ? py : p2y;
                                     drop_z[2] <= 7'd75; drop_type[2] <= 2'd2; drop_boom[2] <= 5'd0;
                                 end
-                                // Enraged Thanos summons 4 Phantom/Warlord Minions if room is empty!
+                                // Enraged Thanos summons 4 Human-Face Minions inside the room if empty!
                                 if (boss_enraged && boss_ai_timer == 8'd150 && en_alive_vec == 16'b0) begin
-                                    set_en(0, 11'd1680, 10'd300, 3'd6, 2'd3, 4'd10, 20);
-                                    set_en(1, 11'd1680, 10'd700, 3'd7, 2'd3, 4'd10, 35);
-                                    set_en(2, 11'd1920, 10'd300, 3'd2, 2'd3, 4'd8,  45);
-                                    set_en(3, 11'd1920, 10'd700, 3'd4, 2'd3, 4'd8,  55);
+                                    set_en(0, 11'd200, 10'd120, 3'd3, 2'd3, 4'd8, 20);
+                                    set_en(1, 11'd200, 10'd320, 3'd7, 2'd3, 4'd8, 35);
+                                    set_en(2, 11'd480, 10'd120, 3'd1, 2'd3, 4'd8, 45);
+                                    set_en(3, 11'd480, 10'd320, 3'd4, 2'd3, 4'd8, 55);
                                 end
                             end
 
@@ -1220,7 +1264,9 @@ module game_engine_v2 (
                             if (boss_hp <= {3'd0, dmg1_eff}) begin
                                 boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
                                 add_score(10'd500); sfx_evolve <= 1'b1;
-                                if (wave == 4'd10) begin game_state <= ST_WIN; end_lockout <= 7'd90; end
+                                for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
+                                for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
+                                room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
                             end else boss_hp <= boss_hp - {3'd0, dmg1_eff};
                         end else if (p2_alive && p2_slash_t > 4'd1 && !p2_boss_hit &&
                             ($signed({1'b0, boss_x}) >= $signed({1'b0, p2_slash_x}) - $signed({1'b0, reach2_eff}) - 12'sd20) &&
@@ -1233,7 +1279,9 @@ module game_engine_v2 (
                             if (boss_hp <= {3'd0, dmg2_eff}) begin
                                 boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
                                 add_score(10'd500); sfx_evolve <= 1'b1;
-                                if (wave == 4'd10) begin game_state <= ST_WIN; end_lockout <= 7'd90; end
+                                for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
+                                for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
+                                room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
                             end else boss_hp <= boss_hp - {3'd0, dmg2_eff};
                         end else if (pet_b_act &&
                             ($signed({1'b0, boss_x}) >= $signed({1'b0, pet_bx}) - 12'sd28) &&
@@ -1242,8 +1290,11 @@ module game_engine_v2 (
                             ($signed({2'b00, boss_y}) <= $signed({2'b00, pet_by}) + 12'sd28)) begin
                             pet_b_act <= 0; sfx_hit <= 1;
                             if (boss_hp <= 7'd1) begin
-                                boss_hp <= 0; boss_active <= 0; laser_state <= 0; add_score(10'd500); sfx_evolve <= 1'b1;
-                                if (wave == 4'd10) begin game_state <= ST_WIN; end_lockout <= 7'd90; end
+                                boss_hp <= 0; boss_active <= 0; laser_state <= 0; shake_mag <= 4'd9;
+                                add_score(10'd500); sfx_evolve <= 1'b1;
+                                for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
+                                for (idx = 0; idx < 16; idx = idx + 1) en_alive[idx] <= 1'b0;
+                                room_phase <= RP_BOSS; boss_trans_t <= 8'd160;
                             end else boss_hp <= boss_hp - 7'd1;
                         end
                     end
@@ -1282,28 +1333,35 @@ module game_engine_v2 (
                         end else hp2 <= hp2 - 3'd1;
                     end
 
-                    // 10-WAVE EXPANDING PROGRESSION! (Advances only when ALL wave enemies AND wave mini-boss defeated!)
-                    if (game_state == ST_PLAY && wave < 4'd10 && en_alive_vec == 16'b0 && !boss_active) begin
-                        wave <= wave + 4'd1;
-                        if (p2_active && !p1_alive) hp <= 3'd3;
-                        if (p2_active && !p2_alive) hp2 <= 3'd3;
-                        if (wave + 4'd1 == 4'd2) zone2_open <= 1'b1;
-                        if (wave + 4'd1 == 4'd4) zone3_open <= 1'b1;
-
-                        spawn_wave_group(wave + 4'd1);
-
-                        if (wave == 4'd9) begin
-                            // Wave 10: WARP & SEAL INSIDE OMEGA SANCTUM!
-                            for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 0;
-                            px <= 11'd1640; py <= 10'd492; mirror <= 0;
-                            p2x <= 11'd1640; p2y <= 10'd536; p2_mirror <= 0;
-                            cam_x <= 11'd1568; cam_y <= 10'd400;
-                            drop_active[0]<=1; drop_x[0]<=11'd1720; drop_y[0]<=10'd512; drop_z[0]<=7'd96; drop_type[0]<=2'd0;
-                            game_state <= ST_CUTSCENE; cut_id <= 2'd2; cut_timer <= 8'd180; sfx_evolve <= 1'b1;
-                        end else begin
-                            drop_active[0]<=1; drop_x[0]<=px + 11'd48; drop_y[0]<=py; drop_z[0]<=7'd96; drop_type[0]<=2'd0;
-                            drop_active[1]<=1; drop_x[1]<=px + 11'd24; drop_y[1]<=py + 10'd40; drop_z[1]<=7'd80; drop_type[1]<=2'd1;
-                            game_state <= ST_CUTSCENE; cut_id <= 2'd1; cut_timer <= 8'd125; sfx_evolve <= 1'b1;
+                    // V5 ARENA ROOM PROGRESSION: FIGHT -> CLEAR_ARROW -> LOGIC GATE QUIZ -> DOOR_OPEN -> SLAM + WAVE BANNER!
+                    if (game_state == ST_PLAY) begin
+                        if (room_phase == RP_FIGHT && wave < FINAL_WAVE && en_alive_vec == 16'b0 && !boss_active) begin
+                            room_phase <= RP_CLEAR; sfx_pickup <= 1'b1;
+                        end else if (room_phase == RP_CLEAR) begin
+                            if ((p1_alive && px >= 11'd516 && py >= 10'd176 && py <= 10'd272) ||
+                                (p2_alive && p2x >= 11'd516 && p2y >= 10'd176 && p2y <= 10'd272)) begin
+                                room_phase <= RP_QUIZ;
+                                quiz_gate <= (frame_cnt[2:0] >= 3'd6) ? (frame_cnt[2:0] - 3'd6) : frame_cnt[2:0];
+                                quiz_ans_slot <= frame_cnt[1:0];
+                                quiz_cursor <= 2'd0;
+                                quiz_wrong_t <= 6'd0;
+                                sfx_pickup <= 1'b1;
+                            end
+                        end else if (room_phase == RP_DOOR) begin
+                            if ((p1_alive && px >= 11'd534 && py >= 10'd184 && py <= 10'd264) ||
+                                (p2_alive && p2x >= 11'd534 && p2y >= 10'd184 && p2y <= 10'd264)) begin
+                                wave <= wave + 4'd1;
+                                if (p2_active && !p1_alive) hp <= 3'd3;
+                                if (p2_active && !p2_alive) hp2 <= 3'd3;
+                                px <= 11'd104; py <= 10'd224; mirror <= 1'b0;
+                                p2x <= 11'd104; p2y <= 10'd252; p2_mirror <= 1'b0;
+                                for (idx = 0; idx < 8; idx = idx + 1) eb_active[idx] <= 1'b0;
+                                col_x[0] <= 11'd320; col_y[0] <= 10'd224; col_type[0] <= 1'b1; col_alive[0] <= 1'b1;
+                                door_slam_t <= 6'd45; door_slide <= 5'd0;
+                                shake_mag <= 4'd8; sfx_hit <= 1'b1;
+                                wave_banner_t <= 7'd90;
+                                room_phase <= RP_BANNER;
+                            end
                         end
                     end
 

@@ -94,6 +94,14 @@ module tb_vga_capture;
     wire [1:0]  boss_kind, laser_state;
     wire        boss_active, boss_locked, boss_enraged;
     wire        sfx_shoot, sfx_pickup, sfx_evolve, sfx_hit;
+    wire [1:0]  hero_sel = sw[3] ? 2'd3 : (sw[2] ? 2'd2 : (sw[1] ? 2'd1 : 2'd0));
+    wire [2:0]  room_phase;
+    wire [6:0]  wave_banner_t;
+    wire [5:0]  door_slam_t, quiz_wrong_t;
+    wire [4:0]  door_slide;
+    wire [2:0]  quiz_gate;
+    wire [1:0]  quiz_cursor, quiz_ans_slot;
+    wire [7:0]  boss_trans_t;
 
     game_engine_v2 u_engine (
         .clk(clk), .rst(rst), .tick(tick), .btn(btn),
@@ -132,7 +140,10 @@ module tb_vga_capture;
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit)
+        .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+        .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
+        .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t)
     );
 
     wire signed [2:0] rx_j1_dx, rx_j1_dy, rx_j2_dx, rx_j2_dy;
@@ -182,6 +193,10 @@ module tb_vga_capture;
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
+        .hero_sel(hero_sel), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
+        .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
+        .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -241,20 +256,16 @@ module tb_vga_capture;
         // SHOT 1: V3 OMEGA Title Screen (Arcade Logo + < 2P CO-OP JOY > + Online Badge)
         capture_ppm("shot_title.ppm");
 
-        // Start 2P Co-op Game & skip Intro Cutscene
+        // Start 2P Co-op Game & wait for Wave 1 Banner to slide out
         j1_btn[2] = 1'b1; step_frame(); j1_btn[2] = 1'b0;
-        repeat (140) step_frame();
+        repeat (95) step_frame();
 
-        // SHOT 2: Wave 1 Melee 360 Nova Combo + Sparks + Combo Rank HUD + Dual Hearts!
-        u_engine.game_state = 3'd2; u_engine.cut_timer = 8'd0;
-        u_engine.exp = 6'd0; u_engine.stage = 2'd0;
-        for (i = 0; i < 12; i = i + 1) u_engine.col_alive[i] = 1'b0;
-        for (i = 0; i < 4; i = i + 1)  u_engine.drop_active[i] = 1'b0;
-        u_engine.px = 11'd136; u_engine.py = 10'd160;
-        u_engine.p2x = 11'd104; u_engine.p2y = 10'd184;
-        u_engine.en_x[0] = 11'd206; u_engine.en_y[0] = 10'd160; u_engine.en_hp[0] = 4'd3; u_engine.en_alive[0] = 1;
-        u_engine.en_x[1] = 11'd236; u_engine.en_y[1] = 10'd126; u_engine.en_hp[1] = 4'd2; u_engine.en_alive[1] = 1;
-        u_engine.en_x[2] = 11'd180; u_engine.en_y[2] = 10'd208; u_engine.en_hp[2] = 4'd4; u_engine.en_alive[2] = 1;
+        // SHOT 2: Single Rectangular Arena Room + Human Heroes + Human Enemies + 360 Nova!
+        u_engine.px = 11'd240; u_engine.py = 10'd210;
+        u_engine.p2x = 11'd190; u_engine.p2y = 10'd240;
+        u_engine.en_x[0] = 11'd300; u_engine.en_y[0] = 10'd210; u_engine.en_hp[0] = 4'd3; u_engine.en_alive[0] = 1;
+        u_engine.en_x[1] = 11'd340; u_engine.en_y[1] = 10'd160; u_engine.en_hp[1] = 4'd2; u_engine.en_alive[1] = 1;
+        u_engine.en_x[2] = 11'd280; u_engine.en_y[2] = 10'd270; u_engine.en_hp[2] = 4'd4; u_engine.en_alive[2] = 1;
         u_engine.hp = 3'd5; u_engine.hp2 = 3'd6;
         u_engine.score_bcd = 16'h0480;
         u_engine.p1_combo_step = 2'd2; u_engine.p1_combo_rst = 6'd40;
@@ -264,47 +275,34 @@ module tb_vga_capture;
         u_renderer.anim_cnt = 26'h0080_0000;
         capture_ppm("shot_combat_lunge.ppm");
 
-        // SHOT 3: Collect Blue Gem -> Trigger Tier 2 Orbit Swords Upgrade Cutscene!
-        u_engine.game_state = 3'd2; u_engine.cut_timer = 8'd0;
-        u_engine.exp = 6'd20; u_engine.stage = 2'd1;
-        u_engine.col_alive[0] = 1'b1; u_engine.col_type[0] = 1'b0; u_engine.col_x[0] = px; u_engine.col_y[0] = py;
-        repeat (3) step_frame();
-        repeat (30) step_frame();
-        u_engine.evolve_flash = 0;
+        // SHOT 3: Room Clear -> Bouncing Flashing Arrow pointing to Sliding Door!
+        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 0;
+        u_engine.px = 11'd380; u_engine.py = 10'd224;
+        u_engine.p2x = 11'd340; u_engine.p2y = 10'd244;
+        repeat (5) step_frame();
+        u_renderer.anim_cnt = 26'h00C0_0000;
         capture_ppm("shot_upgrade_cutscene.ppm");
 
-        // SHOT 4: Wave 7 Inferno Magma Forge + Horde + Co-op Smooth Brawlhalla Zoom-Out!
-        repeat (90) step_frame();
-        u_engine.game_state = 3'd2; u_engine.cut_timer = 8'd0;
-        u_engine.wave = 4'd7; u_engine.zone2_open = 1'b1; u_engine.zone3_open = 1'b1;
-        u_engine.px = 11'd1260; u_engine.py = 10'd640;
-        u_engine.p2x = 11'd1030; u_engine.p2y = 10'd690;
-        u_engine.en_x[0] = 11'd1190; u_engine.en_y[0] = 10'd630; u_engine.en_hp[0] = 4'd6; u_engine.en_type[0] = 3'd5; u_engine.en_tier[0] = 2'd2; u_engine.en_alive[0] = 1;
-        u_engine.en_x[1] = 11'd1130; u_engine.en_y[1] = 10'd675; u_engine.en_hp[1] = 4'd8; u_engine.en_type[1] = 3'd6; u_engine.en_tier[1] = 2'd3; u_engine.en_alive[1] = 1;
-        u_engine.en_x[2] = 11'd1090; u_engine.en_y[2] = 10'd615; u_engine.en_hp[2] = 4'd5; u_engine.en_type[2] = 3'd4; u_engine.en_tier[2] = 2'd1; u_engine.en_alive[2] = 1;
-        u_engine.drop_active[0] = 1'b1; u_engine.drop_x[0] = 11'd1150; u_engine.drop_y[0] = 10'd650; u_engine.drop_z[0] = 7'd34; u_engine.drop_type[0] = 2'd2;
-        repeat (35) step_frame();
-        u_engine.game_state = 3'd2; u_engine.invuln_timer = 0; u_engine.p2_invuln = 0;
+        // SHOT 4: Logic Gate Quiz Modal before Sliding Door!
+        u_engine.px = 11'd525; u_engine.py = 10'd224;
+        repeat (3) step_frame();
+        u_engine.quiz_gate = 3'd5; // XOR Gate!
+        step_frame();
         capture_ppm("shot_coop_zoom.ppm");
 
-        // SHOT 5: Wave 10 Sealed Omega Sanctum (P1 Apex + P2 + Omega Dragon 64x64 Boss + Laser!)
-        u_engine.game_state = 3'd2; u_engine.cut_timer = 8'd0;
-        u_engine.stage = 2'd3; u_engine.exp = 6'd50;
-        u_engine.hp = 3'd6; u_engine.hp2 = 3'd5;
-        u_engine.wave = 4'd10; u_engine.boss_active = 1'b1; u_engine.boss_kind = 2'd2; u_engine.boss_hp = 6'd48;
-        for (i = 0; i < 16; i = i + 1) u_engine.en_alive[i] = 1'b0;
-        u_engine.px = 11'd1645; u_engine.py = 10'd500; u_engine.mirror = 0;
-        u_engine.p2x = 11'd1645; u_engine.p2y = 10'd552; u_engine.p2_mirror = 0;
-        u_engine.boss_x = 11'd1895; u_engine.boss_y = 10'd512;
-        u_engine.laser_state = 2'd1; u_engine.laser_y = 10'd500;
-        u_engine.zoom_lvl = 5'd6;
-        u_engine.cam_x = 11'd1580; u_engine.cam_y = 10'd390;
-        sw = 16'h0412;
-        u_engine.invuln_timer = 0; u_engine.p2_invuln = 0;
+        // SHOT 5: Final Boss Portal Regrowth + Chuunibyou Quote!
+        u_engine.wave = 4'd6; u_engine.room_phase = 3'd5;
+        u_engine.boss_kind = 2'd1; u_engine.boss_trans_t = 8'd60;
+        u_engine.boss_x = 11'd460; u_engine.boss_y = 10'd224;
+        u_engine.px = 11'd180; u_engine.py = 10'd224;
+        u_engine.p2x = 11'd180; u_engine.p2y = 10'd260;
+        u_engine.cam_x = 11'd60; u_engine.cam_y = 10'd54;
+        u_engine.zoom_lvl = 7'd40;
+        sw = 16'h0006; // SW1+SW2 -> Skin 2!
         u_renderer.anim_cnt = 26'h0040_0000;
         capture_ppm("shot_boss_locked.ppm");
 
-        $display("ALL 5 REAL V3 RTL SCREENSHOTS CAPTURED!");
+        $display("ALL 5 REAL V5 RTL SCREENSHOTS CAPTURED!");
         $finish;
     end
 endmodule

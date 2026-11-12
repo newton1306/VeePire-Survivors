@@ -92,6 +92,17 @@ module vga_renderer_v2 (
     input  wire        boss_active, boss_locked, boss_enraged,
     input  wire [1:0]  laser_state,
 
+    input  wire [1:0]  hero_sel,
+    input  wire [2:0]  room_phase,
+    input  wire [6:0]  wave_banner_t,
+    input  wire [5:0]  door_slam_t,
+    input  wire [4:0]  door_slide,
+    input  wire [2:0]  quiz_gate,
+    input  wire [1:0]  quiz_cursor,
+    input  wire [1:0]  quiz_ans_slot,
+    input  wire [5:0]  quiz_wrong_t,
+    input  wire [7:0]  boss_trans_t,
+
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
     output reg         VGA_HS = 1, VGA_VS = 1
 );
@@ -205,24 +216,9 @@ module vga_renderer_v2 (
     wire on_p1_tag = (game_state == 3'd2 && in_playfield) && p2_active && ((psy == -12'sd2 && psx >= 12'sd14 && psx <= 12'sd18) || (psy == -12'sd1 && psx >= 12'sd15 && psx <= 12'sd17));
     wire on_p2_tag = (game_state == 3'd2 && in_playfield) && p2_active && ((p2sy == -12'sd2 && p2sx >= 12'sd14 && p2sx <= 12'sd18) || (p2sy == -12'sd1 && p2sx >= 12'sd15 && p2sx <= 12'sd17));
 
-    reg [2:0] p_form_idx;
-    reg [2:0] p1_sw_model;
-    always @(*) begin
-        case (skin_model)
-            3'd1: p1_sw_model = 3'd0; // SW0: Goose
-            3'd2: p1_sw_model = 3'd1; // SW1: PF
-            3'd3: p1_sw_model = 3'd2; // SW0+SW1: PPuen
-            3'd4: p1_sw_model = 3'd3; // SW2: PPeem
-            3'd5: p1_sw_model = 3'd4; // SW0+SW2: PPing
-            3'd6: p1_sw_model = 3'd5; // SW1+SW2: NexysA7
-            default: p1_sw_model = 3'd5;
-        endcase
-        if (sel_p2_0 && skin_p2mod != 2'd0) begin
-            case (skin_p2mod) 2'd1: p_form_idx = 3'd4; 2'd2: p_form_idx = 3'd0; default: p_form_idx = (skin_model != 3'd0) ? p1_sw_model : 3'd1; endcase
-        end else if (skin_model != 3'd0) p_form_idx = sel_p2_0 ? ((p1_sw_model == 3'd5) ? 3'd2 : 3'd5) : p1_sw_model;
-        else if (game_state == 3'd0) p_form_idx = sel_p2_0 ? 3'd5 : 3'd0;
-        else case (stage) 2'd0: p_form_idx = sel_p2_0 ? 3'd3 : 3'd0; 2'd1: p_form_idx = sel_p2_0 ? 3'd3 : 3'd1; 2'd2: p_form_idx = sel_p2_0 ? 3'd4 : 3'd2; 2'd3: p_form_idx = sel_p2_0 ? 3'd3 : 3'd5; endcase
-    end
+    // 2. 32x32 Human-Face Heroes ONLY (4 Models x 4 Frames -> 16K x 12-bit RGB444!)
+    //    SW[3:0] priority selector passed via hero_sel (highest ON switch wins!)
+    wire [1:0] p_form_idx = sel_p2_0 ? (hero_sel + 2'd1) : hero_sel;
     wire [1:0] p_pose = (game_state == 3'd0) ? {1'b0, anim_cnt[23]} :
                         (sel_p2_0 ? ((p2_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, p2_walk_frame})) :
                                     ((p1_slash_t > 0) ? 2'd2 : (aura_active ? 2'd3 : {1'b0, walk_frame})));
@@ -231,7 +227,7 @@ module vga_renderer_v2 (
     wire       p_mir  = sel_p2_0 ? p2_mirror : mirror;
     wire [4:0] p_col  = (p_mir && game_state != 3'd0) ? (5'd31 - p_rawx) : p_rawx;
     wire [11:0] player_pix_1;
-    rom_1p #(.DW(12), .AW(15), .DEPTH(32768), .FILE("player_sprites.mem")) u_player_rom (
+    rom_1p #(.DW(12), .AW(14), .DEPTH(16384), .FILE("player_sprites.mem")) u_player_rom (
         .clk(clk), .addr({p_form_idx, p_pose, p_rawy, p_col}), .q(player_pix_1)
     );
 
@@ -273,8 +269,8 @@ module vga_renderer_v2 (
             end
         end
     end
-    wire [5:0] mon_pix_1;
-    rom_1p #(.DW(6), .AW(14), .DEPTH(16384), .FILE("enemy_sprites.mem")) u_monster_rom (
+    wire [11:0] mon_pix_1;
+    rom_1p #(.DW(12), .AW(14), .DEPTH(16384), .FILE("enemy_sprites.mem")) u_monster_rom (
         .clk(clk), .addr({mon_kind_0, anim_cnt[23], mon_ly, mon_lx}), .q(mon_pix_1)
     );
 
@@ -474,11 +470,63 @@ module vga_renderer_v2 (
                 end
             end
 
-            if (boss_active && boss_hp > 0 && wx >= 11'd600 && wx <= boss_x) begin
+            if (boss_active && boss_hp > 0 && wx >= 11'd80 && wx <= boss_x) begin
                 if (laser_state == 2'd1 && (wy == laser_y || wy == laser_y - 10'd1) && (wx[2] ^ anim_cnt[22])) begin
                     on_laser_0 = 1; laser_col_0 = anim_cnt[21] ? 6'd51 : 6'd52;
                 end else if (laser_state == 2'd2 && wy >= laser_y - 10'd6 && wy <= laser_y + 10'd6) begin
                     on_laser_0 = 1; laser_col_0 = (wy >= laser_y - 10'd2 && wy <= laser_y + 10'd2) ? 6'd53 : 6'd52;
+                end
+            end
+
+            // Sliding Door at Right Wall (wx=560..575, wy=192..255)
+            if (wx >= 11'd560 && wx < 11'd576 && wy >= 10'd192 && wy < 10'd256) begin
+                if (wy < (10'd256 - {4'd0, door_slide, 1'b0})) begin
+                    on_laser_0 = 1;
+                    laser_col_0 = (wx == 11'd560 || wy[3:0] == 4'd0) ? 6'd44 : 6'd42;
+                end else begin
+                    on_laser_0 = 1;
+                    laser_col_0 = ((wy[2] ^ anim_cnt[22])) ? 6'd59 : 6'd56; // Glowing open exit portal
+                end
+            end
+
+            // Door Lock Slam Burst ("PANG!") on left entrance when entering new wave
+            if (door_slam_t > 0 && wx >= 11'd64 && wx <= 11'd96 && wy >= 10'd184 && wy <= 10'd264) begin
+                if ((wx <= 11'd80) || ((wx + wy + anim_cnt[21]) & 2'b11) == 2'b00) begin
+                    on_dropfx_0 = 1;
+                    dropfx_col_0 = door_slam_t[2] ? 6'd52 : 6'd58;
+                end
+            end
+
+            // Bouncing Flashing Arrow pointing to Sliding Door when room is cleared!
+            if ((room_phase == 3'd2 || room_phase == 3'd4) && anim_cnt[23]) begin
+                bx_d = $signed({1'b0, wx}) - ($signed(12'sd496) + (anim_cnt[22] ? 12'sd6 : -12'sd6));
+                by_d = $signed({2'b00, wy}) - 12'sd224;
+                if (bx_d >= -16 && bx_d <= 16 && by_d >= -12 && by_d <= 12) begin
+                    ay_d = (by_d < 0) ? -by_d : by_d;
+                    if ((bx_d >= -16 && bx_d <= 4 && ay_d <= 4) ||
+                        (bx_d >= 0 && bx_d <= 14 && ay_d <= (12'sd14 - bx_d))) begin
+                        on_dropfx_0 = 1;
+                        dropfx_col_0 = (room_phase == 3'd4) ? 6'd28 : 6'd58;
+                    end
+                end
+            end
+
+            // Boss Death Explosion & Swirling Portal Regrowth (room_phase == 3'd5)
+            if (room_phase == 3'd5 && boss_trans_t > 0) begin
+                bx_d = $signed({1'b0, wx}) - $signed({1'b0, boss_x});
+                by_d = $signed({2'b00, wy}) - $signed({2'b00, boss_y});
+                if (bx_d >= -44 && bx_d <= 44 && by_d >= -44 && by_d <= 44) begin
+                    ax_d = (bx_d < 0) ? -bx_d : bx_d; ay_d = (by_d < 0) ? -by_d : by_d;
+                    oct_d = (ax_d >= ay_d) ? (ax_d + (ay_d >> 1)) : (ay_d + (ax_d >> 1));
+                    if (boss_trans_t > 8'd80) begin
+                        if (oct_d <= 12'sd38 && ((oct_d[2] ^ anim_cnt[20]))) begin
+                            on_dropfx_0 = 1; dropfx_col_0 = (oct_d <= 12'sd18) ? 6'd58 : 6'd52;
+                        end
+                    end else if (boss_kind < 2'd2) begin
+                        if (oct_d <= 12'sd40 && (oct_d >= 12'sd14 || ((ax_d ^ ay_d ^ anim_cnt[21]) & 1'b1))) begin
+                            on_dropfx_0 = 1; dropfx_col_0 = (oct_d >= 12'sd28) ? 6'd36 : 6'd59;
+                        end
+                    end
                 end
             end
         end
@@ -587,11 +635,11 @@ module vga_renderer_v2 (
             end else if (gy >= 9'd218 && gy < 9'd226 && col_1x >= 6'd9 && col_1x < 6'd31) begin
                 hud_text_en = 1; hud_text_color = 6'd60; hud_char_row = gy - 9'd218;
                 case (col_1x - 6'd9)
-                    0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("1"); 3:hud_char_code=lch("5");
-                    4:hud_char_code=lch("-"); 5:hud_char_code=lch("S"); 6:hud_char_code=lch("W"); 7:hud_char_code=lch("0");
-                    8:hud_char_code=lch(":"); 9:hud_char_code=lch("6"); 10:hud_char_code=lch("5"); 11:hud_char_code=lch("K");
-                    12:hud_char_code=C_SP;    13:hud_char_code=lch("S"); 14:hud_char_code=lch("K"); 15:hud_char_code=lch("I");
-                    16:hud_char_code=lch("N"); 17:hud_char_code=lch("S"); default:hud_char_code=C_SP;
+                    0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("3"); 3:hud_char_code=lch("-");
+                    4:hud_char_code=lch("S"); 5:hud_char_code=lch("W"); 6:hud_char_code=lch("0"); 7:hud_char_code=lch(":");
+                    8:hud_char_code=C_SP;     9:hud_char_code=lch("H"); 10:hud_char_code=lch("E"); 11:hud_char_code=lch("R");
+                    12:hud_char_code=lch("O"); 13:hud_char_code=C_SP;   14:hud_char_code=lch("S"); 15:hud_char_code=lch("K");
+                    16:hud_char_code=lch("I"); 17:hud_char_code=lch("N"); default:hud_char_code=C_SP;
                 endcase
             end
         end else if (game_state == 3'd1) begin
@@ -730,6 +778,198 @@ module vga_renderer_v2 (
                 end
             end
 
+            // V5 ARENA OVERLAYS: WAVE BANNER SLIDE-OUT, DOOR SLAM, LOGIC GATE QUIZ, BOSS QUOTE!
+            if (game_state == 3'd2 && room_phase == 3'd0 && wave_banner_t > 0) begin
+                // Wave Banner: centered for wave_banner_t > 40, then slides out to the right!
+                if (gy >= 9'd96 && gy < 9'd128) begin : blk_wban
+                    integer ban_sx, ban_cx;
+                    ban_sx = (wave_banner_t <= 7'd40) ? (({25'd0, 7'd40 - wave_banner_t}) * 8) : 0;
+                    if ($signed({1'b0, gx}) >= (11'sd72 + ban_sx) && $signed({1'b0, gx}) < (11'sd248 + ban_sx)) begin
+                        hud_bg_en = 1;
+                        hud_bg_color = (gy == 9'd96 || gy == 9'd127) ? 6'd58 : 6'd16;
+                        if (gy >= 9'd104 && gy < 9'd120) begin
+                            ban_cx = ($signed({1'b0, gx}) - (11'sd88 + ban_sx)) >> 4;
+                            if (ban_cx >= 0 && ban_cx < 10) begin
+                                hud_text_en = 1; hud_text_color = (wave == 4'd6) ? 6'd52 : 6'd58;
+                                hud_char_row = (gy - 9'd104) >> 1;
+                                hud_char_col = ($signed({1'b0, gx}) - (11'sd88 + ban_sx)) >> 1;
+                                if (wave == 4'd6) begin
+                                    case (ban_cx)
+                                        0:hud_char_code=lch("F"); 1:hud_char_code=lch("I"); 2:hud_char_code=lch("N");
+                                        3:hud_char_code=lch("A"); 4:hud_char_code=lch("L"); 5:hud_char_code=C_SP;
+                                        6:hud_char_code=lch("B"); 7:hud_char_code=lch("O"); 8:hud_char_code=lch("S");
+                                        9:hud_char_code=lch("S"); default:hud_char_code=C_SP;
+                                    endcase
+                                end else begin
+                                    case (ban_cx)
+                                        2:hud_char_code=lch("W"); 3:hud_char_code=lch("A"); 4:hud_char_code=lch("V");
+                                        5:hud_char_code=lch("E"); 6:hud_char_code=C_SP; 7:hud_char_code={2'd0, wave};
+                                        default:hud_char_code=C_SP;
+                                    endcase
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            if (game_state == 3'd2 && door_slam_t > 0 && gy >= 9'd32 && gy < 9'd46 && col_1x >= 6'd11 && col_1x < 6'd29) begin
+                hud_bg_en = 1; hud_bg_color = door_slam_t[2] ? 6'd52 : 6'd16;
+                if (gy >= 9'd35 && gy < 9'd43) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd35;
+                    case (col_1x - 6'd11)
+                        0:hud_char_code=lch("D"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("O"); 3:hud_char_code=lch("R");
+                        4:hud_char_code=C_SP; 5:hud_char_code=lch("L"); 6:hud_char_code=lch("O"); 7:hud_char_code=lch("C");
+                        8:hud_char_code=lch("K"); 9:hud_char_code=lch("E"); 10:hud_char_code=lch("D"); 11:hud_char_code=lch("!");
+                        12:hud_char_code=C_SP; 13:hud_char_code=lch("P"); 14:hud_char_code=lch("A"); 15:hud_char_code=lch("N");
+                        16:hud_char_code=lch("G"); 17:hud_char_code=lch("!"); default:hud_char_code=C_SP;
+                    endcase
+                end
+            end
+
+            // Screen-Space Bouncing Flashing Arrow ("GO >>>") when room cleared or door open!
+            if (game_state == 3'd2 && (room_phase == 3'd2 || room_phase == 3'd4) && anim_cnt[23]) begin : blk_hud_arw
+                integer arw_x;
+                arw_x = 248 + (anim_cnt[22] ? 8 : 0);
+                if (gy >= 9'd108 && gy < 9'd124 && $signed({1'b0, gx}) >= arw_x && $signed({1'b0, gx}) < arw_x + 48) begin
+                    hud_text_en = 1;
+                    hud_text_color = (room_phase == 3'd4) ? 6'd28 : 6'd58;
+                    hud_char_row = (gy - 9'd108) >> 1;
+                    hud_char_col = ($signed({1'b0, gx}) - arw_x) >> 1;
+                    case (($signed({1'b0, gx}) - arw_x) >> 4)
+                        0: hud_char_code = C_RARW;
+                        1: hud_char_code = C_RARW;
+                        2: hud_char_code = C_RARW;
+                        default: hud_char_code = C_SP;
+                    endcase
+                end
+            end
+
+            if (game_state == 3'd2 && room_phase == 3'd3 && gx >= 9'd56 && gx < 9'd264 && gy >= 9'd44 && gy < 9'd204) begin : blk_quiz
+                integer qdx, qdy, q_opt;
+                reg [3:0] opt_sum;
+                reg [2:0] opt_gate;
+                hud_bg_en = 1;
+                hud_bg_color = (gx == 9'd56 || gx == 9'd263 || gy == 9'd44 || gy == 9'd203) ? 6'd59 : 6'd54;
+                // Title: "LOGIC GATE QUIZ"
+                if (gy >= 9'd52 && gy < 9'd60 && col_1x >= 6'd12 && col_1x < 6'd27) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd52;
+                    case (col_1x - 6'd12)
+                        0:hud_char_code=lch("L"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("G"); 3:hud_char_code=lch("I");
+                        4:hud_char_code=lch("C"); 5:hud_char_code=C_SP; 6:hud_char_code=lch("G"); 7:hud_char_code=lch("A");
+                        8:hud_char_code=lch("T"); 9:hud_char_code=lch("E"); 10:hud_char_code=C_SP; 11:hud_char_code=lch("Q");
+                        12:hud_char_code=lch("U"); 13:hud_char_code=lch("I"); 14:hud_char_code=lch("Z"); default:hud_char_code=C_SP;
+                    endcase
+                end
+                // IEEE Logic Gate Symbol (gx=128..192, gy=66..106, center y=86)
+                if (gx >= 9'd128 && gx < 9'd192 && gy >= 9'd66 && gy < 9'd106) begin
+                    hud_bg_color = 6'd16;
+                    qdy = (gy >= 9'd86) ? (gy - 9'd86) : (9'd86 - gy);
+                    // Input & Output pins
+                    if (quiz_gate == 3'd2) begin
+                        if (gx >= 9'd134 && gx < 9'd148 && gy == 9'd86) hud_bg_color = 6'd59; // NOT single input
+                    end else begin
+                        if (gx >= 9'd134 && gx < 9'd148 && (gy == 9'd78 || gy == 9'd94)) hud_bg_color = 6'd59;
+                    end
+                    if (gx >= 9'd174 && gx < 9'd188 && gy == 9'd86) hud_bg_color = 6'd58; // Output Y
+                    // Gate Body
+                    if (quiz_gate == 3'd0 || quiz_gate == 3'd3) begin
+                        // AND / NAND
+                        if (gx >= 9'd148 && gx <= 9'd160 && qdy <= 14) hud_bg_color = 6'd17;
+                        else if (gx > 9'd160 && gx <= 9'd172) begin
+                            qdx = gx - 9'd160;
+                            if (qdx*qdx + qdy*qdy <= 196) hud_bg_color = 6'd17;
+                        end
+                    end else if (quiz_gate == 3'd2) begin
+                        // NOT triangle
+                        if (gx >= 9'd148 && gx <= 9'd170 && qdy <= ((170 - gx) >> 1) + 2) hud_bg_color = 6'd17;
+                    end else begin
+                        // OR / NOR / XOR
+                        if (gx >= 9'd148 + ((qdy*qdy) >> 5) && gx <= 9'd172 - ((qdy*qdy) >> 4) && qdy <= 14)
+                            hud_bg_color = 6'd17;
+                        if (quiz_gate == 3'd5 && gx >= 9'd143 + ((qdy*qdy) >> 5) && gx <= 9'd145 + ((qdy*qdy) >> 5) && qdy <= 14)
+                            hud_bg_color = 6'd58; // XOR extra input curve
+                    end
+                    // Inversion bubble for NOT(2), NAND(3), NOR(4)
+                    if ((quiz_gate == 3'd2 || quiz_gate == 3'd3 || quiz_gate == 3'd4) &&
+                        gx >= 9'd172 && gx <= 9'd176 && qdy <= 2)
+                        hud_bg_color = 6'd52;
+                end
+                // 4 Answer Options (gy = 114, 130, 146, 162)
+                for (q_opt = 0; q_opt < 4; q_opt = q_opt + 1) begin
+                    if (gy >= (9'd114 + q_opt*16) && gy < (9'd122 + q_opt*16) && col_1x >= 6'd14 && col_1x < 6'd23) begin
+                        if (q_opt[1:0] == quiz_ans_slot) opt_gate = quiz_gate;
+                        else begin
+                            opt_sum = {1'b0, quiz_gate} + ((q_opt[1:0] > quiz_ans_slot) ? {2'b00, q_opt[1:0] - quiz_ans_slot} : ({2'b00, q_opt[1:0]} + 4'd1));
+                            opt_gate = (opt_sum >= 4'd6) ? (opt_sum - 4'd6) : opt_sum[2:0];
+                        end
+                        hud_text_en = 1;
+                        hud_text_color = (quiz_cursor == q_opt[1:0]) ? 6'd58 : 6'd17;
+                        hud_char_row = gy - (9'd114 + q_opt*16);
+                        case (col_1x - 6'd14)
+                            0: hud_char_code = (quiz_cursor == q_opt[1:0]) ? C_RARW : C_SP;
+                            1: hud_char_code = C_SP;
+                            2: case (opt_gate) 0:hud_char_code=lch("A"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("N"); 3:hud_char_code=lch("N"); 4:hud_char_code=lch("N"); default:hud_char_code=lch("X"); endcase
+                            3: case (opt_gate) 0:hud_char_code=lch("N"); 1:hud_char_code=lch("R"); 2:hud_char_code=lch("O"); 3:hud_char_code=lch("A"); 4:hud_char_code=lch("O"); default:hud_char_code=lch("O"); endcase
+                            4: case (opt_gate) 0:hud_char_code=lch("D"); 1:hud_char_code=C_SP;     2:hud_char_code=lch("T"); 3:hud_char_code=lch("N"); 4:hud_char_code=lch("R"); default:hud_char_code=lch("R"); endcase
+                            5: hud_char_code = (opt_gate == 3'd3) ? lch("D") : C_SP;
+                            default: hud_char_code = C_SP;
+                        endcase
+                    end
+                end
+                if (quiz_wrong_t > 0 && gy >= 9'd184 && gy < 9'd192 && col_1x >= 6'd12 && col_1x < 6'd28) begin
+                    hud_text_en = 1; hud_text_color = 6'd49; hud_char_row = gy - 9'd184;
+                    case (col_1x - 6'd12)
+                        0:hud_char_code=lch("W"); 1:hud_char_code=lch("R"); 2:hud_char_code=lch("O"); 3:hud_char_code=lch("N");
+                        4:hud_char_code=lch("G"); 5:hud_char_code=lch("!"); 6:hud_char_code=C_SP; 7:hud_char_code=lch("T");
+                        8:hud_char_code=lch("R"); 9:hud_char_code=lch("Y"); 10:hud_char_code=C_SP; 11:hud_char_code=lch("A");
+                        12:hud_char_code=lch("G"); 13:hud_char_code=lch("A"); 14:hud_char_code=lch("I"); 15:hud_char_code=lch("N");
+                        default:hud_char_code=C_SP;
+                    endcase
+                end
+            end
+
+            // Boss Death Chuunibyou Quote Banner (room_phase == 3'd5)
+            if (game_state == 3'd2 && room_phase == 3'd5 && boss_trans_t > 0 && gy >= 9'd188 && gy < 9'd210) begin
+                hud_bg_en = 1; hud_bg_color = (gy == 9'd188 || gy == 9'd209) ? 6'd36 : 6'd16;
+                if (gy >= 9'd195 && gy < 9'd203 && col_1x >= 6'd4 && col_1x < 6'd36) begin
+                    hud_text_en = 1; hud_text_color = (boss_kind == 2'd2) ? 6'd58 : 6'd60;
+                    hud_char_row = gy - 9'd195;
+                    if (boss_kind == 2'd0) begin
+                        case (col_1x - 6'd4)
+                            0:hud_char_code=lch("M"); 1:hud_char_code=lch("Y"); 2:hud_char_code=C_SP; 3:hud_char_code=lch("S");
+                            4:hud_char_code=lch("E"); 5:hud_char_code=lch("A"); 6:hud_char_code=lch("L"); 7:hud_char_code=C_SP;
+                            8:hud_char_code=lch("B"); 9:hud_char_code=lch("R"); 10:hud_char_code=lch("E"); 11:hud_char_code=lch("A");
+                            12:hud_char_code=lch("K"); 13:hud_char_code=lch("S"); 14:hud_char_code=C_SP; 15:hud_char_code=lch("A");
+                            16:hud_char_code=lch("W"); 17:hud_char_code=lch("A"); 18:hud_char_code=lch("K"); 19:hud_char_code=lch("E");
+                            20:hud_char_code=lch("N"); 21:hud_char_code=C_SP; 22:hud_char_code=lch("P"); 23:hud_char_code=lch("H");
+                            24:hud_char_code=lch("A"); 25:hud_char_code=lch("S"); 26:hud_char_code=lch("E"); 27:hud_char_code=C_SP;
+                            28:hud_char_code=lch("2"); 29:hud_char_code=lch("!"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (boss_kind == 2'd1) begin
+                        case (col_1x - 6'd4)
+                            0:hud_char_code=lch("A"); 1:hud_char_code=lch("B"); 2:hud_char_code=lch("Y"); 3:hud_char_code=lch("S");
+                            4:hud_char_code=lch("S"); 5:hud_char_code=C_SP; 6:hud_char_code=lch("C"); 7:hud_char_code=lch("A");
+                            8:hud_char_code=lch("L"); 9:hud_char_code=lch("L"); 10:hud_char_code=lch("S"); 11:hud_char_code=C_SP;
+                            12:hud_char_code=lch("I"); 13:hud_char_code=C_SP; 14:hud_char_code=lch("A"); 15:hud_char_code=lch("M");
+                            16:hud_char_code=C_SP; 17:hud_char_code=lch("I"); 18:hud_char_code=lch("N"); 19:hud_char_code=lch("E");
+                            20:hud_char_code=lch("V"); 21:hud_char_code=lch("I"); 22:hud_char_code=lch("T"); 23:hud_char_code=lch("A");
+                            24:hud_char_code=lch("B"); 25:hud_char_code=lch("L"); 26:hud_char_code=lch("E"); 27:hud_char_code=lch("!");
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd4)
+                            0:hud_char_code=lch("M"); 1:hud_char_code=lch("Y"); 2:hud_char_code=C_SP; 3:hud_char_code=lch("I");
+                            4:hud_char_code=lch("N"); 5:hud_char_code=lch("F"); 6:hud_char_code=lch("I"); 7:hud_char_code=lch("N");
+                            8:hud_char_code=lch("I"); 9:hud_char_code=lch("T"); 10:hud_char_code=lch("Y"); 11:hud_char_code=C_SP;
+                            12:hud_char_code=lch("S"); 13:hud_char_code=lch("H"); 14:hud_char_code=lch("A"); 15:hud_char_code=lch("T");
+                            16:hud_char_code=lch("T"); 17:hud_char_code=lch("E"); 18:hud_char_code=lch("R"); 19:hud_char_code=lch("S");
+                            20:hud_char_code=lch("!"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+            end
+
             if (game_state == 3'd3 || game_state == 3'd4) begin
                 if (gx >= 9'd56 && gx < 9'd264 && gy >= 9'd88 && gy < 9'd172) begin
                     hud_bg_en = 1; hud_bg_color = (gx==9'd56||gx==9'd263||gy==9'd88||gy==9'd171) ? 6'd58 : 6'd54;
@@ -788,8 +1028,11 @@ module vga_renderer_v2 (
     reg [2:0] hud_col_1=0;
     reg [5:0] hud_tcol_1=0, hud_bcol_1=0;
 
+    reg in_room_1=0, in_room_2=0;
+    wire in_room_0 = (wx >= 11'd64 && wx < 11'd576 && wy >= 10'd64 && wy < 10'd384);
+
     always @(posedge clk) begin
-        hs_1 <= hs_0; vs_1 <= vs_0; vid_1 <= vid_0;
+        hs_1 <= hs_0; vs_1 <= vs_0; vid_1 <= vid_0; in_room_1 <= in_room_0;
         wx_1 <= wx[3:0]; wy_1 <= wy[3:0]; gx_1 <= gx; gy_1 <= gy;
         on_p_1 <= on_player_box; sel_p2_1 <= sel_p2_0; on_aura_1 <= on_aura_0; aura_col_1 <= aura_col_0;
         on_ghost_1 <= on_ghost; on_b_1 <= on_boss_box; on_mon_1 <= on_mon_box; on_item_1 <= on_item_box; on_logo_1 <= in_logo_box;
@@ -813,8 +1056,8 @@ module vga_renderer_v2 (
     // =========================================================================
     reg hs_2=1, vs_2=1, vid_2=0;
     reg [8:0] gx_2=0, gy_2=0;
-    reg [11:0] p_pix_2=0, b_pix_2=0;
-    reg [5:0]  mon_pix_2=0, item_pix_2=0, logo_pix_2=0;
+    reg [11:0] p_pix_2=0, b_pix_2=0, mon_pix_2=0;
+    reg [5:0]  item_pix_2=0, logo_pix_2=0;
     reg on_p_2=0, sel_p2_2=0, on_aura_2=0, on_ghost_2=0, on_b_2=0, on_mon_2=0, on_item_2=0, on_logo_2=0;
     reg on_pb_2=0, on_eb_2=0, on_dropfx_2=0, on_laser_2=0, on_tag_2=0;
     reg [5:0] aura_col_2=0, pb_col_2=0, eb_col_2=0, dropfx_col_2=0, laser_col_2=0, tag_col_2=0;
@@ -822,7 +1065,7 @@ module vga_renderer_v2 (
     reg [5:0] hud_tcol_2=0, hud_bcol_2=0;
 
     always @(posedge clk) begin
-        hs_2 <= hs_1; vs_2 <= vs_1; vid_2 <= vid_1; gx_2 <= gx_1; gy_2 <= gy_1;
+        hs_2 <= hs_1; vs_2 <= vs_1; vid_2 <= vid_1; gx_2 <= gx_1; gy_2 <= gy_1; in_room_2 <= in_room_1;
         p_pix_2 <= player_pix_1; b_pix_2 <= boss_pix_1; mon_pix_2 <= mon_pix_1; item_pix_2 <= item_pix_1; logo_pix_2 <= logo_pix_1;
         on_p_2 <= on_p_1; sel_p2_2 <= sel_p2_1; on_aura_2 <= on_aura_1; aura_col_2 <= aura_col_1;
         on_ghost_2 <= on_ghost_1; on_b_2 <= on_b_1; on_mon_2 <= on_mon_1; on_item_2 <= on_item_1; on_logo_2 <= on_logo_1;
@@ -868,14 +1111,18 @@ module vga_renderer_v2 (
             direct_rgb_2     = b_pix_2;
         end
         else if (on_item_2 && item_pix_2 != 6'd0) final_idx_2 = item_pix_2;
-        else if (on_mon_2 && mon_pix_2 != 6'd0)   final_idx_2 = mon_pix_2;
+        else if (on_mon_2 && mon_pix_2 != 12'd0) begin
+            use_direct_rgb_2 = 1'b1;
+            direct_rgb_2     = mon_pix_2;
+        end
         else if (on_dropfx_2)     final_idx_2 = dropfx_col_2;
         else if (on_laser_2)      final_idx_2 = laser_col_2;
         else if (game_state == 3'd0) final_idx_2 = title_grid ? 6'd56 : 6'd16;
+        else if (!in_room_2)      begin use_direct_rgb_2 = 1'b1; direct_rgb_2 = 12'h000; end
         else                      final_idx_2 = tile_pix_2;
     end
 
-    wire [1:0] env_theme = chrono_active ? 2'd2 : ((wave >= 4'd7) ? 2'd3 : (zone3_open ? 2'd1 : 2'd0));
+    wire [1:0] env_theme = chrono_active ? 2'd2 : wave[1:0];
 
     wire [11:0] rgb_env_3, rgb_fg_3;
     rom_lut #(.DW(12), .AW(6), .DEPTH(64), .FILE("pal_env.mem")) u_pal_env (
