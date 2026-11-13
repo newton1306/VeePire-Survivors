@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>VeePire Survivors — FPGA 2D Action RPG Presentation Summary &amp; Digital Engineering Guide</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Leelawadee UI', 'Tahoma', 'Segoe UI', sans-serif;
+    color: #162033;
+    background: #ffffff;
+    font-size: 8.6pt;
+    line-height: 1.38;
+  }
+  .page {
+    page-break-after: always;
+    break-after: page;
+    height: 100%;
+    max-height: 280mm;
+    position: relative;
+    overflow: hidden;
+  }
+  .page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Studio Header / Cover Banner */
+  .hero-banner {
+    background: linear-gradient(135deg, #09101f 0%, #152244 55%, #1e2d5c 100%);
+    color: #f8fafc;
+    border-radius: 8px;
+    padding: 11px 15px;
+    border-bottom: 4px solid #f59e0b;
+    margin-bottom: 8px;
+  }
+  .studio-tag {
+    display: inline-block;
+    font-size: 7.2pt;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    padding: 1.5px 7px;
+    border-radius: 99px;
+    margin-bottom: 4px;
+  }
+  .hero-banner h1 {
+    margin: 0 0 3px 0;
+    font-size: 19pt;
+    letter-spacing: 0.8px;
+    color: #fde047;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  .hero-banner .subtitle {
+    margin: 0;
+    font-size: 9.6pt;
+    color: #cbd5e1;
+    font-weight: 500;
+  }
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    margin-top: 9px;
+  }
+  .kpi {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 6px;
+    padding: 5px 6px;
+    text-align: center;
+  }
+  .kpi .val {
+    display: block;
+    font-size: 9.8pt;
+    font-weight: 800;
+    color: #38bdf8;
+  }
+  .kpi .lbl {
+    display: block;
+    font-size: 6.8pt;
+    color: #cbd5e1;
+    text-transform: uppercase;
+  }
+
+  /* Section Headings */
+  .sec-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-left: 4px solid #0284c7;
+    padding-left: 7px;
+    margin: 10px 0 6px 0;
+  }
+  .sec-badge {
+    font-size: 7.2pt;
+    font-weight: 700;
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 1px 6px;
+    border-radius: 99px;
+  }
+
+  /* Grids & Cards */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .card {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: 8px 10px;
+    break-inside: avoid;
+  }
+  .card-dark {
+    background: #0f172a;
+    color: #f1f5f9;
+    border: 1px solid #334155;
+    border-radius: 7px;
+    padding: 8px 10px;
+    break-inside: avoid;
+  }
+  .card h3, .card-dark h3 {
+    margin: 0 0 4px 0;
+    font-size: 9.3pt;
+    font-weight: 800;
+    color: #0369a1;
+  }
+  .card-dark h3 {
+    color: #fde047;
+  }
+  .card p, .card-dark p {
+    margin: 0;
+    font-size: 8.4pt;
+  }
+
+  /* Highlight callout box */
+  .callout-blue {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-left: 4px solid #0284c7;
+    border-radius: 6px;
+    padding: 7px 10px;
+    margin-bottom: 7px;
+  }
+  .callout-gold {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 4px solid #d97706;
+    border-radius: 6px;
+    padding: 7px 10px;
+    margin-bottom: 7px;
+  }
+  .callout-red {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #dc2626;
+    border-radius: 6px;
+    padding: 7px 10px;
+    margin-bottom: 7px;
+  }
+
+  /* Screenshot and image frames */
+  .shot-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 7px;
+    padding: 5px;
+    break-inside: avoid;
+    text-align: center;
+  }
+  .shot-card img {
+    width: 100%;
+    height: auto;
+    max-height: 155px;
+    object-fit: contain;
+    border-radius: 5px;
+    display: block;
+    margin: 0 auto;
+    background: #020617;
+  }
+  .shot-card .caption {
+    font-size: 7.2pt;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  /* Tables */
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.9pt;
+    margin-top: 4px;
+  }
+  table.data-table th {
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 5px 7px;
+    text-align: left;
+    font-weight: 700;
+  }
+  table.data-table td {
+    padding: 4.5px 7px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  table.data-table tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+  .badge-pass {
+    background: #dcfce7;
+    color: #166534;
+    font-weight: 700;
+    padding: 1.5px 6px;
+    border-radius: 99px;
+    font-size: 7.2pt;
+    display: inline-block;
+  }
+
+  /* Code & Equation Snippets */
+  .code-block {
+    background: #090d16;
+    color: #38bdf8;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 7.6pt;
+    padding: 6px 9px;
+    border-radius: 5px;
+    border: 1px solid #1e293b;
+    margin: 4px 0;
+    overflow-x: hidden;
+    line-height: 1.35;
+  }
+
+  /* List Styling */
+  ul.compact-list {
+    margin: 4px 0 6px 16px;
+    padding: 0;
+    font-size: 8.3pt;
+  }
+  ul.compact-list li {
+    margin-bottom: 3.5px;
+  }
+
+  /* Page Footer */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 4px;
+    font-size: 6.8pt;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================================================== -->
+<!-- PAGE 1: EXECUTIVE SUMMARY & DIGITAL/FPGA FUNDAMENTALS    -->
+<!-- ======================================================== -->
+<div class="page">
+  <div class="hero-banner">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <span class="studio-tag">CPE KMUTT &bull; HARDWARE SYNTHESIS PROJECT &bull; PURE VERILOG RTL</span>
+        <h1>VEEPIRE SURVIVORS</h1>
+        <p class="subtitle">2D Roguelite Survival Action Game &bull; Zero CPU &bull; 60 FPS VGA Hardware Engine</p>
+      </div>
+      <div style="text-align:right;">
+        <span style="background:#f59e0b; color:#0f172a; font-weight:800; font-size:7.5pt; padding:3px 8px; border-radius:4px; display:inline-block;">NEXYS A7-100T</span>
+        <div style="font-size:7.2pt; color:#cbd5e1; margin-top:4px;">Artix-7 XC7A100T-1CSG324C</div>
+      </div>
+    </div>
+    <div class="kpi-strip">
+      <div class="kpi"><span class="val">25.175 MHz</span><span class="lbl">VGA Pixel Clock</span></div>
+      <div class="kpi"><span class="val">60 FPS</span><span class="lbl">Zero-Lag Display</span></div>
+      <div class="kpi"><span class="val">0 MHz CPU</span><span class="lbl">100% Logic Gates</span></div>
+      <div class="kpi"><span class="val">16,070 LUTs</span><span class="lbl">25.35% Logic Area</span></div>
+      <div class="kpi"><span class="val">+14.066 ns</span><span class="lbl">Timing Slack PASS</span></div>
+    </div>
+  </div>
+
+  <div class="callout-blue">
+    <strong style="color:#0369a1; font-size:9.2pt;">💡 บทนำสำหรับผู้เริ่มต้น (FPGA คืออะไร แตกต่างจากการเขียนโปรแกรมทั่วไปอย่างไร?)</strong>
+    <p style="margin-top:3px; font-size:8.3pt; line-height:1.35;">
+      ในการเขียนโปรแกรมทั่วไปบนคอมพิวเตอร์ (C++, Python, Unity) โปรแกรมจะทำงานแบบ <em>ตามลำดับ (Sequential)</em> โดย CPU จะดึงคำสั่ง (Instruction Fetch) ทีละบรรทัดมาประมวลผลผ่านระบบปฏิบัติการ (OS) 
+      แต่โครงงานนี้สร้างบน <strong>FPGA (Field-Programmable Gate Array)</strong> ซึ่งเป็น <strong>ชิปวงจรรวมดิจิทัลที่ไม่มี CPU และไม่มี OS อยู่เลยแม้แต่น้อย!</strong> 
+      โค้ดภาษา <strong>Verilog HDL</strong> ที่เราเขียนขึ้นไม่ได้ถูกนำไปรันเป็นคำสั่ง แต่ถูกแปลง (Synthesis & Implementation) กลายเป็น <strong>สายไฟและเกตตรรกะจริง (Physical Logic Gates, Flip-Flops, Multiplexers)</strong> 
+      ที่เชื่อมต่อกันอยู่บนเนื้อซิลิคอน ทำงานแบบ <em>ขนานพร้อมกัน 100% (Pure Concurrency)</em> ทุกเสี้ยววินาทีของสัญญาณนาฬิกา!
+    </p>
+  </div>
+
+  <div class="sec-title"><span>สถาปัตยกรรมระดับฮาร์ดแวร์ (Pure RTL Architecture) &amp; VGA 60 FPS Engine</span><span class="sec-badge">Hardware Overview</span></div>
+  
+  <div class="grid-2">
+    <div class="card">
+      <h3>1. การเรนเดอร์ภาพแบบ On-the-Fly (ไร้ Frame Buffer)</h3>
+      <p>
+        เกมคอมพิวเตอร์ทั่วไปจะใช้ RAM เก็บภาพทั้งเฟรม (Frame Buffer) แล้วจึงส่งออกหน้าจอ แต่ใน FPGA เรามีหน่วยความจำ BRAM จำกัด 
+        เราจึงออกแบบวงจร <strong>VGA Beam Scanning</strong> ที่คำนวณและสร้างสีพิกเซลส่งออกพอร์ต VGA แบบ <strong>Real-time สดๆ พิกเซลต่อพิกเซล</strong> 
+        ตามสัญญาณพิกเซลคล็อก 25.175 MHz (640&times;480 @ 60 Hz) 
+      </p>
+      <ul class="compact-list" style="margin-top:4px;">
+        <li><strong>Horizontal Timing:</strong> 640 Visible + 16 Front Porch + 96 Sync + 48 Back Porch = 800 Pixels</li>
+        <li><strong>Vertical Timing:</strong> 480 Visible + 10 Front Porch + 2 Sync + 33 Back Porch = 525 Lines</li>
+        <li><strong>Dual-Layer Alpha Blending:</strong> ผสมสไปรท์ตัวละคร พื้นหลัง และเอฟเฟกต์อาวุธแบบโปร่งแสงด้วยฮาร์ดแวร์ Combinational Logic</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>2. การทำงานแบบคู่ขนานระดับอิเล็กตรอน (Zero-Latency)</h3>
+      <p>
+        ทุกระบบในเกมทำงานพร้อมกันโดยไม่แย่งเวลาประมวลผล (No Context Switching):
+      </p>
+      <ul class="compact-list" style="margin-top:4px;">
+        <li><strong>Game Physics &amp; Movement:</strong> คำนวณเวกเตอร์ตำแหน่งผู้เล่น 2 คนและมอนสเตอร์ 16 ตัวพร้อมกันใน 1 clock cycle</li>
+        <li><strong>Hitbox Collision Detection:</strong> วงจร Comparator ตรวจจับระยะดาบ กระสุน และตัวละครทุกตัวพร้อมกันทันที</li>
+        <li><strong>Audio Synthesizer:</strong> วงจรสร้างคลื่นสี่เหลี่ยม (PWM Square Waves) 4 ช่องเสียงบรรเลงเพลง Chiptune พร้อมเอฟเฟกต์เสียง</li>
+        <li><strong>Dual-Controller UART Receiver:</strong> ถอดรหัสคำสั่งจากจอยสติ๊ก USB ผ่านบอร์ด ESP32 ด้วยความเร็ว 115,200 baud</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec-title" style="margin-top:8px;"><span>ภาพรวมเกมเพลย์ &bull; VeePire Survivors</span><span class="sec-badge">KMUTT Survivor Parody</span></div>
+  <div class="grid-3">
+    <div class="card-dark">
+      <h3>🛡️ ระบบผู้เล่น 2 คน (Co-op)</h3>
+      <p>รองรับการเล่นคู่ P1 และ P2 พร้อมกัน แบ่งหน้าที่โจมตีและเก็บเลเวล โดยแชร์หลอดอัปเกรด GEM ร่วมกัน หากเพื่อนล้มลงจะสลบชั่วคราวและฟื้นคืนชีพเมื่อจบ Wave!</p>
+    </div>
+    <div class="card-dark">
+      <h3>⚔️ คอมโบดาบ &amp; ปืน Auto-Lock</h3>
+      <p>ฟันดาบ 4 จังหวะระยะกว้างพิเศษ + ใบมีดหมุน 360&deg; ป้องกันตัว พร้อมปืนยิงเวทมนตร์อัจฉริยะที่ใช้ฮาร์ดแวร์คำนวณระยะทางเพื่อล็อคเป้าหมายศัตรูอัตโนมัติ 100%</p>
+    </div>
+    <div class="card-dark">
+      <h3>🎓 ประตูด่านทดสอบ Logic Gate</h3>
+      <p>เมื่อจบแต่ละ Wave ต้องไขปริศนา Truth Table ประตูดิจิทัล (AND, OR, XOR ฯลฯ) หากตอบถูกจะเปลี่ยนชุดเท่ๆ สู่ชั้นปีถัดไป หากตอบผิดจะพบกับ Ajarn_V ร่าง 2 สั่ง GO RETAKE!</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>VeePire Survivors &bull; CPE KMUTT Digital System Design &amp; Vivado Implementation</span>
+    <span>Page 1 of 5</span>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- PAGE 2: BEGINNER Q&A - CORE DIGITAL QUESTIONS EXPLAINED  -->
+<!-- ======================================================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;"><span>คำถามเจาะลึกที่พบบ่อย (Q&amp;A For Defense &amp; Beginners)</span><span class="sec-badge">Hardware Fundamentals</span></div>
+
+  <!-- QUESTION 1: IMAGE TO FPGA -->
+  <div class="card" style="margin-bottom:8px; border-left:4px solid #0284c7;">
+    <h3 style="color:#0f172a; font-size:9.8pt; margin-bottom:5px;">
+      ❓ Q1: จากรูปถ่ายคนจริง (อาจารย์/นักศึกษา) เรานำใส่เข้าไปใน FPGA กลายเป็นตัวละครในเกมได้อย่างไร?
+    </h3>
+    <p style="font-size:8.3pt; margin-bottom:5px;">
+      เนื่องจาก FPGA ไม่มีฮาร์ดดิสก์และไม่รองรับไฟล์รูปภาพ เช่น <code>.png</code> หรือ <code>.jpg</code> โดยตรง เราจึงต้องสร้าง <strong>Image Processing Toolchain</strong> เพื่อแปลงข้อมูลภาพให้อยู่ในรูปของตรรกะหน่วยความจำ (Hardware Memory Map) ดังนี้:
+    </p>
+    
+    <div class="grid-2" style="gap:6px;">
+      <div style="background:#f1f5f9; padding:6px 8px; border-radius:5px; border:1px solid #cbd5e1;">
+        <strong style="color:#0369a1; font-size:8.2pt;">ขั้นตอนที่ 1: การประมวลผลรูปภาพล่วงหน้า (Python PIL)</strong>
+        <ul class="compact-list" style="margin:3px 0 0 14px; font-size:7.9pt;">
+          <li>นำรูปถ่ายใบหน้าจริงมาตัดฉากหลังออกด้วยอัลกอริทึม BFS Flood-fill / Color Keying</li>
+          <li>ย่อขนาดภาพให้อยู่ในสัดส่วนพิกเซลที่เหมาะสม (เช่น 32&times;32 หรือ 64&times;64 พิกเซล)</li>
+          <li>ทำการ Quantization ลดทอนสีจาก TrueColor (24-bit RGB888) ให้เหลือ <strong>12-bit RGB444</strong> (แดง 4-bit, เขียว 4-bit, น้ำเงิน 4-bit รวม 4,096 สี) เพื่อประหยัดพื้นที่หน่วยความจำ</li>
+        </ul>
+      </div>
+
+      <div style="background:#f1f5f9; padding:6px 8px; border-radius:5px; border:1px solid #cbd5e1;">
+        <strong style="color:#0369a1; font-size:8.2pt;">ขั้นตอนที่ 2: แปลงเป็นไฟล์ความจำและ BRAM Synthesis</strong>
+        <ul class="compact-list" style="margin:3px 0 0 14px; font-size:7.9pt;">
+          <li>สคริปต์ Python จะแปลงค่าสีแต่ละพิกเซลเป็นเลขฐานสิบหก (Hexadecimal) บรรทัดละ 1 พิกเซล บันทึกเป็นไฟล์ <code>.mem</code> (Memory Initialization File)</li>
+          <li>ในโค้ด Verilog เราเรียกใช้คำสั่ง <code>$readmemh("face_sprite.mem", rom_array);</code> เพื่อบรรจุค่าสีลงใน <strong>Block RAM (BRAM Tile)</strong> ของชิป FPGA ในขั้นตอนสังเคราะห์วงจร</li>
+          <li>เมื่อวงจร VGA กำลังสแกนพิกเซลผ่านพิกัดตัวละคร วงจรจะคำนวณ Address ของ BRAM แล้วดึงค่าสี 12-bit RGB444 ส่งตรงไปยังพอร์ต VGA ทันที!</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="code-block" style="margin-top:5px;">
+// ตัวอย่างวงจร Verilog ROM ดึงพิกเซลจาก Block RAM (1 Clock Cycle Latency)
+reg [11:0] sprite_rom [0:1023]; // 32x32 pixels = 1024 addresses (12-bit RGB444)
+initial $readmemh("hero_face.mem", sprite_rom);
+always @(posedge clk_25m) begin
+    pixel_color_out <= sprite_rom[{pixel_y[4:0], pixel_x[4:0]}]; // คำนวณ Address 10-bit
+end
+    </div>
+  </div>
+
+  <!-- QUESTION 2: LFSR RANDOMNESS -->
+  <div class="card" style="margin-bottom:8px; border-left:4px solid #d97706;">
+    <h3 style="color:#0f172a; font-size:9.8pt; margin-bottom:5px;">
+      ❓ Q2: ในฮาร์ดแวร์ดิจิทัลที่ไม่มีฟังก์ชัน <code>rand()</code> เราสร้างการสุ่มตำแหน่งมอนสเตอร์อย่างไร?
+    </h3>
+    <p style="font-size:8.3pt; margin-bottom:5px;">
+      เราใช้เทคนิค <strong>LFSR (Linear Feedback Shift Register)</strong> ซึ่งเป็นวงจรกำเนิดตัวเลขสุ่มเทียมระดับฮาร์ดแวร์ (Hardware Pseudo-Random Number Generator) ที่มีประสิทธิภาพสูงสุด ทำงานด้วยหลักการทางคณิตศาสตร์ Galois Field ดังนี้:
+    </p>
+
+    <div class="grid-2" style="gap:6px;">
+      <div>
+        <p style="font-size:8pt; margin-bottom:4px;">
+          <strong>โครงสร้างของ LFSR:</strong> ประกอบด้วย Flip-Flop เรียงต่อกันเป็น Shift Register เมื่อมีสัญญาณนาฬิกา ข้อมูลบิตจะเลื่อนไปทางขวา 1 ตำแหน่ง และบิตใหม่ที่จะถูกใส่เข้ามาที่หัวแถว (Feedback Bit) จะเกิดจากการนำบิตที่ตำแหน่งเฉพาะ (Taps) มากระทำทางตรรกะ <strong>XOR (&oplus;)</strong> กัน
+        </p>
+        <div class="callout-gold" style="padding:4px 8px; margin:0; font-size:7.8pt;">
+          <strong>พหุนามสุ่มความยาว 16 บิต (Maximal-Length Polynomial):</strong><br>
+          $$P(x) = x^{16} + x^{14} + x^{13} + x^{11} + 1$$
+          วงจรนี้จะสร้างลำดับตัวเลขสุ่มที่ <strong>ไม่ซ้ำกันเลยถึง 65,535 สเตจ ($2^{16}-1$)</strong> ก่อนจะวนรอบกลับมาที่เดิม โดยกินพื้นที่ฮาร์ดแวร์เพียง 16 Flip-Flops และ XOR Gates ไม่กี่ตัว!
+        </div>
+      </div>
+
+      <div>
+        <div class="code-block" style="margin:0; font-size:7.4pt;">
+// โมดูลวงจรสุ่ม LFSR 16 บิตใน Verilog
+module lfsr_16 (
+    input  wire        clk,
+    input  wire        rst_n,
+    output reg  [15:0] rnd_val
+);
+    wire feedback = rnd_val[15] ^ rnd_val[13] ^ 
+                    rnd_val[12] ^ rnd_val[10];
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) 
+            rnd_val <= 16'hACE1; // Non-zero Seed
+        else 
+            rnd_val <= {rnd_val[14:0], feedback};
+    end
+endmodule
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUESTION 3: COLLISION DETECTION -->
+  <div class="card" style="border-left:4px solid #16a34a;">
+    <h3 style="color:#0f172a; font-size:9.8pt; margin-bottom:4px;">
+      ❓ Q3: ตรวจจับการชน (Collision Detection) ในฮาร์ดแวร์ทำอย่างไรเมื่อไม่มี OOP หรือ Vector Math?
+    </h3>
+    <p style="font-size:8.3pt;">
+      ในโปรแกรมซอฟต์แวร์มักใช้สมการวงกลม $\sqrt{\Delta x^2 + \Delta y^2} < r$ ซึ่งกินเวลาคำนวณและต้องการวงจรคูณและถอดรูทที่ซับซ้อนมาก ใน Verilog เราใช้ <strong>Axis-Aligned Bounding Box (AABB) และ Manhattan Distance</strong> แทน ซึ่งสร้างจากวงจรลบและเปรียบเทียบ (Subtractor &amp; Comparator) ที่ทำงานเสร็จสิ้นภายใน <strong>1 Clock Cycle (40 นาโนวินาที)</strong> เท่านั้น!
+    </p>
+    <div class="code-block" style="margin-top:4px; font-size:7.4pt;">
+wire hit_enemy = (bullet_x >= enemy_x - 12) &amp;&amp; (bullet_x &lt;= enemy_x + 12) &amp;&amp;
+                 (bullet_y >= enemy_y - 12) &amp;&amp; (bullet_y &lt;= enemy_y + 12);
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>VeePire Survivors &bull; CPE KMUTT Digital System Design &amp; Vivado Implementation</span>
+    <span>Page 2 of 5</span>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- PAGE 3: GAME DESIGN, SETTING & CHARACTER PROGRESSION     -->
+<!-- ======================================================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;"><span>เนื้อเรื่อง &amp; วิวัฒนาการเครื่องแต่งกายนักศึกษา (Academic Lore)</span><span class="sec-badge">Game Narrative</span></div>
+
+  <div class="grid-2" style="margin-bottom:8px;">
+    <div class="card">
+      <h3>📖 ธีมเรื่องราว: มหาสงครามเอาชีวิตรอดในรั้วมหาวิทยาลัย</h3>
+      <p style="font-size:8.3pt;">
+        ผู้เล่นจะได้รับบทเป็นนักศึกษาภาควิชาวิศวกรรมคอมพิวเตอร์ (CPE KMUTT) ที่ต้องต่อสู้เอาชีวิตรอดจากกองทัพ <strong>"กีกี้ผู้ตรวจการ (Geekie Enforcers)"</strong> 
+        และเผชิญหน้ากับลาสบอสผู้ทรงอำนาจ <strong>"อาจารย์ V (Ajarn_V)"</strong> ผู้คอยตัดสินผลการเรียนและแจกเกรด F ให้กับนักศึกษาที่ไม่ผ่านเกณฑ์!
+      </p>
+      <p style="font-size:8.3pt; margin-top:4px;">
+        เป้าหมายคือการฝ่าฟันอุปสรรคทั้ง 10 Wave เก็บสะสมคะแนน GEM อัปเกรดอาวุธ ตอบคำถามประตูดิจิทัลให้ถูกต้องเพื่อเลื่อนชั้นปี และพิชิตอาจารย์ V เพื่อคว้าใบปริญญาบัตรเกียรตินิยม!
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>👔 วิวัฒนาการเครื่องแต่งกายตามระดับ Wave (Progression)</h3>
+      <ul class="compact-list" style="margin:2px 0 0 14px; font-size:8.2pt;">
+        <li><strong style="color:#0284c7;">Wave 1 (เฟรชชี่ปี 1):</strong> ชุดนักศึกษาถูกระเบียบ เสื้อเชิ้ตขาวแขนยาว ผูกเนกไท กางเกงสแล็คสีดำ แสดงถึงความไร้เดียงสาในการเข้าเรียนเทอมแรก</li>
+        <li><strong style="color:#405F73;">Wave 2 (วิศวกรคอมพ์ปี 2-3):</strong> สวม <strong>"เสื้อช็อปวิศวะคอมพิวเตอร์ มจธ." สีน้ำเงินอมเทา (#405F73)</strong> ทับเสื้อยืดขาวด้านใน บ่งบอกถึงการผ่านศึกโครงงานฮาร์ดแวร์</li>
+        <li><strong style="color:#b91c1c;">Wave 3+ (บัณฑิตเกียรตินิยม):</strong> สวม <strong>"ชุดครุยวิทยฐานะ มจธ."</strong> เต็มยศ แถบสีแดงเลือดหมู-ทอง พร้อมเข้าสู่สมรภูมิสุดท้ายเพื่อจบการศึกษา!</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec-title"><span>พรีวิวสไปรท์ตัวละครและศัตรูในเกม (Sprite Architecture)</span><span class="sec-badge">Hardware Assets</span></div>
+
+  <div class="shot-card" style="margin-bottom:8px;">
+    <img src="sprite_preview.png" alt="Sprite Architecture Preview" style="max-height:185px;">
+    <div class="caption">ภาพจำลองชุดสไปรท์ระดับฮาร์ดแวร์: ใบหน้าความละเอียดสูง + ลำตัวแบ่งตาม Wave + อาวุธดาบ 4 จังหวะ + มอนสเตอร์สูทดำ + บอส Ajarn_V 3 ร่าง</div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <h3 style="color:#0369a1;">👾 กีกี้ผู้ตรวจการ (Geekie)</h3>
+      <p style="font-size:8.1pt;">
+        มอนสเตอร์ลูกกระจ๊อก สวม <strong>ชุดสูทสีดำ เสื้อเชิ้ตขาวด้านใน</strong> เดินเข้าหาผู้เล่นและยิงกระสุนรบกวนอย่างรวดเร็ว ได้รับการปรับแต่งความเร็วยิงให้ท้าทายในเวอร์ชันล่าสุด
+      </p>
+    </div>
+
+    <div class="card">
+      <h3 style="color:#d97706;">🦆 บอส Ajarn_V ร่าง 1 (Giant Duck)</h3>
+      <p style="font-size:8.1pt;">
+        ร่างเปิดตัวด้วยมาสคอตเป็ดเหลืองขนาดยักษ์ โจมตีด้วยการพุ่งชนและปล่อยลูกพลังกระจายรอบทิศทาง เป็นบททดสอบแรกในการควบคุมระยะการเดินของผู้เล่น
+      </p>
+    </div>
+
+    <div class="card">
+      <h3 style="color:#7c3aed;">⚡ บอส Ajarn_V ร่าง 3 (Thanos)</h3>
+      <p style="font-size:8.1pt;">
+        ร่างสุดยอดสวมถุงมือ <strong>Infinity Gauntlet</strong> พร้อมระเบิดพลังดีดนิ้ว โจมตีเป็นคลื่นลูกไฟรุนแรง มีเกราะหนา และมีระบบดีดสะท้อนผู้เล่นหากเข้าใกล้เกินไป!
+      </p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>VeePire Survivors &bull; CPE KMUTT Digital System Design &amp; Vivado Implementation</span>
+    <span>Page 3 of 5</span>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- PAGE 4: COMBAT SYSTEM, LOGIC GATES & BOSS MECHANICS      -->
+<!-- ======================================================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;"><span>ระบบการต่อสู้ &amp; ปริศนาประตูดิจิทัล (Combat &amp; Logic Mechanics)</span><span class="sec-badge">Gameplay Systems</span></div>
+
+  <div class="grid-2" style="margin-bottom:8px;">
+    <div class="shot-card">
+      <img src="screenshots/shot_combat_lunge.png" alt="Melee Combat Lunge">
+      <div class="caption">การโจมตีระยะประชิดด้วยดาบ 4 จังหวะ (Extended Reach &amp; Slash Arc)</div>
+    </div>
+    <div class="shot-card">
+      <img src="screenshots/shot_boss_locked.png" alt="Boss Auto-lock Combat">
+      <div class="caption">ระบบปืนกลเวทมนตร์ล็อคเป้าหมาย 100% พร้อมการปะทะบอส Ajarn_V</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:8px;">
+    <div class="card">
+      <h3>⚔️ ระบบดาบ 4 จังหวะ &amp; ปืน Auto-Lock 100%</h3>
+      <ul class="compact-list" style="font-size:8.2pt;">
+        <li><strong>Extended Reach Melee:</strong> ปรับแต่งความยาวใบมีดให้มองเห็นวงฟันชัดเจน ตัดเอฟเฟกต์สีรบกวนตาออก เหลือเพียงจังหวะดาบคมกริบ 4 ทิศทาง (บน, ล่าง, ซ้าย, ขวา)</li>
+        <li><strong>Blade Nova:</strong> อัปเกรดคมมีดหมุนวนรอบตัวผู้เล่น สร้างอาณาเขตป้องกันตัวเมื่อถูกมอนสเตอร์รุมล้อม</li>
+        <li><strong>Hardware Target-Lock Gun:</strong> วงจร Priority Multiplexer ค้นหาพิกัดศัตรูที่ใกล้ที่สุดแบบ Real-time และยิงกระสุนตรงเป้าหมาย 100% โดยผู้เล่นไม่ต้องเล็งเอง</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>🛡️ ระบบสมดุลการต่อสู้กับบอส (Boss Balance)</h3>
+      <ul class="compact-list" style="font-size:8.2pt;">
+        <li><strong>Melee Repulsion Shockwave:</strong> หากผู้เล่นพยายามยืนประชิดฟันบอสมากเกินไป บอสจะปล่อยคลื่นกระแทกดีดผู้เล่นกระเด็นออกไปไกลพร้อมติดสถานะสตั๊น (Anti-Spam)</li>
+        <li><strong>Gradual Healing &amp; Recovery:</strong> เลือดจะรีเจนทีละนิดเฉพาะเมื่ออยู่นอกระยะการต่อสู้ (Out-of-Combat) เป็นเวลานานพอเท่านั้น</li>
+        <li><strong>Incapacitated Co-op State:</strong> หาก P1 หรือ P2 เลือดหมด จะนอนสลบลงกับพื้น ต้องรอให้อีกคนเคลียร์ Wave นั้นให้สำเร็จจึงจะฟื้นคืนชีพ</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec-title"><span>ประตูด่านตรรกศาสตร์ (Digital Logic Gate Checkpoints)</span><span class="sec-badge">Educational Gates</span></div>
+
+  <div class="grid-2">
+    <div class="callout-gold" style="margin-bottom:0;">
+      <h3 style="color:#b45309; margin:0 0 3px 0; font-size:9pt;">🚪 ประตูทดสอบ Logic Gate (AND, OR, XOR, NAND, NOR)</h3>
+      <p style="font-size:8.1pt;">
+        เมื่อผู้เล่นกำจัดศัตรูในแต่ละ Wave จนหมด ประตูคัดกรองจะปรากฏขึ้นพร้อมแสดงสมการเกตตรรกศาสตร์ เช่น $A \cdot B = 1$ หรือ $A \oplus B = 0$ 
+        ผู้เล่นต้องกดเลือกประตูทางออกที่ให้ค่าความจริงถูกต้อง
+      </p>
+      <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:4px; padding:4px 7px; margin-top:5px; font-size:7.9pt;">
+        <strong>🎉 เมื่อตอบคำถามถูกต้อง:</strong> ระบบจะตัดเข้าฉาก <strong>Outfit Change Cutscene</strong> แสดงตัวละครแปลงร่างเปลี่ยนชุดสู่ระดับชั้นปีถัดไปอย่างภาคภูมิใจ!
+      </div>
+    </div>
+
+    <div class="callout-red" style="margin-bottom:0;">
+      <h3 style="color:#b91c1c; margin:0 0 3px 0; font-size:9pt;">⚠️ บทลงโทษเมื่อตอบผิด: แจกเกรด F &amp; GO RETAKE !!</h3>
+      <p style="font-size:8.1pt;">
+        หากผู้เล่นตอบคำถามผิด หรือพยายามกดสแปมปุ่มเพื่อข้ามด่าน:
+      </p>
+      <ul class="compact-list" style="margin:3px 0 0 14px; font-size:8pt;">
+        <li>หน้าจอจะขึ้นแถบคาดสีเหลืองดำ Caution สไตล์ป้ายเตือนอันตราย</li>
+        <li>ภาพ <strong>Ajarn_V ร่าง 2 ขนาดยักษ์</strong> จะโผล่ขึ้นมากลางหน้าจอด้วยสีหน้าโกรธจัด</li>
+        <li>ตัวอักษรสีแดงขนาดใหญ่แสดงข้อความ <strong>"GRADE F - GO RETAKE !!"</strong></li>
+        <li>ผู้เล่นจะถูกส่งกลับไปเริ่มเล่น Wave นั้นใหม่อีกครั้งทันที!</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>VeePire Survivors &bull; CPE KMUTT Digital System Design &amp; Vivado Implementation</span>
+    <span>Page 4 of 5</span>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- PAGE 5: HARDWARE ENGINEERING & SYNTHESIS RESULTS         -->
+<!-- ======================================================== -->
+<div class="page">
+  <div class="sec-title" style="margin-top:0;"><span>สถาปัตยกรรมโมดูลฮาร์ดแวร์ &amp; ผลการสังเคราะห์วงจร</span><span class="sec-badge">Hardware Synthesis</span></div>
+
+  <div class="grid-2" style="margin-bottom:8px;">
+    <div class="card">
+      <h3>📁 โครงสร้างโมดูลระดับ Verilog RTL</h3>
+      <ul class="compact-list" style="font-size:8pt;">
+        <li><code>drago_nexus_v2_top</code>: โมดูลแม่ข่าย จัดการ Clock Domain, Reset, I/O Pinout</li>
+        <li><code>game_engine_v2</code>: Finite State Machine (FSM) ควบคุมสถานะเกม, การเกิดมอนสเตอร์, ตรวจสอบการชน</li>
+        <li><code>vga_renderer_v2</code>: เรนเดอร์กราฟิก ผสมสีพิกเซล 12-bit RGB444 แบบ On-the-fly</li>
+        <li><code>vga_sync</code>: สร้างสัญญาณ HSYNC/VSYNC ที่ความถี่ 25.175 MHz สำหรับ 640&times;480 @ 60Hz</li>
+        <li><code>audio_synth_v2</code>: ซินธิไซเซอร์เสียง Chiptune 4 ช่องเสียง + PWM Mono DAC</li>
+        <li><code>uart_joy_rx</code>: รับค่าปุ่มกด Dual Gamepad ผ่านพอร์ต UART 115,200 baud</li>
+        <li><code>acl_tilt</code>: เชื่อมต่อชิปตรวจจับความเร่ง ADXL362 ผ่าน SPI สำหรับควบคุมตัวละครด้วยการเอียงบอร์ด</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>🎵 ระบบเสียง 4-Voice Chiptune Audio Synthesizer</h3>
+      <p style="font-size:8.1pt;">
+        วงจรเสียงสร้างสัญญาณ Pulse Width Modulation (PWM) ความถี่สูง ขับออกสู่ช่อง Audio Jack 3.5mm ของบอร์ด Nexys A7:
+      </p>
+      <ul class="compact-list" style="font-size:7.9pt; margin-top:3px;">
+        <li><strong>Voice 1 &amp; 2 (Melody &amp; Harmony):</strong> คลื่นสี่เหลี่ยม Duty cycle 50% สำหรับเสียงเมโลดี้หลัก</li>
+        <li><strong>Voice 3 (Bass Arpeggio):</strong> คลื่นเบสทุ้มต่ำสร้างจังหวะดนตรีสไตล์ 8-bit Retro</li>
+        <li><strong>Voice 4 (SFX / White Noise):</strong> ใช้ LFSR สร้างสัญญาณเสียงสุ่ม สำหรับจำลองเสียงดาบฟัน, กระสุนยิง, และเสียงระเบิด</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec-title"><span>ผลการวิเคราะห์ทรัพยากรบนชิป (FPGA Resource Utilization)</span><span class="sec-badge">Xilinx Vivado Report</span></div>
+
+  <table class="data-table" style="margin-bottom:8px;">
+    <thead>
+      <tr>
+        <th>Resource Type</th>
+        <th>Utilization</th>
+        <th>Available on XC7A100T</th>
+        <th>Utilization %</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Slice LUTs (Logic)</strong></td>
+        <td>16,070</td>
+        <td>63,400</td>
+        <td>25.35%</td>
+        <td><span class="badge-pass">PASS (Optimal)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Slice Registers (Flip-Flops)</strong></td>
+        <td>4,453</td>
+        <td>126,800</td>
+        <td>3.51%</td>
+        <td><span class="badge-pass">PASS (Lightweight)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Block RAM Tile (RAMB36E1)</strong></td>
+        <td>20.5</td>
+        <td>135</td>
+        <td>15.19%</td>
+        <td><span class="badge-pass">PASS (High Margin)</span></td>
+      </tr>
+      <tr>
+        <td><strong>DSP48E1 Slices (Math)</strong></td>
+        <td>6</td>
+        <td>240</td>
+        <td>2.50%</td>
+        <td><span class="badge-pass">PASS (Ultra-low)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Worst Negative Slack (WNS)</strong></td>
+        <td>+14.066 ns</td>
+        <td>0.000 ns (Required)</td>
+        <td>Timing Margin</td>
+        <td><span class="badge-pass">MET TIMING CLOSURE</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sec-title"><span>ตารางการควบคุม (Hardware Controls Mapping)</span><span class="sec-badge">Dual Controller &amp; Board I/O</span></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="color:#0369a1;">🎮 Dual USB Gamepad (ผ่าน UART Bridge)</h3>
+      <table class="data-table" style="font-size:7.5pt;">
+        <tr><td><strong>D-Pad / Left Stick</strong></td><td>เคลื่อนที่ 8 ทิศทาง (ผู้เล่น 1 หรือ ผู้เล่น 2)</td></tr>
+        <tr><td><strong>Button A / Cross</strong></td><td>โจมตีระยะประชิดด้วยดาบ (Melee Swing)</td></tr>
+        <tr><td><strong>Button B / Circle</strong></td><td>ยิงปืนเวทมนตร์ (Auto-Lock Spell Shot)</td></tr>
+        <tr><td><strong>Button X / Square</strong></td><td>เปิดใช้งานเกราะหมุนป้องกันตัว (Nova Shield)</td></tr>
+        <tr><td><strong>Start / Select</strong></td><td>หยุดเกมชั่วคราว (Pause) / ย้อนกลับเมนูหลัก</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="color:#d97706;">🎛️ ปุ่มและสวิตช์บนบอร์ด Nexys A7</h3>
+      <table class="data-table" style="font-size:7.5pt;">
+        <tr><td><strong>BTNC (ปุ่มกลาง)</strong></td><td>เริ่มเกม / ยืนยันคำตอบหน้าประตูทดสอบ</td></tr>
+        <tr><td><strong>BTNU/D/L/R</strong></td><td>เคลื่อนที่ตัวละคร P1 (Up, Down, Left, Right)</td></tr>
+        <tr><td><strong>SW[0] (สวิตช์ 0)</strong></td><td>เปิดโหมดเล่น 2 คน (Co-op 2-Player Mode)</td></tr>
+        <tr><td><strong>SW[1] (สวิตช์ 1)</strong></td><td>เปิดระบบตรวจจับการเอียงบอร์ด (Tilt Motion)</td></tr>
+        <tr><td><strong>CPU_RESETN</strong></td><td>รีเซ็ตระบบฮาร์ดแวร์ทั้งหมด (Master Reset)</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>VeePire Survivors &bull; CPE KMUTT Digital System Design &amp; Vivado Implementation</span>
+    <span>Page 5 of 5</span>
+  </div>
+</div>
+
+</body>
+</html>
