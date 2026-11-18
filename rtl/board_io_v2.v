@@ -18,6 +18,10 @@ module board_io_v2 (
     input  wire [15:0] score_bcd,
     input  wire [4:0]  evolve_flash,
     input  wire        chrono_active,
+    input  wire [15:0] temp_bcd,
+    input  wire        temp_fever,
+    input  wire        mic_roar,
+    input  wire [5:0]  sound_level,
     output reg  [4:0]  btn_sync = 0, // {btnc, btnu, btnd, btnl, btnr}
     output reg  [15:0] sw_sync  = 0,
     output wire        btn_zero_pulse,
@@ -64,6 +68,10 @@ module board_io_v2 (
     always @(posedge clk) begin
         if (rst) begin
             LED <= 16'h0000;
+        end else if (mic_roar) begin
+            LED <= anim_cnt[18] ? 16'hFFFF : 16'h0000; // Microphone Roar Strobe!
+        end else if (temp_fever) begin
+            LED <= (16'h0007 << anim_cnt[21:18]) | (16'hE000 >> anim_cnt[21:18]); // Fever Knight-Rider Flame!
         end else if (evolve_flash > 0 || game_state == 3'd1) begin
             LED <= anim_cnt[19] ? 16'hAAAA : 16'h5555;
         end else if (game_state == 3'd3) begin
@@ -75,28 +83,36 @@ module board_io_v2 (
     end
 
     wire pwm_dim = (anim_cnt[5:0] < 6'd8);
-    assign LED16_R = pwm_dim && (hp <= 5'd8);
-    assign LED16_G = pwm_dim && (hp >= 5'd9);
-    assign LED16_B = pwm_dim && chrono_active;
+    assign LED16_R = pwm_dim && (temp_fever ? 1'b1 : (hp <= 5'd8));
+    assign LED16_G = pwm_dim && (temp_fever ? anim_cnt[21] : (hp >= 5'd9));
+    assign LED16_B = pwm_dim && (temp_fever ? 1'b0 : chrono_active);
 
-    assign LED17_R = pwm_dim && sw_sync[3];
-    assign LED17_G = pwm_dim && sw_sync[4];
-    assign LED17_B = pwm_dim && sw_sync[5];
+    assign LED17_R = pwm_dim && (mic_roar ? 1'b1 : sw_sync[3]);
+    assign LED17_G = pwm_dim && (mic_roar ? anim_cnt[20] : sw_sync[4]);
+    assign LED17_B = pwm_dim && (mic_roar ? 1'b1 : sw_sync[5]);
 
-    // 8-Digit 7-Segment: [W<wave>. H<hp>.] [SCORE]
+    // 8-Digit 7-Segment:
+    // When SW[8] is ON (or auto every ~2.5s via anim_cnt[25]): Displays Live Temperature [  30.5 C] [SCORE]
+    // Otherwise: Standard RPG Status [E<stage>. H<hp>.] [SCORE]
     wire [2:0] dig_sel = anim_cnt[15:13];
     reg  [4:0] char_code;
     reg        dp_val;
-    localparam CH_U = 5'd18, CH_H = 5'd17; // Display 'E' for stage or wave
+    wire show_temp = sw_sync[8] || anim_cnt[25];
 
     always @(*) begin
         AN     = ~(8'b00000001 << dig_sel);
         dp_val = 1'b1;
         case (dig_sel)
-            3'd7: char_code = 5'd14; // E (Evolution stage)
-            3'd6: begin char_code = {3'd0, stage}; dp_val = 1'b0; end
-            3'd5: char_code = 5'd17; // H (HP)
-            3'd4: begin char_code = {2'd0, hp[4:2]}; dp_val = 1'b0; end
+            3'd7: char_code = show_temp ? {1'b0, temp_bcd[11:8]} : 5'd14; // Tens or 'E'
+            3'd6: begin
+                char_code = show_temp ? {1'b0, temp_bcd[7:4]} : {3'd0, stage};
+                dp_val = 1'b0; // Decimal point for temp or stage
+            end
+            3'd5: char_code = show_temp ? {1'b0, temp_bcd[3:0]} : 5'd17; // Fraction or 'H'
+            3'd4: begin
+                char_code = show_temp ? 5'd12 : {2'd0, hp[4:2]}; // 'C' (Celsius) or HP
+                dp_val = show_temp ? 1'b1 : 1'b0;
+            end
             3'd3: char_code = {1'b0, score_bcd[15:12]};
             3'd2: char_code = {1'b0, score_bcd[11:8]};
             3'd1: char_code = {1'b0, score_bcd[7:4]};
@@ -117,8 +133,9 @@ module board_io_v2 (
             5'd7:  seg = 7'b0001111;
             5'd8:  seg = 7'b0000000;
             5'd9:  seg = 7'b0000100;
-            5'd14: seg = 7'b0110000; // E
-            5'd17: seg = 7'b1001000; // H
+            5'd12: seg = 7'b0110001; // C (Celsius)
+            5'd14: seg = 7'b0110000; // E (Evolution Stage)
+            5'd17: seg = 7'b1001000; // H (HP)
             default: seg = 7'b1111111;
         endcase
     end
