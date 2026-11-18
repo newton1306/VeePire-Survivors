@@ -107,6 +107,9 @@ module vga_renderer_v2 (
     input  wire        paused,
     input  wire        temp_fever,
     input  wire        mic_roar,
+    input  wire [1:0]  help_page,
+    input  wire [4:0]  sonic_wave_t,
+    input  wire [8:0]  sonic_radius,
 
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
     output reg         VGA_HS = 1, VGA_VS = 1
@@ -172,7 +175,7 @@ module vga_renderer_v2 (
     assign map_addr_a = {wy[9:4], wx[10:4]}; // 128 x 64 tilemap
 
     // 1. Arcade Title Logo ROM (160 x 48 centered at gx=80..239, gy=10..57)
-    wire in_logo_box = (game_state == 3'd0) && (gx >= 9'd80 && gx < 9'd240 && gy >= 9'd10 && gy < 9'd58);
+    wire in_logo_box = (game_state == 3'd0 && help_page == 2'd0) && (gx >= 9'd80 && gx < 9'd240 && gy >= 9'd10 && gy < 9'd58);
     wire [5:0] logo_ly = gy - 9'd10;
     wire [7:0] logo_lx = gx - 9'd80;
     wire [12:0] logo_addr = ({7'd0, logo_ly} << 7) + ({7'd0, logo_ly} << 5) + {5'd0, logo_lx}; // y*160 + x (no mul!)
@@ -183,9 +186,7 @@ module vga_renderer_v2 (
 
     // 2. Hero Sprites P1 & P2 (8 models x 4 frames incl Lunge/Apex x 32x32 = 32K)
     wire in_outfit_cut = (game_state == 3'd2 && outfit_cut_t > 8'd0);
-    wire [3:0] cur_player_stage = (wave >= 4'd4 || stage >= 2'd3) ? 4'd4 :
-                                  ((wave >= 4'd3 || stage >= 2'd2) ? 4'd3 :
-                                  ((wave >= 4'd2 || stage >= 2'd1) ? 4'd2 : 4'd1));
+    wire [3:0] cur_player_stage = {2'b00, stage} + 4'd1;
     wire [3:0] eff_outfit_wave = (in_outfit_cut && outfit_cut_t > 8'd60 && cur_player_stage > 4'd1) ? (cur_player_stage - 4'd1) : cur_player_stage;
     wire [10:0] target_px  = (game_state == 3'd0) ? (control_mode == 2'd1 ? 11'd80 : 11'd100) : px;
     wire [9:0]  target_py  = (game_state == 3'd0) ? 10'd160 : py;
@@ -205,8 +206,8 @@ module vga_renderer_v2 (
 
     wire p1_dead_floor = (game_state == 3'd2 && in_playfield && hp == 0 && !in_outfit_cut);
     wire p2_dead_floor = (game_state == 3'd2 && in_playfield && p2_active && hp2 == 0 && !in_outfit_cut);
-    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 46)) && ((game_state == 3'd0) || in_outfit_cut || in_playfield);
-    wire show_p2   = (game_state == 3'd0 && p2_active) || (p2_active && in_outfit_cut) || (p2_active && in_playfield);
+    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 46)) && ((game_state == 3'd0 && help_page == 2'd0) || in_outfit_cut || in_playfield);
+    wire show_p2   = (game_state == 3'd0 && help_page == 2'd0 && p2_active) || (p2_active && in_outfit_cut) || (p2_active && in_playfield);
     wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < (p2_dead_floor ? 32 : 46));
     wire on_player_box = on_p1_box || on_p2_box;
     wire sel_p2_0      = !on_p1_box && on_p2_box;
@@ -370,7 +371,7 @@ module vga_renderer_v2 (
     wire signed [11:0] bsy = wrong_boss_active ? (($signed({3'b000, gy}) - 12'sd36) >>> 1) : bsy_norm;
     wire on_boss_box = wrong_boss_active ? (gx >= 9'd96 && gx < 9'd224 && gy >= 9'd36 && gy < 9'd164) :
                        ((bsx >= 0 && bsx < 64 && bsy >= 0 && bsy < 64) &&
-                        ((game_state == 3'd0) || show_boss_cut || (in_playfield && boss_active && boss_hp > 0)));
+                        ((game_state == 3'd0 && help_page == 2'd0) || show_boss_cut || (in_playfield && boss_active && boss_hp > 0)));
     wire [1:0] eff_bkind = wrong_boss_active ? 2'd1 : ((game_state == 3'd0) ? 2'd2 : boss_kind);
     wire b_frame = wrong_boss_active ? 1'b1 : ((game_state == 3'd0 || show_boss_cut) ? anim_cnt[24] : boss_enraged);
     wire [11:0] boss_pix_1;
@@ -754,6 +755,20 @@ module vga_renderer_v2 (
         end
     end
 
+    // Expanding Sonic Shockwave Ring (Acoustic Voice Roar Pushback)
+    wire signed [11:0] s_dx = $signed({1'b0, wx}) - $signed({1'b0, px});
+    wire signed [11:0] s_dy = $signed({2'b00, wy}) - $signed({2'b00, py});
+    wire [11:0] as_dx = (s_dx < 0) ? -s_dx : s_dx;
+    wire [11:0] as_dy = (s_dy < 0) ? -s_dy : s_dy;
+    wire [11:0] oct_sonic = (as_dx >= as_dy) ? (as_dx + (as_dy >> 1)) : (as_dy + (as_dx >> 1));
+    wire [4:0]  sonic_age = 5'd24 - sonic_wave_t;
+    wire [13:0] cur_r_raw = (sonic_radius * sonic_age) / 5'd24;
+    wire [8:0]  cur_r = cur_r_raw[8:0];
+    wire is_sonic_ring1 = (oct_sonic >= cur_r - 9'd3 && oct_sonic <= cur_r + 9'd3);
+    wire is_sonic_ring2 = (cur_r > 9'd18) && (oct_sonic >= cur_r - 9'd16 && oct_sonic <= cur_r - 9'd12);
+    wire on_sonic_0 = (sonic_wave_t > 0) && in_playfield && (is_sonic_ring1 || is_sonic_ring2);
+    wire [11:0] sonic_col_0 = is_sonic_ring1 ? (anim_cnt[1] ? 12'hFFF : 12'h3FF) : 12'h0BF;
+
     // ---- STAGE 0: HUD, TITLE SCREEN WITH ARCADE LOGO, < MODE > ARROWS, COMBO RANK ----
     localparam [5:0] C_SP=36, C_COL=37, C_DSH=38, C_EX=39, C_HRT=40, C_SL=41, C_LARW=42, C_RARW=43, C_PLUS=44, C_MUL=45;
     function automatic [5:0] lch;
@@ -802,67 +817,340 @@ module vga_renderer_v2 (
         hud_text_color = 6'd17; hud_text_en = 0; hud_bg_en = 0; hud_bg_color = 6'd54;
 
         if (game_state == 3'd0) begin
-            if (gy >= 9'd62 && gy < 9'd70 && col_1x >= 6'd8 && col_1x < 6'd32) begin
-                hud_text_en = 1; hud_text_color = 6'd59; hud_char_row = gy - 9'd62;
-                case (col_1x - 6'd8)
-                    0:hud_char_code=lch("J"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("Y"); 3:hud_char_code=lch("1");
-                    4:hud_char_code=lch("/"); 5:hud_char_code=lch("2"); 6:hud_char_code=C_SP;     7:hud_char_code=lch("O");
-                    8:hud_char_code=lch("R"); 9:hud_char_code=C_SP;     10:hud_char_code=lch("B"); 11:hud_char_code=lch("T");
-                    12:hud_char_code=lch("N"); 13:hud_char_code=lch("L"); 14:hud_char_code=lch("/"); 15:hud_char_code=lch("R");
-                    16:hud_char_code=lch(":"); 17:hud_char_code=lch("S"); 18:hud_char_code=lch("E"); 19:hud_char_code=lch("L");
-                    20:hud_char_code=lch("E"); 21:hud_char_code=lch("C"); 22:hud_char_code=lch("T"); default:hud_char_code=C_SP;
-                endcase
-            end else if (gy >= 9'd76 && gy <= 9'd92 && gx >= 9'd48 && gx < 9'd272) begin
-                hud_bg_en = 1; hud_bg_color = (gy==9'd76||gy==9'd92||gx==9'd48||gx==9'd271) ? 6'd58 : 6'd54;
-                if (gy >= 9'd80 && gy < 9'd88 && col_1x >= 6'd7 && col_1x <= 6'd32) begin
-                    hud_text_en = 1; hud_char_row = gy - 9'd80;
-                    if (col_1x == 6'd7)      begin hud_char_code = C_LARW; hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17; end
-                    else if (col_1x == 6'd32)begin hud_char_code = C_RARW; hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17; end
-                    else begin
-                        hud_text_color = (control_mode == 2'd0) ? 6'd59 : 6'd60;
-                        case (col_1x - 6'd9)
-                            0:hud_char_code=lch("M"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("D"); 3:hud_char_code=lch("E");
-                            4:hud_char_code=lch(":"); 5:hud_char_code=C_SP;     6:hud_char_code=(control_mode==2'd1)?lch("2"):lch("1");
-                            7:hud_char_code=lch("P"); 8:hud_char_code=C_SP;
-                            9:hud_char_code=(control_mode==2'd0)?lch("J"):lch("C");
-                            10:hud_char_code=(control_mode==2'd0)?lch("O"):lch("O");
-                            11:hud_char_code=(control_mode==2'd0)?lch("Y"):lch("-");
-                            12:hud_char_code=(control_mode==2'd0)?lch("S"):lch("O");
-                            13:hud_char_code=(control_mode==2'd0)?lch("T"):lch("P");
-                            14:hud_char_code=(control_mode==2'd0)?lch("I"):C_SP;
-                            15:hud_char_code=(control_mode==2'd0)?lch("C"):lch("J");
-                            16:hud_char_code=(control_mode==2'd0)?lch("K"):lch("O");
-                            17:hud_char_code=(control_mode==2'd1)?lch("Y"):C_SP; default:hud_char_code=C_SP;
+            if (help_page == 2'd0) begin
+                if (gy >= 9'd62 && gy < 9'd70 && col_1x >= 6'd8 && col_1x < 6'd32) begin
+                    hud_text_en = 1; hud_text_color = 6'd59; hud_char_row = gy - 9'd62;
+                    case (col_1x - 6'd8)
+                        0:hud_char_code=lch("J"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("Y"); 3:hud_char_code=lch("1");
+                        4:hud_char_code=lch("/"); 5:hud_char_code=lch("2"); 6:hud_char_code=C_SP;     7:hud_char_code=lch("O");
+                        8:hud_char_code=lch("R"); 9:hud_char_code=C_SP;     10:hud_char_code=lch("B"); 11:hud_char_code=lch("T");
+                        12:hud_char_code=lch("N"); 13:hud_char_code=lch("L"); 14:hud_char_code=lch("/"); 15:hud_char_code=lch("R");
+                        16:hud_char_code=lch(":"); 17:hud_char_code=lch("S"); 18:hud_char_code=lch("E"); 19:hud_char_code=lch("L");
+                        20:hud_char_code=lch("E"); 21:hud_char_code=lch("C"); 22:hud_char_code=lch("T"); default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd76 && gy <= 9'd92 && gx >= 9'd48 && gx < 9'd272) begin
+                    hud_bg_en = 1; hud_bg_color = (gy==9'd76||gy==9'd92||gx==9'd48||gx==9'd271) ? 6'd58 : 6'd54;
+                    if (gy >= 9'd80 && gy < 9'd88 && col_1x >= 6'd7 && col_1x <= 6'd32) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd80;
+                        if (col_1x == 6'd7)      begin hud_char_code = C_LARW; hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17; end
+                        else if (col_1x == 6'd32)begin hud_char_code = C_RARW; hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17; end
+                        else begin
+                            hud_text_color = (control_mode == 2'd0) ? 6'd59 : 6'd60;
+                            case (col_1x - 6'd9)
+                                0:hud_char_code=lch("M"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("D"); 3:hud_char_code=lch("E");
+                                4:hud_char_code=lch(":"); 5:hud_char_code=C_SP;     6:hud_char_code=(control_mode==2'd1)?lch("2"):lch("1");
+                                7:hud_char_code=lch("P"); 8:hud_char_code=C_SP;
+                                9:hud_char_code=(control_mode==2'd0)?lch("J"):lch("C");
+                                10:hud_char_code=(control_mode==2'd0)?lch("O"):lch("O");
+                                11:hud_char_code=(control_mode==2'd0)?lch("Y"):lch("-");
+                                12:hud_char_code=(control_mode==2'd0)?lch("S"):lch("O");
+                                13:hud_char_code=(control_mode==2'd0)?lch("T"):lch("P");
+                                14:hud_char_code=(control_mode==2'd0)?lch("I"):C_SP;
+                                15:hud_char_code=(control_mode==2'd0)?lch("C"):lch("J");
+                                16:hud_char_code=(control_mode==2'd0)?lch("K"):lch("O");
+                                17:hud_char_code=(control_mode==2'd1)?lch("Y"):C_SP; default:hud_char_code=C_SP;
+                            endcase
+                        end
+                    end
+                end else if (gy >= 9'd96 && gy < 9'd104 && col_1x >= 6'd10 && col_1x < 6'd30) begin
+                    hud_text_en = 1; hud_text_color = joy_link_ok ? 6'd28 : 6'd57; hud_char_row = gy - 9'd96;
+                    case (col_1x - 6'd10)
+                        0:hud_char_code=lch("U"); 1:hud_char_code=lch("S"); 2:hud_char_code=lch("B"); 3:hud_char_code=C_SP;
+                        4:hud_char_code=lch("J"); 5:hud_char_code=lch("O"); 6:hud_char_code=lch("Y"); 7:hud_char_code=lch(":"); 8:hud_char_code=C_SP;
+                        9:hud_char_code=lch("O"); 10:hud_char_code=joy_link_ok?lch("N"):lch("F"); 11:hud_char_code=joy_link_ok?lch("L"):lch("F");
+                        12:hud_char_code=joy_link_ok?lch("I"):lch("L"); 13:hud_char_code=joy_link_ok?lch("N"):lch("I");
+                        14:hud_char_code=joy_link_ok?lch("E"):lch("N"); 15:hud_char_code=joy_link_ok?lch("!"):lch("E"); default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd200 && gy < 9'd208 && col_1x >= 6'd8 && col_1x < 6'd33) begin
+                    hud_text_en = 1; hud_text_color = 6'd58; hud_char_row = gy - 9'd200;
+                    case (col_1x - 6'd8)
+                        0:hud_char_code=C_LARW;   1:hud_char_code=lch("S"); 2:hud_char_code=lch("T"); 3:hud_char_code=lch("A"); 4:hud_char_code=lch("R");
+                        5:hud_char_code=lch("T"); 6:hud_char_code=C_COL;    7:hud_char_code=C_SP;     8:hud_char_code=lch("H"); 9:hud_char_code=lch("E");
+                        10:hud_char_code=lch("L"); 11:hud_char_code=lch("P"); 12:hud_char_code=C_SP; 13:hud_char_code=lch("G"); 14:hud_char_code=lch("U");
+                        15:hud_char_code=lch("I"); 16:hud_char_code=lch("D"); 17:hud_char_code=lch("E"); 18:hud_char_code=C_RARW; default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd212 && gy < 9'd220 && col_1x >= 6'd8 && col_1x < 6'd33) begin
+                    hud_text_en = anim_cnt[24]; hud_text_color = 6'd17; hud_char_row = gy - 9'd212;
+                    case (col_1x - 6'd8)
+                        0:hud_char_code=lch("P"); 1:hud_char_code=lch("R"); 2:hud_char_code=lch("E"); 3:hud_char_code=lch("S"); 4:hud_char_code=lch("S");
+                        5:hud_char_code=C_SP;     6:hud_char_code=lch("F"); 7:hud_char_code=lch("I"); 8:hud_char_code=lch("R"); 9:hud_char_code=lch("E");
+                        10:hud_char_code=lch("/"); 11:hud_char_code=lch("C"); 12:hud_char_code=C_SP; 13:hud_char_code=lch("T"); 14:hud_char_code=lch("O");
+                        15:hud_char_code=C_SP;     16:hud_char_code=lch("P"); 17:hud_char_code=lch("L"); 18:hud_char_code=lch("A"); 19:hud_char_code=lch("Y");
+                        default:hud_char_code=C_SP;
+                    endcase
+                end else if (gy >= 9'd224 && gy < 9'd232 && col_1x >= 6'd10 && col_1x < 6'd30) begin
+                    hud_text_en = 1; hud_text_color = 6'd60; hud_char_row = gy - 9'd224;
+                    case (col_1x - 6'd10)
+                        0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("1"); 3:hud_char_code=lch("5");
+                        4:hud_char_code=C_DSH;    5:hud_char_code=lch("1"); 6:hud_char_code=lch("2"); 7:hud_char_code=C_COL;
+                        8:hud_char_code=lch("P"); 9:hud_char_code=lch("1"); 10:hud_char_code=C_SP;    11:hud_char_code=lch("S");
+                        12:hud_char_code=lch("W");13:hud_char_code=lch("3"); 14:hud_char_code=C_DSH;   15:hud_char_code=lch("0");
+                        16:hud_char_code=C_COL;   17:hud_char_code=lch("P"); 18:hud_char_code=lch("2"); default:hud_char_code=C_SP;
+                    endcase
+                end
+            end else begin
+                // =============================================================
+                // CONTROLS GUIDE TERMINAL (PAGES 1, 2, 3)
+                // =============================================================
+                if (gx >= 9'd24 && gx < 9'd296 && gy >= 9'd16 && gy < 9'd228) begin
+                    hud_bg_en = 1;
+                    hud_bg_color = (gx == 9'd24 || gx == 9'd295 || gy == 9'd16 || gy == 9'd227 || gy == 9'd42 || gy == 9'd196) ?
+                                   ((help_page == 2'd1) ? 6'd58 : ((help_page == 2'd2) ? 6'd59 : 6'd60)) : 6'd54;
+                end
+                // Header (gy=24..31)
+                if (gy >= 9'd24 && gy < 9'd32 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd24;
+                    hud_text_color = (help_page == 2'd1) ? 6'd58 : ((help_page == 2'd2) ? 6'd59 : 6'd60);
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd7)
+                            0:hud_char_code=C_LARW;   1:hud_char_code=C_SP;     2:hud_char_code=lch("1"); 3:hud_char_code=lch("/"); 4:hud_char_code=lch("3");
+                            5:hud_char_code=C_SP;     6:hud_char_code=lch("B"); 7:hud_char_code=lch("O"); 8:hud_char_code=lch("A"); 9:hud_char_code=lch("R");
+                            10:hud_char_code=lch("D"); 11:hud_char_code=C_SP;   12:hud_char_code=lch("C"); 13:hud_char_code=lch("O"); 14:hud_char_code=lch("N");
+                            15:hud_char_code=lch("T"); 16:hud_char_code=lch("R"); 17:hud_char_code=lch("O"); 18:hud_char_code=lch("L"); 19:hud_char_code=lch("S");
+                            20:hud_char_code=C_SP;    21:hud_char_code=C_RARW; default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd6)
+                            0:hud_char_code=C_LARW;   1:hud_char_code=C_SP;     2:hud_char_code=lch("2"); 3:hud_char_code=lch("/"); 4:hud_char_code=lch("3");
+                            5:hud_char_code=C_SP;     6:hud_char_code=lch("J"); 7:hud_char_code=lch("O"); 8:hud_char_code=lch("Y"); 9:hud_char_code=lch("S");
+                            10:hud_char_code=lch("T"); 11:hud_char_code=lch("I"); 12:hud_char_code=lch("C"); 13:hud_char_code=lch("K"); 14:hud_char_code=C_SP;
+                            15:hud_char_code=lch("C"); 16:hud_char_code=lch("O"); 17:hud_char_code=lch("N"); 18:hud_char_code=lch("T"); 19:hud_char_code=lch("R");
+                            20:hud_char_code=lch("O"); 21:hud_char_code=lch("L"); 22:hud_char_code=lch("S"); 23:hud_char_code=C_SP;   24:hud_char_code=C_RARW;
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd6)
+                            0:hud_char_code=C_LARW;   1:hud_char_code=C_SP;     2:hud_char_code=lch("3"); 3:hud_char_code=lch("/"); 4:hud_char_code=lch("3");
+                            5:hud_char_code=C_SP;     6:hud_char_code=lch("K"); 7:hud_char_code=lch("E"); 8:hud_char_code=lch("Y"); 9:hud_char_code=lch("B");
+                            10:hud_char_code=lch("O"); 11:hud_char_code=lch("A"); 12:hud_char_code=lch("R"); 13:hud_char_code=lch("D"); 14:hud_char_code=C_SP;
+                            15:hud_char_code=lch("C"); 16:hud_char_code=lch("O"); 17:hud_char_code=lch("N"); 18:hud_char_code=lch("T"); 19:hud_char_code=lch("R");
+                            20:hud_char_code=lch("O"); 21:hud_char_code=lch("L"); 22:hud_char_code=lch("S"); 23:hud_char_code=C_SP;   24:hud_char_code=C_RARW;
+                            default:hud_char_code=C_SP;
                         endcase
                     end
                 end
-            end else if (gy >= 9'd96 && gy < 9'd104 && col_1x >= 6'd10 && col_1x < 6'd30) begin
-                hud_text_en = 1; hud_text_color = joy_link_ok ? 6'd28 : 6'd57; hud_char_row = gy - 9'd96;
-                case (col_1x - 6'd10)
-                    0:hud_char_code=lch("U"); 1:hud_char_code=lch("S"); 2:hud_char_code=lch("B"); 3:hud_char_code=C_SP;
-                    4:hud_char_code=lch("J"); 5:hud_char_code=lch("O"); 6:hud_char_code=lch("Y"); 7:hud_char_code=lch(":"); 8:hud_char_code=C_SP;
-                    9:hud_char_code=lch("O"); 10:hud_char_code=joy_link_ok?lch("N"):lch("F"); 11:hud_char_code=joy_link_ok?lch("L"):lch("F");
-                    12:hud_char_code=joy_link_ok?lch("I"):lch("L"); 13:hud_char_code=joy_link_ok?lch("N"):lch("I");
-                    14:hud_char_code=joy_link_ok?lch("E"):lch("N"); 15:hud_char_code=joy_link_ok?lch("!"):lch("E"); default:hud_char_code=C_SP;
-                endcase
-            end else if (gy >= 9'd202 && gy < 9'd210 && col_1x >= 6'd8 && col_1x < 6'd32) begin
-                hud_text_en = anim_cnt[24]; hud_text_color = 6'd17; hud_char_row = gy - 9'd202;
-                case (col_1x - 6'd8)
-                    0:hud_char_code=lch("P"); 1:hud_char_code=lch("R"); 2:hud_char_code=lch("E"); 3:hud_char_code=lch("S"); 4:hud_char_code=lch("S");
-                    5:hud_char_code=C_SP;     6:hud_char_code=lch("J"); 7:hud_char_code=lch("O"); 8:hud_char_code=lch("Y"); 9:hud_char_code=lch("1");
-                    10:hud_char_code=lch("/"); 11:hud_char_code=lch("2"); 12:hud_char_code=C_SP; 13:hud_char_code=lch("O"); 14:hud_char_code=lch("R");
-                    15:hud_char_code=C_SP;     16:hud_char_code=lch("B"); 17:hud_char_code=lch("T"); 18:hud_char_code=lch("N"); 19:hud_char_code=lch("C");
-                    default:hud_char_code=C_SP;
-                endcase
-            end else if (gy >= 9'd218 && gy < 9'd226 && col_1x >= 6'd10 && col_1x < 6'd30) begin
-                hud_text_en = 1; hud_text_color = 6'd60; hud_char_row = gy - 9'd218;
-                case (col_1x - 6'd10)
-                    0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("1"); 3:hud_char_code=lch("5");
-                    4:hud_char_code=C_DSH;    5:hud_char_code=lch("1"); 6:hud_char_code=lch("2"); 7:hud_char_code=C_COL;
-                    8:hud_char_code=lch("P"); 9:hud_char_code=lch("1"); 10:hud_char_code=C_SP;    11:hud_char_code=lch("S");
-                    12:hud_char_code=lch("W");13:hud_char_code=lch("3"); 14:hud_char_code=C_DSH;   15:hud_char_code=lch("0");
-                    16:hud_char_code=C_COL;   17:hud_char_code=lch("P"); 18:hud_char_code=lch("2"); default:hud_char_code=C_SP;
-                endcase
+                // Body Row 0 (gy=50..57)
+                if (gy >= 9'd50 && gy < 9'd58 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd50; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("B"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("N"); 3:hud_char_code=lch("U"); 4:hud_char_code=lch("/");
+                            5:hud_char_code=lch("D"); 6:hud_char_code=lch("/"); 7:hud_char_code=lch("L"); 8:hud_char_code=lch("/"); 9:hud_char_code=lch("R");
+                            10:hud_char_code=C_SP;   11:hud_char_code=C_COL;    12:hud_char_code=C_SP;    13:hud_char_code=lch("M"); 14:hud_char_code=lch("O");
+                            15:hud_char_code=lch("V"); 16:hud_char_code=lch("E"); 17:hud_char_code=C_SP;   18:hud_char_code=lch("H"); 19:hud_char_code=lch("E");
+                            20:hud_char_code=lch("R"); 21:hud_char_code=lch("O"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("I"); 3:hud_char_code=lch("C"); 4:hud_char_code=lch("K");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("D"); 7:hud_char_code=C_DSH;    8:hud_char_code=lch("P"); 9:hud_char_code=lch("A");
+                            10:hud_char_code=lch("D"); 11:hud_char_code=C_SP;   12:hud_char_code=C_COL;   13:hud_char_code=C_SP;    14:hud_char_code=lch("M");
+                            15:hud_char_code=lch("O"); 16:hud_char_code=lch("V"); 17:hud_char_code=lch("E"); 18:hud_char_code=C_SP;   19:hud_char_code=lch("H");
+                            20:hud_char_code=lch("E"); 21:hud_char_code=lch("R"); 22:hud_char_code=lch("O"); default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("W"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("A"); 3:hud_char_code=lch("/"); 4:hud_char_code=lch("S");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("D"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("M"); 11:hud_char_code=lch("O"); 12:hud_char_code=lch("V"); 13:hud_char_code=lch("E"); 14:hud_char_code=C_SP;
+                            15:hud_char_code=lch("H"); 16:hud_char_code=lch("E"); 17:hud_char_code=lch("R"); 18:hud_char_code=lch("O"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Body Row 1 (gy=70..77)
+                if (gy >= 9'd70 && gy < 9'd78 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd70; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("B"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("N"); 3:hud_char_code=lch("C"); 4:hud_char_code=C_SP;
+                            5:hud_char_code=C_COL;    6:hud_char_code=C_SP;     7:hud_char_code=lch("A"); 8:hud_char_code=lch("T"); 9:hud_char_code=lch("T");
+                            10:hud_char_code=lch("A"); 11:hud_char_code=lch("C"); 12:hud_char_code=lch("K"); 13:hud_char_code=C_SP;   14:hud_char_code=lch("/");
+                            15:hud_char_code=C_SP;    16:hud_char_code=lch("E"); 17:hud_char_code=lch("N"); 18:hud_char_code=lch("T"); 19:hud_char_code=lch("E");
+                            20:hud_char_code=lch("R"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("B"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("N"); 3:hud_char_code=C_SP;     4:hud_char_code=lch("1");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("A"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("A"); 11:hud_char_code=lch("T"); 12:hud_char_code=lch("T"); 13:hud_char_code=lch("A"); 14:hud_char_code=lch("C");
+                            15:hud_char_code=lch("K"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("S"); 18:hud_char_code=lch("W"); 19:hud_char_code=lch("O");
+                            20:hud_char_code=lch("R"); 21:hud_char_code=lch("D"); default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("P"); 2:hud_char_code=lch("A"); 3:hud_char_code=lch("C"); 4:hud_char_code=lch("E");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("J"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("A"); 11:hud_char_code=lch("T"); 12:hud_char_code=lch("T"); 13:hud_char_code=lch("A"); 14:hud_char_code=lch("C");
+                            15:hud_char_code=lch("K"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("S"); 18:hud_char_code=lch("W"); 19:hud_char_code=lch("O");
+                            20:hud_char_code=lch("R"); 21:hud_char_code=lch("D"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Body Row 2 (gy=90..97)
+                if (gy >= 9'd90 && gy < 9'd98 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd90; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("1"); 3:hud_char_code=lch("5"); 4:hud_char_code=C_DSH;
+                            5:hud_char_code=lch("0"); 6:hud_char_code=C_SP;     7:hud_char_code=C_COL;    8:hud_char_code=C_SP;     9:hud_char_code=lch("6");
+                            10:hud_char_code=lch("5"); 11:hud_char_code=lch("K"); 12:hud_char_code=C_SP;   13:hud_char_code=lch("L"); 14:hud_char_code=lch("I");
+                            15:hud_char_code=lch("V"); 16:hud_char_code=lch("E"); 17:hud_char_code=C_SP;   18:hud_char_code=lch("S"); 19:hud_char_code=lch("K");
+                            20:hud_char_code=lch("I"); 21:hud_char_code=lch("N"); 22:hud_char_code=lch("S"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("B"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("N"); 3:hud_char_code=C_SP;     4:hud_char_code=lch("2");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("B"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("D"); 11:hud_char_code=lch("A"); 12:hud_char_code=lch("S"); 13:hud_char_code=lch("H"); 14:hud_char_code=C_SP;
+                            15:hud_char_code=lch("E"); 16:hud_char_code=lch("V"); 17:hud_char_code=lch("A"); 18:hud_char_code=lch("D"); 19:hud_char_code=lch("E");
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("K"); 1:hud_char_code=C_SP;     2:hud_char_code=lch("K"); 3:hud_char_code=lch("E"); 4:hud_char_code=lch("Y");
+                            5:hud_char_code=C_SP;     6:hud_char_code=C_COL;    7:hud_char_code=C_SP;     8:hud_char_code=lch("D"); 9:hud_char_code=lch("A");
+                            10:hud_char_code=lch("S"); 11:hud_char_code=lch("H"); 12:hud_char_code=C_SP;   13:hud_char_code=lch("E"); 14:hud_char_code=lch("V");
+                            15:hud_char_code=lch("A"); 16:hud_char_code=lch("D"); 17:hud_char_code=lch("E"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Body Row 3 (gy=110..117)
+                if (gy >= 9'd110 && gy < 9'd118 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd110; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("8"); 3:hud_char_code=C_SP;     4:hud_char_code=C_COL;
+                            5:hud_char_code=C_SP;     6:hud_char_code=lch("7"); 7:hud_char_code=lch("S"); 8:hud_char_code=lch("E"); 9:hud_char_code=lch("G");
+                            10:hud_char_code=C_SP;   11:hud_char_code=lch("S"); 12:hud_char_code=lch("H"); 13:hud_char_code=lch("O"); 14:hud_char_code=lch("W");
+                            15:hud_char_code=C_SP;   16:hud_char_code=lch("T"); 17:hud_char_code=lch("E"); 18:hud_char_code=lch("M"); 19:hud_char_code=lch("P");
+                            20:hud_char_code=C_SP;   21:hud_char_code=lch("C"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("B"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("N"); 3:hud_char_code=C_SP;     4:hud_char_code=lch("3");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("X"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("N"); 11:hud_char_code=lch("O"); 12:hud_char_code=lch("V"); 13:hud_char_code=lch("A"); 14:hud_char_code=C_SP;
+                            15:hud_char_code=lch("F"); 16:hud_char_code=lch("I"); 17:hud_char_code=lch("N"); 18:hud_char_code=lch("I"); 19:hud_char_code=lch("S");
+                            20:hud_char_code=lch("H"); default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("L"); 1:hud_char_code=C_SP;     2:hud_char_code=lch("K"); 3:hud_char_code=lch("E"); 4:hud_char_code=lch("Y");
+                            5:hud_char_code=C_SP;     6:hud_char_code=C_COL;    7:hud_char_code=C_SP;     8:hud_char_code=lch("C"); 9:hud_char_code=lch("H");
+                            10:hud_char_code=lch("R"); 11:hud_char_code=lch("O"); 12:hud_char_code=lch("N"); 13:hud_char_code=lch("O"); 14:hud_char_code=C_SP;
+                            15:hud_char_code=lch("S"); 16:hud_char_code=lch("L"); 17:hud_char_code=lch("O"); 18:hud_char_code=lch("W"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Body Row 4 (gy=130..137)
+                if (gy >= 9'd130 && gy < 9'd138 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd130; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("W"); 2:hud_char_code=lch("9"); 3:hud_char_code=C_SP;     4:hud_char_code=C_COL;
+                            5:hud_char_code=C_SP;     6:hud_char_code=lch("F"); 7:hud_char_code=lch("E"); 8:hud_char_code=lch("V"); 9:hud_char_code=lch("E");
+                            10:hud_char_code=lch("R"); 11:hud_char_code=C_SP;   12:hud_char_code=lch("D"); 13:hud_char_code=lch("E"); 14:hud_char_code=lch("M");
+                            15:hud_char_code=lch("O"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("F"); 18:hud_char_code=lch("O"); 19:hud_char_code=lch("R");
+                            20:hud_char_code=lch("C"); 21:hud_char_code=lch("E"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("B"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("N"); 3:hud_char_code=C_SP;     4:hud_char_code=lch("4");
+                            5:hud_char_code=lch("/"); 6:hud_char_code=lch("Y"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("C"); 11:hud_char_code=lch("H"); 12:hud_char_code=lch("R"); 13:hud_char_code=lch("O"); 14:hud_char_code=lch("N");
+                            15:hud_char_code=lch("O"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("S"); 18:hud_char_code=lch("L"); 19:hud_char_code=lch("O");
+                            20:hud_char_code=lch("W"); default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("1"); 1:hud_char_code=C_DSH;    2:hud_char_code=lch("4"); 3:hud_char_code=C_SP;     4:hud_char_code=lch("K");
+                            5:hud_char_code=lch("E"); 6:hud_char_code=lch("Y"); 7:hud_char_code=lch("S"); 8:hud_char_code=C_SP;     9:hud_char_code=C_COL;
+                            10:hud_char_code=C_SP;   11:hud_char_code=lch("D"); 12:hud_char_code=lch("O"); 13:hud_char_code=lch("O"); 14:hud_char_code=lch("R");
+                            15:hud_char_code=C_SP;   16:hud_char_code=lch("Q"); 17:hud_char_code=lch("U"); 18:hud_char_code=lch("I"); 19:hud_char_code=lch("Z");
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Body Row 5 (gy=150..157)
+                if (gy >= 9'd150 && gy < 9'd158 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd150; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("M"); 1:hud_char_code=lch("I"); 2:hud_char_code=lch("C"); 3:hud_char_code=C_SP;     4:hud_char_code=C_COL;
+                            5:hud_char_code=C_SP;     6:hud_char_code=lch("S"); 7:hud_char_code=lch("H"); 8:hud_char_code=lch("O"); 9:hud_char_code=lch("U");
+                            10:hud_char_code=lch("T"); 11:hud_char_code=C_SP;   12:hud_char_code=lch("R"); 13:hud_char_code=lch("O"); 14:hud_char_code=lch("A");
+                            15:hud_char_code=lch("R"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("P"); 18:hud_char_code=lch("U"); 19:hud_char_code=lch("S");
+                            20:hud_char_code=lch("H"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("T"); 2:hud_char_code=lch("A"); 3:hud_char_code=lch("R"); 4:hud_char_code=lch("T");
+                            5:hud_char_code=C_SP;     6:hud_char_code=C_COL;    7:hud_char_code=C_SP;     8:hud_char_code=lch("P"); 9:hud_char_code=lch("A");
+                            10:hud_char_code=lch("U"); 11:hud_char_code=lch("S"); 12:hud_char_code=lch("E"); 13:hud_char_code=C_SP;   14:hud_char_code=lch("G");
+                            15:hud_char_code=lch("A"); 16:hud_char_code=lch("M"); 17:hud_char_code=lch("E"); default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("E"); 1:hud_char_code=lch("N"); 2:hud_char_code=lch("T"); 3:hud_char_code=lch("E"); 4:hud_char_code=lch("R");
+                            5:hud_char_code=C_SP;     6:hud_char_code=C_COL;    7:hud_char_code=C_SP;     8:hud_char_code=lch("S"); 9:hud_char_code=lch("T");
+                            10:hud_char_code=lch("A"); 11:hud_char_code=lch("R"); 12:hud_char_code=lch("T"); 13:hud_char_code=C_SP;   14:hud_char_code=lch("G");
+                            15:hud_char_code=lch("A"); 16:hud_char_code=lch("M"); 17:hud_char_code=lch("E"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Body Row 6 (gy=170..177)
+                if (gy >= 9'd170 && gy < 9'd178 && col_1x >= 6'd5 && col_1x < 6'd35) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd170; hud_text_color = 6'd17;
+                    if (help_page == 2'd1) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("T"); 1:hud_char_code=lch("E"); 2:hud_char_code=lch("M"); 3:hud_char_code=lch("P"); 4:hud_char_code=C_SP;
+                            5:hud_char_code=lch("C"); 6:hud_char_code=lch("H"); 7:hud_char_code=lch("I"); 8:hud_char_code=lch("P"); 9:hud_char_code=C_COL;
+                            10:hud_char_code=C_SP;   11:hud_char_code=lch("T"); 12:hud_char_code=lch("O"); 13:hud_char_code=lch("U"); 14:hud_char_code=lch("C");
+                            15:hud_char_code=lch("H"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("F"); 18:hud_char_code=lch("E"); 19:hud_char_code=lch("V");
+                            20:hud_char_code=lch("E"); 21:hud_char_code=lch("R"); default:hud_char_code=C_SP;
+                        endcase
+                    end else if (help_page == 2'd2) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("S"); 1:hud_char_code=lch("E"); 2:hud_char_code=lch("L"); 3:hud_char_code=lch("E"); 4:hud_char_code=lch("C");
+                            5:hud_char_code=lch("T"); 6:hud_char_code=C_SP;     7:hud_char_code=C_COL;    8:hud_char_code=C_SP;     9:hud_char_code=lch("R");
+                            10:hud_char_code=lch("E"); 11:hud_char_code=lch("T"); 12:hud_char_code=lch("U"); 13:hud_char_code=lch("R"); 14:hud_char_code=lch("N");
+                            15:hud_char_code=C_SP;   16:hud_char_code=lch("T"); 17:hud_char_code=lch("I"); 18:hud_char_code=lch("T"); 19:hud_char_code=lch("L");
+                            20:hud_char_code=lch("E"); default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("E"); 1:hud_char_code=lch("S"); 2:hud_char_code=lch("C"); 3:hud_char_code=C_SP;     4:hud_char_code=lch("K");
+                            5:hud_char_code=lch("E"); 6:hud_char_code=lch("Y"); 7:hud_char_code=C_SP;     8:hud_char_code=C_COL;    9:hud_char_code=C_SP;
+                            10:hud_char_code=lch("R"); 11:hud_char_code=lch("E"); 12:hud_char_code=lch("T"); 13:hud_char_code=lch("U"); 14:hud_char_code=lch("R");
+                            15:hud_char_code=lch("N"); 16:hud_char_code=C_SP;   17:hud_char_code=lch("T"); 18:hud_char_code=lch("I"); 19:hud_char_code=lch("T");
+                            20:hud_char_code=lch("L"); 21:hud_char_code=lch("E"); default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
+                // Footer Navigation (gy=206..213)
+                if (gy >= 9'd206 && gy < 9'd214 && col_1x >= 6'd4 && col_1x < 6'd36) begin
+                    hud_text_en = 1; hud_char_row = gy - 9'd206;
+                    hud_text_color = anim_cnt[23] ? 6'd58 : 6'd17;
+                    if (help_page < 2'd3) begin
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=C_LARW;   1:hud_char_code=lch("N"); 2:hud_char_code=lch("E"); 3:hud_char_code=lch("X"); 4:hud_char_code=lch("T");
+                            5:hud_char_code=C_COL;    6:hud_char_code=lch("S"); 7:hud_char_code=lch("T"); 8:hud_char_code=lch("A"); 9:hud_char_code=lch("R");
+                            10:hud_char_code=lch("T"); 11:hud_char_code=C_RARW; 12:hud_char_code=C_SP;   13:hud_char_code=C_SP;    14:hud_char_code=C_LARW;
+                            15:hud_char_code=lch("B"); 16:hud_char_code=lch("A"); 17:hud_char_code=lch("C"); 18:hud_char_code=lch("K"); 19:hud_char_code=C_COL;
+                            20:hud_char_code=lch("L"); 21:hud_char_code=lch("E"); 22:hud_char_code=lch("F"); 23:hud_char_code=lch("T"); 24:hud_char_code=C_RARW;
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end else begin
+                        case (col_1x - 6'd4)
+                            0:hud_char_code=C_LARW;   1:hud_char_code=lch("P"); 2:hud_char_code=lch("L"); 3:hud_char_code=lch("A"); 4:hud_char_code=lch("Y");
+                            5:hud_char_code=C_COL;    6:hud_char_code=lch("E"); 7:hud_char_code=lch("N"); 8:hud_char_code=lch("T"); 9:hud_char_code=lch("E");
+                            10:hud_char_code=lch("R"); 11:hud_char_code=C_RARW; 12:hud_char_code=C_SP;   13:hud_char_code=C_SP;    14:hud_char_code=C_LARW;
+                            15:hud_char_code=lch("B"); 16:hud_char_code=lch("A"); 17:hud_char_code=lch("C"); 18:hud_char_code=lch("K"); 19:hud_char_code=C_COL;
+                            20:hud_char_code=lch("L"); 21:hud_char_code=lch("E"); 22:hud_char_code=lch("F"); 23:hud_char_code=lch("T"); 24:hud_char_code=C_RARW;
+                            default:hud_char_code=C_SP;
+                        endcase
+                    end
+                end
             end
         end else if (game_state == 3'd1) begin
             if (in_cut_bar) begin
@@ -1396,8 +1684,9 @@ module vga_renderer_v2 (
     reg [3:0] wx_1=0, wy_1=0;
     reg [8:0] gx_1=0, gy_1=0;
     reg on_p_1=0, sel_p2_1=0, on_aura_1=0, on_ghost_1=0, on_b_1=0, on_mon_1=0, on_item_1=0, on_logo_1=0;
-    reg on_pb_1=0, on_eb_1=0, on_dropfx_1=0, on_laser_1=0, on_tag_1=0;
+    reg on_pb_1=0, on_eb_1=0, on_dropfx_1=0, on_laser_1=0, on_tag_1=0, on_sonic_1=0;
     reg [5:0] aura_col_1=0, pb_col_1=0, eb_col_1=0, dropfx_col_1=0, laser_col_1=0, tag_col_1=0;
+    reg [11:0] sonic_col_1=0;
     reg hud_text_en_1=0, hud_bg_en_1=0;
     reg [2:0] hud_col_1=0;
     reg [5:0] hud_tcol_1=0, hud_bcol_1=0;
@@ -1424,6 +1713,7 @@ module vga_renderer_v2 (
         on_eb_1 <= on_eb_0; eb_col_1 <= eb_col_0;
         on_dropfx_1 <= on_dropfx_0; dropfx_col_1 <= dropfx_col_0;
         on_laser_1  <= on_laser_0;  laser_col_1  <= laser_col_0;
+        on_sonic_1  <= on_sonic_0;  sonic_col_1  <= sonic_col_0;
         hud_text_en_1 <= hud_text_en; hud_col_1 <= hud_char_col; hud_tcol_1 <= hud_text_color;
         hud_bg_en_1   <= hud_bg_en;   hud_bcol_1 <= hud_bg_color;
     end
@@ -1442,8 +1732,9 @@ module vga_renderer_v2 (
     reg [11:0] p_pix_2=0, b_pix_2=0, mon_pix_2=0;
     reg [5:0]  item_pix_2=0, logo_pix_2=0;
     reg on_p_2=0, sel_p2_2=0, on_aura_2=0, on_ghost_2=0, on_b_2=0, on_mon_2=0, on_item_2=0, on_logo_2=0;
-    reg on_pb_2=0, on_eb_2=0, on_dropfx_2=0, on_laser_2=0, on_tag_2=0;
+    reg on_pb_2=0, on_eb_2=0, on_dropfx_2=0, on_laser_2=0, on_tag_2=0, on_sonic_2=0;
     reg [5:0] aura_col_2=0, pb_col_2=0, eb_col_2=0, dropfx_col_2=0, laser_col_2=0, tag_col_2=0;
+    reg [11:0] sonic_col_2=0;
     reg hud_bit_2=0, hud_bg_en_2=0;
     reg [5:0] hud_tcol_2=0, hud_bcol_2=0;
 
@@ -1462,6 +1753,7 @@ module vga_renderer_v2 (
         on_eb_2 <= on_eb_1; eb_col_2 <= eb_col_1;
         on_dropfx_2 <= on_dropfx_1; dropfx_col_2 <= dropfx_col_1;
         on_laser_2  <= on_laser_1;  laser_col_2  <= laser_col_1;
+        on_sonic_2  <= on_sonic_1;  sonic_col_2  <= sonic_col_1;
         hud_bit_2   <= hud_text_en_1 && font_row_1[3'd7 - hud_col_1];
         hud_tcol_2  <= hud_tcol_1;
         hud_bg_en_2 <= hud_bg_en_1; hud_bcol_2 <= hud_bcol_1;
@@ -1517,6 +1809,7 @@ module vga_renderer_v2 (
         end
         else if (on_dropfx_2)     final_idx_2 = dropfx_col_2;
         else if (on_laser_2)      final_idx_2 = laser_col_2;
+        else if (on_sonic_2)      begin use_direct_rgb_2 = 1'b1; direct_rgb_2 = sonic_col_2; end
         else if (game_state == 3'd0) final_idx_2 = title_grid ? 6'd56 : 6'd16;
         else if (!in_room_2)      begin use_direct_rgb_2 = 1'b1; direct_rgb_2 = 12'h000; end
         else                      final_idx_2 = tile_pix_2;

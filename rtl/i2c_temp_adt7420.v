@@ -84,17 +84,21 @@ module i2c_temp_adt7420 (
     reg [7:0]  rx_msb  = 8'h00;
     reg [7:0]  rx_lsb  = 8'h00;
     reg [15:0] raw_temp = 16'h0000;
+    reg [7:0]  baseline_c = 8'd0;
+    reg        baseline_valid = 1'b0;
 
     always @(posedge clk) begin
         if (rst) begin
-            state      <= S_IDLE;
-            sub        <= 2'd0;
-            scl_o      <= 1'b1;
-            sda_o      <= 1'b1;
-            temp_c     <= 8'd27;
-            temp_frac  <= 4'd5;
-            temp_bcd   <= 16'h0275;
-            temp_fever <= 1'b0;
+            state          <= S_IDLE;
+            sub            <= 2'd0;
+            scl_o          <= 1'b1;
+            sda_o          <= 1'b1;
+            temp_c         <= 8'd27;
+            temp_frac      <= 4'd5;
+            temp_bcd       <= 16'h0275;
+            temp_fever     <= 1'b0;
+            baseline_c     <= 8'd0;
+            baseline_valid <= 1'b0;
         end else if (q_pulse) begin
             case (state)
                 S_IDLE: begin
@@ -241,8 +245,13 @@ module i2c_temp_adt7420 (
                         temp_c <= raw_temp[14:7];
                         // 4-bit fraction [6:3] in 0.0625 C steps. (frac * 10) / 16 gives 1 decimal digit
                         temp_frac <= (raw_temp[6:3] * 4'd10) >> 4;
-                        // Fever Trigger: Finger Touch Heating > 30 C!
-                        temp_fever <= (raw_temp[14:7] >= 8'd30);
+                        if (!baseline_valid) begin
+                            baseline_c <= raw_temp[14:7];
+                            baseline_valid <= 1'b1;
+                        end else begin
+                            // Fever Trigger: Finger Touch Heating (+1 C above baseline or >= 35 C!)
+                            temp_fever <= (raw_temp[14:7] >= baseline_c + 8'd1) || (raw_temp[14:7] >= 8'd35);
+                        end
 
                         // BCD Encoding
                         temp_bcd[3:0]   <= (raw_temp[6:3] * 4'd10) >> 4;
