@@ -97,7 +97,7 @@ module board_io_v2 (
     wire [2:0] dig_sel = anim_cnt[15:13];
     reg  [4:0] char_code;
     reg        dp_val;
-    wire show_temp = sw_sync[8] || anim_cnt[25];
+    wire show_temp = sw_sync[8];
 
     always @(*) begin
         AN     = ~(8'b00000001 << dig_sel);

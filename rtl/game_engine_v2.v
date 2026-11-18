@@ -25,6 +25,7 @@ module game_engine_v2 (
     input  wire              joy_select, // Select button on Joystick -> Return to Menu
     input  wire              temp_fever, // ADT7420 Thermal Overclock Mode (>30 C)
     input  wire              mic_roar,   // ADMP421 Microphone Voice Roar Shockwave
+    input  wire [5:0]        sound_level,// Microphone acoustic loudness 0..63
     input  wire              kb_up, kb_down, kb_left, kb_right,
     input  wire              kb_attack, kb_skill, kb_start,
     input  wire [1:0]        kb_quiz_sel,
@@ -166,6 +167,9 @@ module game_engine_v2 (
     output reg  [6:0]  quiz_wrong_t  = 7'd0,
     output reg  [7:0]  boss_trans_t  = 8'd0,
     output reg  [7:0]  outfit_cut_t  = 8'd0,
+    output reg  [1:0]  help_page     = 2'd0,
+    output reg  [4:0]  sonic_wave_t  = 5'd0,
+    output reg  [8:0]  sonic_radius  = 9'd100,
     output reg         paused        = 1'b0
 );
     localparam [2:0] ST_TITLE=3'd0, ST_CUTSCENE=3'd1, ST_PLAY=3'd2, ST_WIN=3'd3, ST_LOSE=3'd4;
@@ -225,6 +229,8 @@ module game_engine_v2 (
     wire any_down_edge  = btnd_edge || j1_down_edge  || j2_down_edge  || kb_d_e;
     wire any_start_edge = btnc_edge || j1_fire_edge  || j2_fire_edge  || j1_dash_edge || j2_dash_edge || kb_atk_e || kb_star_e;
     wire any_skip_edge  = btnc_edge || j1_fire_edge  || j2_fire_edge  || kb_atk_e;
+    wire real_start_edge = (joy_pause && !joy_pause_prev) || kb_star_e || btnu_edge;
+    wire any_action_edge = btnc_edge || j1_fire_edge || j2_fire_edge || kb_atk_e;
 
     assign chrono_active = (game_state == ST_PLAY) && (room_phase == RP_FIGHT) &&
                            ((p1_alive && (btnd || (use_joy && j1_btn[0]))) || (p2_alive && j2_btn[0])) &&
@@ -678,12 +684,37 @@ module game_engine_v2 (
                     if (hit_stop > 0)  hit_stop  <= hit_stop - 3'd1;
 
                     if (joy_select && !joy_select_prev && game_state != ST_TITLE) begin
-                        init_game(); game_state <= ST_TITLE; paused <= 1'b0; sfx_pickup <= 1'b1;
+                        init_game(); game_state <= ST_TITLE; help_page <= 2'd0; paused <= 1'b0; sfx_pickup <= 1'b1;
                     end else if (game_state == ST_TITLE) begin
-                        if (any_right_edge || any_left_edge) begin
-                            control_mode <= (control_mode == 2'd0) ? 2'd1 : 2'd0; sfx_pickup <= 1'b1;
-                        end else if (any_start_edge) begin
-                            init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1;
+                        if (help_page == 2'd0) begin
+                            if (any_right_edge || any_left_edge) begin
+                                control_mode <= (control_mode == 2'd0) ? 2'd1 : 2'd0; sfx_pickup <= 1'b1;
+                            end else if (real_start_edge) begin
+                                help_page <= 2'd1; sfx_pickup <= 1'b1; // Open Board Controls Guide
+                            end else if (any_action_edge) begin
+                                init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1; // Start Game immediately
+                            end
+                        end else if (help_page == 2'd1) begin
+                            // Page 1: Board Controls -> Next to Joy Controls
+                            if (real_start_edge || any_action_edge || any_right_edge || any_down_edge) begin
+                                help_page <= 2'd2; sfx_pickup <= 1'b1;
+                            end else if (any_left_edge || joy_select) begin
+                                help_page <= 2'd0; sfx_pickup <= 1'b1; // Back to Title
+                            end
+                        end else if (help_page == 2'd2) begin
+                            // Page 2: Joystick Controls -> Next to Keyboard Controls
+                            if (real_start_edge || any_action_edge || any_right_edge || any_down_edge) begin
+                                help_page <= 2'd3; sfx_pickup <= 1'b1;
+                            end else if (any_left_edge || joy_select) begin
+                                help_page <= 2'd1; sfx_pickup <= 1'b1; // Back to Board Controls
+                            end
+                        end else if (help_page == 2'd3) begin
+                            // Page 3: Keyboard Controls -> Start Game!
+                            if (real_start_edge || any_action_edge || any_right_edge || any_down_edge) begin
+                                init_game(); help_page <= 2'd0; game_state <= ST_PLAY; sfx_evolve <= 1'b1;
+                            end else if (any_left_edge || joy_select) begin
+                                help_page <= 2'd2; sfx_pickup <= 1'b1; // Back to Joy Controls
+                            end
                         end
                     end else if (game_state == ST_CUTSCENE) begin
                         game_state <= ST_PLAY;
@@ -717,6 +748,7 @@ module game_engine_v2 (
                                 if (kb_quiz_sel == quiz_ans_slot) begin
                                     room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
                                     outfit_cut_t <= 8'd120;
+                                    if (stage < 2'd3) stage <= stage + 2'd1;
                                 end else begin
                                     quiz_wrong_t <= 7'd105; sfx_hit <= 1'b1; shake_mag <= 4'd6;
                                     quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
@@ -730,6 +762,7 @@ module game_engine_v2 (
                                 if (quiz_cursor == quiz_ans_slot) begin
                                     room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
                                     outfit_cut_t <= 8'd120;
+                                    if (stage < 2'd3) stage <= stage + 2'd1;
                                 end else begin
                                     quiz_wrong_t <= 7'd105; sfx_hit <= 1'b1; shake_mag <= 4'd6;
                                     quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
@@ -746,20 +779,12 @@ module game_engine_v2 (
                         // ---- ST_PLAY (WAVE_BANNER / FIGHT / CLEAR_ARROW / DOOR_OPEN / BOSS_TRANS) ----
                         if (door_slam_t > 0)   door_slam_t   <= door_slam_t - 6'd1;
                         if (wave_banner_t > 0) wave_banner_t <= wave_banner_t - 7'd1;
+                        if (sonic_wave_t > 0)  sonic_wave_t  <= sonic_wave_t - 5'd1;
                         if (room_phase == RP_FIGHT && mic_roar && !mic_roar_prev) begin
-                            shake_mag <= 4'd12;
-                            sfx_hit   <= 1'b1;
-                            for (idx = 0; idx < 16; idx = idx + 1) begin
-                                if (en_alive[idx]) begin
-                                    if (en_hp[idx] <= 4'd10) begin
-                                        en_alive[idx] <= 1'b0;
-                                        en_hp[idx] <= 4'd0;
-                                        add_score(10'd50);
-                                    end else begin
-                                        en_hp[idx] <= en_hp[idx] - 4'd10;
-                                    end
-                                end
-                            end
+                            sonic_wave_t <= 5'd24;
+                            sonic_radius <= (sound_level >= 6'd45) ? 9'd180 : ((sound_level >= 6'd30) ? 9'd140 : 9'd100);
+                            shake_mag    <= 4'd8;
+                            sfx_shoot    <= 1'b1;
                         end
                         if (room_phase == RP_BANNER && wave_banner_t == 7'd0) begin
                             wave_sub <= 3'd0;
@@ -1206,14 +1231,12 @@ module game_engine_v2 (
                     end
 
                     evolved_now = 1'b0;
-                    if      (stage == 2'd0 && next_exp >= 6'd10) begin stage <= 2'd1; evolved_now = 1; end
-                    else if (stage == 2'd1 && next_exp >= 6'd25) begin stage <= 2'd2; evolved_now = 1; end
-                    else if (stage == 2'd2 && next_exp >= 6'd45) begin stage <= 2'd3; evolved_now = 1; if (p1_alive) hp <= 5'd24; if (p2_alive) hp2 <= 5'd24; end
-                    exp <= next_exp;
-                    if (evolved_now && game_state == ST_PLAY) begin
-                        // Seamless real-time evolution (NO cutscene pause!)
-                        evolve_flash <= 5'd24; sfx_evolve <= 1'b1; add_score(10'd100);
+                    if (next_exp >= 6'd60) begin
+                        if (p1_alive && hp < 5'd24) hp <= 5'd24;
+                        if (p2_alive && hp2 < 5'd24) hp2 <= 5'd24;
+                        add_score(10'd50);
                     end
+                    exp <= next_exp;
 
                     step_state <= 6'd42;
                 end
@@ -1246,7 +1269,13 @@ module game_engine_v2 (
                         if (d2_m < gun2_d)  begin gun2_valid  <= 1'b1; gun2_d  <= d2_m; gun2_x  <= en_x[e_idx]; gun2_y  <= en_y[e_idx]; gun2_idx <= {1'b0, e_idx}; end
 
                         // Enemy AI Move & Ranged Bolt
-                        if (world_tick) begin
+                        if (sonic_wave_t > 0 && d1_m <= sonic_radius) begin
+                            // Sonic shockwave repels enemies outward away from player (NO damage, pure knockback!)
+                            if (en_x[e_idx] < px) en_x[e_idx] <= (en_x[e_idx] > 11'd48) ? (en_x[e_idx] - 11'd8) : 11'd32;
+                            else if (en_x[e_idx] > px) en_x[e_idx] <= (en_x[e_idx] < 11'd1990) ? (en_x[e_idx] + 11'd8) : 11'd2010;
+                            if (en_y[e_idx] < py) en_y[e_idx] <= (en_y[e_idx] > 10'd48) ? (en_y[e_idx] - 10'd8) : 10'd32;
+                            else if (en_y[e_idx] > py) en_y[e_idx] <= (en_y[e_idx] < 10'd960) ? (en_y[e_idx] + 10'd8) : 10'd980;
+                        end else if (world_tick) begin
                             if (p2_alive && (!p1_alive || d2_m < d1_m)) begin next_x = p2x; next_y = p2y; end
                             else                                         begin next_x = px;  next_y = py; end
                             if ((p2_alive && (!p1_alive || d2_m < d1_m) ? d2_m : d1_m) < 12'd420) begin
@@ -1682,7 +1711,6 @@ module game_engine_v2 (
                                 col_x[0] <= 11'd320; col_y[0] <= 10'd224; col_type[0] <= 1'b1; col_alive[0] <= 1'b1;
                                 door_slam_t <= 6'd45; door_slide <= 5'd0;
                                 shake_mag <= 4'd8; sfx_hit <= 1'b1;
-                                outfit_cut_t <= 8'd120;
                                 wave_banner_t <= 7'd90;
                                 room_phase <= RP_BANNER;
                             end

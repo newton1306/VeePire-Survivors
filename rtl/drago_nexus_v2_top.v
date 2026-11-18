@@ -163,12 +163,13 @@ module drago_nexus_v2_top (
     wire [4:0]  btn_sync;
     wire [15:0] sw_sync;
     wire        btn_zero_pulse, btn_orient_pulse;
+    wire        eff_temp_fever = temp_fever | sw_sync[9];
     board_io_v2 u_board_io (
         .clk(clk25), .rst(rst),
         .btnc_raw(BTNC), .btnu_raw(BTNU), .btnd_raw(BTND), .btnl_raw(BTNL), .btnr_raw(BTNR),
         .sw_raw(SW), .game_state(game_state), .wave(wave), .stage(stage), .hp(hp), .hp2(hp2), .exp(exp),
         .score_bcd(score_bcd), .evolve_flash(evolve_flash), .chrono_active(chrono_active),
-        .temp_bcd(temp_bcd), .temp_fever(temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
+        .temp_bcd(temp_bcd), .temp_fever(eff_temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
         .btn_sync(btn_sync), .sw_sync(sw_sync), .btn_zero_pulse(btn_zero_pulse), .btn_orient_pulse(btn_orient_pulse),
         .LED(LED), .LED16_R(LED16_R), .LED16_G(LED16_G), .LED16_B(LED16_B),
         .LED17_R(LED17_R), .LED17_G(LED17_G), .LED17_B(LED17_B),
@@ -215,6 +216,9 @@ module drago_nexus_v2_top (
     wire [1:0] quiz_cursor, quiz_ans_slot;
     wire [7:0] boss_trans_t, outfit_cut_t;
     wire       paused;
+    wire [1:0] help_page;
+    wire [4:0] sonic_wave_t;
+    wire [8:0] sonic_radius;
 
     game_engine_v2 u_engine (
         .clk(clk25), .rst(rst), .tick(game_tick), .btn(btn_sync),
@@ -256,13 +260,14 @@ module drago_nexus_v2_top (
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
-        .temp_fever(temp_fever), .mic_roar(mic_roar),
+        .temp_fever(eff_temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
         .kb_up(kb_up), .kb_down(kb_down), .kb_left(kb_left), .kb_right(kb_right),
         .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_start(kb_start),
         .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
-        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused)
+        .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t),
+        .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius), .paused(paused)
     );
 
     vga_renderer_v2 u_renderer (
@@ -306,7 +311,8 @@ module drago_nexus_v2_top (
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
-        .temp_fever(temp_fever), .mic_roar(mic_roar),
+        .temp_fever(eff_temp_fever), .mic_roar(mic_roar),
+        .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
