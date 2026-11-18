@@ -23,6 +23,12 @@ module game_engine_v2 (
     input  wire              j2_shoot,   // Y button on Joy2 -> Blue Gun Bullet
     input  wire              joy_pause,  // Start button on Joystick -> Pause
     input  wire              joy_select, // Select button on Joystick -> Return to Menu
+    input  wire              temp_fever, // ADT7420 Thermal Overclock Mode (>30 C)
+    input  wire              mic_roar,   // ADMP421 Microphone Voice Roar Shockwave
+    input  wire              kb_up, kb_down, kb_left, kb_right,
+    input  wire              kb_attack, kb_skill, kb_start,
+    input  wire [1:0]        kb_quiz_sel,
+    input  wire              kb_quiz_hit,
 
     // Tilemap Dual-Port B (128x64 = 13-bit addr)
     output reg  [12:0] map_addr_b = 0,
@@ -174,12 +180,16 @@ module game_engine_v2 (
     wire p1_alive = (hp > 5'd0);
     wire p2_alive = p2_active && (hp2 > 5'd0);
 
-    wire signed [2:0] p1_in_dx = j1_dx;
-    wire signed [2:0] p1_in_dy = j1_dy;
+    wire signed [2:0] kb_p1_dx = kb_right ? 3'sd1 : (kb_left ? -3'sd1 : 3'sd0);
+    wire signed [2:0] kb_p1_dy = kb_down ? 3'sd1 : (kb_up ? -3'sd1 : 3'sd0);
+    wire signed [2:0] p1_in_dx = (kb_p1_dx != 3'sd0) ? kb_p1_dx : j1_dx;
+    wire signed [2:0] p1_in_dy = (kb_p1_dy != 3'sd0) ? kb_p1_dy : j1_dy;
 
     reg [4:0] btn_prev = 0;
     reg [2:0] j1_btn_prev = 0, j2_btn_prev = 0;
     reg       joy_pause_prev = 1'b0, joy_select_prev = 1'b0;
+    reg       kb_u_prev = 0, kb_d_prev = 0, kb_l_prev = 0, kb_r_prev = 0, kb_atk_prev = 0, kb_start_prev = 0;
+    reg       mic_roar_prev = 0;
     reg [2:0] wave_sub = 3'd0;
     reg signed [2:0] j1_dx_prev = 0, j2_dx_prev = 0;
     reg signed [2:0] j1_dy_prev = 0, j2_dy_prev = 0;
@@ -202,12 +212,19 @@ module game_engine_v2 (
     wire j2_up_edge   = (j2_dy < 0) && (j2_dy_prev >= 0);
     wire j2_down_edge = (j2_dy > 0) && (j2_dy_prev <= 0);
 
-    wire any_left_edge  = btnl_edge || j1_left_edge  || j2_left_edge;
-    wire any_right_edge = btnr_edge || j1_right_edge || j2_right_edge;
-    wire any_up_edge    = btnu_edge || j1_up_edge    || j2_up_edge;
-    wire any_down_edge  = btnd_edge || j1_down_edge  || j2_down_edge;
-    wire any_start_edge = btnc_edge || j1_fire_edge  || j2_fire_edge || j1_dash_edge || j2_dash_edge;
-    wire any_skip_edge  = btnc_edge || j1_fire_edge  || j2_fire_edge;
+    wire kb_u_e = kb_up && !kb_u_prev;
+    wire kb_d_e = kb_down && !kb_d_prev;
+    wire kb_l_e = kb_left && !kb_l_prev;
+    wire kb_r_e = kb_right && !kb_r_prev;
+    wire kb_atk_e = kb_attack && !kb_atk_prev;
+    wire kb_star_e = kb_start && !kb_start_prev;
+
+    wire any_left_edge  = btnl_edge || j1_left_edge  || j2_left_edge  || kb_l_e;
+    wire any_right_edge = btnr_edge || j1_right_edge || j2_right_edge || kb_r_e;
+    wire any_up_edge    = btnu_edge || j1_up_edge    || j2_up_edge    || kb_u_e;
+    wire any_down_edge  = btnd_edge || j1_down_edge  || j2_down_edge  || kb_d_e;
+    wire any_start_edge = btnc_edge || j1_fire_edge  || j2_fire_edge  || j1_dash_edge || j2_dash_edge || kb_atk_e || kb_star_e;
+    wire any_skip_edge  = btnc_edge || j1_fire_edge  || j2_fire_edge  || kb_atk_e;
 
     assign chrono_active = (game_state == ST_PLAY) && (room_phase == RP_FIGHT) &&
                            ((p1_alive && (btnd || (use_joy && j1_btn[0]))) || (p2_alive && j2_btn[0])) &&
@@ -590,11 +607,11 @@ module game_engine_v2 (
     reg [3:0]  d1_pow, d2_pow;
     wire [3:0] col_slot_e = (e_idx >= 4'd12) ? (e_idx - 4'd12) : e_idx;
     wire [5:0] melee_reach = (stage == 2'd0) ? 6'd30 : ((stage == 2'd1) ? 6'd36 : ((stage == 2'd2) ? 6'd42 : 6'd50));
-    wire [3:0] melee_dmg   = (stage == 2'd3) ? 4'd3  : 4'd2;
+    wire [3:0] melee_dmg   = (stage == 2'd3) ? 4'd4  : ((stage == 2'd2) ? 4'd3 : 4'd2);
     wire [5:0] reach1_eff  = p1_nova ? (melee_reach + 6'd12) : melee_reach;
     wire [5:0] reach2_eff  = p2_nova ? (melee_reach + 6'd12) : melee_reach;
-    wire [3:0] dmg1_eff    = (p1_nova || p1_combo_step == 2'd2 || combo_cnt >= 7'd15) ? (melee_dmg + 4'd1) : melee_dmg;
-    wire [3:0] dmg2_eff    = (p2_nova || p2_combo_step == 2'd2 || combo_cnt >= 7'd15) ? (melee_dmg + 4'd1) : melee_dmg;
+    wire [3:0] dmg1_eff    = (p1_nova || p1_combo_step == 2'd2 || combo_cnt >= 7'd15) ? (melee_dmg + 4'd1 + (temp_fever ? 4'd2 : 4'd0)) : (melee_dmg + (temp_fever ? 4'd2 : 4'd0));
+    wire [3:0] dmg2_eff    = (p2_nova || p2_combo_step == 2'd2 || combo_cnt >= 7'd15) ? (melee_dmg + 4'd1 + (temp_fever ? 4'd2 : 4'd0)) : (melee_dmg + (temp_fever ? 4'd2 : 4'd0));
 
     always @(posedge clk) begin
         sfx_shoot  <= 1'b0; sfx_pickup <= 1'b0; sfx_evolve <= 1'b0; sfx_hit <= 1'b0;
@@ -651,6 +668,10 @@ module game_engine_v2 (
                     j1_dy_prev <= j1_dy; j2_dy_prev <= j2_dy;
                     joy_pause_prev <= joy_pause;
                     joy_select_prev <= joy_select;
+                    kb_u_prev <= kb_up; kb_d_prev <= kb_down;
+                    kb_l_prev <= kb_left; kb_r_prev <= kb_right;
+                    kb_atk_prev <= kb_attack; kb_start_prev <= kb_start;
+                    mic_roar_prev <= mic_roar;
                     frame_cnt <= frame_cnt + 9'd1;
 
                     if (shake_mag > 0) shake_mag <= shake_mag - 4'd1;
@@ -692,7 +713,16 @@ module game_engine_v2 (
                                 wave_banner_t <= 7'd90; room_phase <= RP_BANNER;
                             end
                         end else if (quiz_lockout == 0) begin
-                            if (any_up_edge || any_left_edge) begin
+                            if (kb_quiz_hit) begin
+                                if (kb_quiz_sel == quiz_ans_slot) begin
+                                    room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
+                                    outfit_cut_t <= 8'd120;
+                                end else begin
+                                    quiz_wrong_t <= 7'd105; sfx_hit <= 1'b1; shake_mag <= 4'd6;
+                                    quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
+                                    quiz_ans_slot <= frame_cnt[1:0];
+                                end
+                            end else if (any_up_edge || any_left_edge) begin
                                 quiz_cursor <= quiz_cursor - 2'd1; sfx_pickup <= 1'b1;
                             end else if (any_down_edge || any_right_edge) begin
                                 quiz_cursor <= quiz_cursor + 2'd1; sfx_pickup <= 1'b1;
@@ -716,6 +746,21 @@ module game_engine_v2 (
                         // ---- ST_PLAY (WAVE_BANNER / FIGHT / CLEAR_ARROW / DOOR_OPEN / BOSS_TRANS) ----
                         if (door_slam_t > 0)   door_slam_t   <= door_slam_t - 6'd1;
                         if (wave_banner_t > 0) wave_banner_t <= wave_banner_t - 7'd1;
+                        if (room_phase == RP_FIGHT && mic_roar && !mic_roar_prev) begin
+                            shake_mag <= 4'd12;
+                            sfx_hit   <= 1'b1;
+                            for (idx = 0; idx < 16; idx = idx + 1) begin
+                                if (en_alive[idx]) begin
+                                    if (en_hp[idx] <= 4'd10) begin
+                                        en_alive[idx] <= 1'b0;
+                                        en_hp[idx] <= 4'd0;
+                                        add_score(10'd50);
+                                    end else begin
+                                        en_hp[idx] <= en_hp[idx] - 4'd10;
+                                    end
+                                end
+                            end
+                        end
                         if (room_phase == RP_BANNER && wave_banner_t == 7'd0) begin
                             wave_sub <= 3'd0;
                             spawn_wave_group(wave, 3'd0);

@@ -105,6 +105,19 @@ set_property -dict { PACKAGE_PIN D12   IOSTANDARD LVCMOS33 } [get_ports { AUD_SD
 ## USB-UART Bridge Input (Twin USB Joysticks from PC)
 set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { UART_TXD_IN }];
 
+## ADT7420 I2C Temperature Sensor
+set_property -dict { PACKAGE_PIN C14   IOSTANDARD LVCMOS33 } [get_ports { TMP_SCL }];
+set_property -dict { PACKAGE_PIN C15   IOSTANDARD LVCMOS33   PULLUP true } [get_ports { TMP_SDA }];
+
+## ADMP421 Omnidirectional MEMS Microphone (PDM)
+set_property -dict { PACKAGE_PIN J5    IOSTANDARD LVCMOS33 } [get_ports { M_CLK }];
+set_property -dict { PACKAGE_PIN H5    IOSTANDARD LVCMOS33 } [get_ports { M_DATA }];
+set_property -dict { PACKAGE_PIN F5    IOSTANDARD LVCMOS33 } [get_ports { M_LRSEL }];
+
+## USB HID Host PS/2 Keyboard (via onboard PIC24 MCU)
+set_property -dict { PACKAGE_PIN F4    IOSTANDARD LVCMOS33   PULLUP true } [get_ports { PS2_CLK }];
+set_property -dict { PACKAGE_PIN B2    IOSTANDARD LVCMOS33   PULLUP true } [get_ports { PS2_DATA }];
+
 ## False paths for slow human I/O, 1 MHz SPI Accelerometer & 115200 baud UART
-set_false_path -from [get_ports { CPU_RESETN BTNC BTNU BTND BTNL BTNR SW[*] ACL_MISO UART_TXD_IN }]
-set_false_path -to   [get_ports { LED[*] LED16_* LED17_* AN[*] CA CB CC CD CE CF CG DP AUD_PWM AUD_SD ACL_MOSI ACL_SCLK ACL_CSN }]
+set_false_path -from [get_ports { CPU_RESETN BTNC BTNU BTND BTNL BTNR SW[*] ACL_MISO UART_TXD_IN TMP_SDA M_DATA PS2_CLK PS2_DATA }]
+set_false_path -to   [get_ports { LED[*] LED16_* LED17_* AN[*] CA CB CC CD CE CF CG DP AUD_PWM AUD_SD ACL_MOSI ACL_SCLK ACL_CSN TMP_SCL TMP_SDA M_CLK M_LRSEL }]

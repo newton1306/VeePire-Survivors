@@ -11,6 +11,16 @@ module drago_nexus_v2_top (
 
     input  wire        UART_TXD_IN,
 
+    output wire        TMP_SCL,
+    inout  wire        TMP_SDA,
+
+    output wire        M_CLK,
+    input  wire        M_DATA,
+    output wire        M_LRSEL,
+
+    input  wire        PS2_CLK,
+    input  wire        PS2_DATA,
+
     output wire [15:0] LED,
     output wire        LED16_R, LED16_G, LED16_B,
     output wire        LED17_R, LED17_G, LED17_B,
@@ -116,6 +126,40 @@ module drago_nexus_v2_top (
     wire        boss_active, boss_locked, boss_enraged;
     wire        sfx_shoot, sfx_pickup, sfx_evolve, sfx_hit;
 
+    // --- Onboard Peripheral Decoders ---
+    // 1. ADT7420 I2C Temperature Sensor (Thermal Overclock / Fever Mode)
+    wire [7:0]  temp_c;
+    wire [3:0]  temp_frac;
+    wire [15:0] temp_bcd;
+    wire        temp_fever;
+    i2c_temp_adt7420 u_temp (
+        .clk(clk25), .rst(rst),
+        .TMP_SCL(TMP_SCL), .TMP_SDA(TMP_SDA),
+        .temp_c(temp_c), .temp_frac(temp_frac), .temp_bcd(temp_bcd), .temp_fever(temp_fever)
+    );
+
+    // 2. ADMP421 Omnidirectional MEMS Microphone (KMUTT Voice Roar Shockwave)
+    wire [5:0]  sound_level;
+    wire        mic_roar;
+    pdm_mic_decoder u_mic (
+        .clk(clk25), .rst(rst),
+        .M_CLK(M_CLK), .M_DATA(M_DATA), .M_LRSEL(M_LRSEL),
+        .sound_level(sound_level), .mic_roar(mic_roar)
+    );
+
+    // 3. USB Host Keyboard via PS/2 (Direct WASD, Space, Keys 1-4 for Quiz)
+    wire kb_up, kb_down, kb_left, kb_right;
+    wire kb_attack, kb_skill, kb_start;
+    wire [1:0] kb_quiz_sel;
+    wire       kb_quiz_hit;
+    ps2_keyboard u_kb (
+        .clk(clk25), .rst(rst),
+        .PS2_CLK(PS2_CLK), .PS2_DATA(PS2_DATA),
+        .kb_up(kb_up), .kb_down(kb_down), .kb_left(kb_left), .kb_right(kb_right),
+        .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_start(kb_start),
+        .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit)
+    );
+
     wire [4:0]  btn_sync;
     wire [15:0] sw_sync;
     wire        btn_zero_pulse, btn_orient_pulse;
@@ -124,6 +168,7 @@ module drago_nexus_v2_top (
         .btnc_raw(BTNC), .btnu_raw(BTNU), .btnd_raw(BTND), .btnl_raw(BTNL), .btnr_raw(BTNR),
         .sw_raw(SW), .game_state(game_state), .wave(wave), .stage(stage), .hp(hp), .hp2(hp2), .exp(exp),
         .score_bcd(score_bcd), .evolve_flash(evolve_flash), .chrono_active(chrono_active),
+        .temp_bcd(temp_bcd), .temp_fever(temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
         .btn_sync(btn_sync), .sw_sync(sw_sync), .btn_zero_pulse(btn_zero_pulse), .btn_orient_pulse(btn_orient_pulse),
         .LED(LED), .LED16_R(LED16_R), .LED16_G(LED16_G), .LED16_B(LED16_B),
         .LED17_R(LED17_R), .LED17_G(LED17_G), .LED17_B(LED17_B),
@@ -211,6 +256,10 @@ module drago_nexus_v2_top (
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+        .temp_fever(temp_fever), .mic_roar(mic_roar),
+        .kb_up(kb_up), .kb_down(kb_down), .kb_left(kb_left), .kb_right(kb_right),
+        .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_start(kb_start),
+        .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused)
@@ -257,6 +306,7 @@ module drago_nexus_v2_top (
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
+        .temp_fever(temp_fever), .mic_roar(mic_roar),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 

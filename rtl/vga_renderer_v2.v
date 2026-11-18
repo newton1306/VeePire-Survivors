@@ -105,6 +105,8 @@ module vga_renderer_v2 (
     input  wire [7:0]  boss_trans_t,
     input  wire [7:0]  outfit_cut_t,
     input  wire        paused,
+    input  wire        temp_fever,
+    input  wire        mic_roar,
 
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
     output reg         VGA_HS = 1, VGA_VS = 1
@@ -181,7 +183,10 @@ module vga_renderer_v2 (
 
     // 2. Hero Sprites P1 & P2 (8 models x 4 frames incl Lunge/Apex x 32x32 = 32K)
     wire in_outfit_cut = (game_state == 3'd2 && outfit_cut_t > 8'd0);
-    wire [3:0] eff_outfit_wave = (in_outfit_cut && outfit_cut_t > 8'd60 && wave > 4'd1) ? (wave - 4'd1) : wave;
+    wire [3:0] cur_player_stage = (wave >= 4'd4 || stage >= 2'd3) ? 4'd4 :
+                                  ((wave >= 4'd3 || stage >= 2'd2) ? 4'd3 :
+                                  ((wave >= 4'd2 || stage >= 2'd1) ? 4'd2 : 4'd1));
+    wire [3:0] eff_outfit_wave = (in_outfit_cut && outfit_cut_t > 8'd60 && cur_player_stage > 4'd1) ? (cur_player_stage - 4'd1) : cur_player_stage;
     wire [10:0] target_px  = (game_state == 3'd0) ? (control_mode == 2'd1 ? 11'd80 : 11'd100) : px;
     wire [9:0]  target_py  = (game_state == 3'd0) ? 10'd160 : py;
     wire [10:0] target_p2x = (game_state == 3'd0) ? 11'd120 : p2x;
@@ -283,14 +288,22 @@ module vga_renderer_v2 (
                         p_body_0 = 12'h345; // Chest pocket
                     else
                         p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'h345 : 12'h467;
-                end else begin
-                    // Wave 3+: KMUTT Graduation Gown (Black + Orange-Gold Sash + White Inner)
+                end else if (eff_outfit_wave == 4'd3) begin
+                    // Wave 3: KMUTT Graduation Gown RED (#C12) + Orange-Gold Sash + White Inner
                     if ((p_col_norm == 5'd12 || p_col_norm == 5'd13 || p_col_norm == 5'd18 || p_col_norm == 5'd19))
                         p_body_0 = (p_col_norm == 5'd13 || p_col_norm == 5'd18) ? 12'hFD2 : 12'hF61;
                     else if (p_col_norm >= 5'd14 && p_col_norm <= 5'd17 && p_bsy0 <= 6'd33)
                         p_body_0 = 12'hFFF;
                     else
-                        p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'h111 : 12'h223;
+                        p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'h811 : 12'hC12;
+                end else begin
+                    // Wave 4+: Stage 3 Transcended Master (Gleaming Gold Mech Armor + Cyan Energy Core)
+                    if (p_bsy0 >= 6'd31 && p_bsy0 <= 6'd33 && p_col_norm >= 5'd15 && p_col_norm <= 5'd16)
+                        p_body_0 = 12'h0FF; // Glowing Cyan Reactor Core
+                    else if ((p_col_norm == 5'd12 || p_col_norm == 5'd13 || p_col_norm == 5'd18 || p_col_norm == 5'd19))
+                        p_body_0 = 12'hFFF; // Energy circuit lines
+                    else
+                        p_body_0 = (p_col_norm == 5'd10 || p_col_norm == 5'd21) ? 12'hBA0 : 12'hFE1;
                 end
             end
             // Arms & Animated Sword-Swing Pose
@@ -298,33 +311,40 @@ module vga_renderer_v2 (
                 // Anticipation: back arm raised, front arm braced
                 if ((p_col_norm >= 5'd7 && p_col_norm <= 5'd9 && p_bsy0 >= 6'd23 && p_bsy0 <= 6'd30) ||
                     (p_col_norm >= 5'd21 && p_col_norm <= 5'd24 && p_bsy0 >= 6'd29 && p_bsy0 <= 6'd33))
-                    p_body_0 = (p_bsy0 <= 6'd24 || p_col_norm == 5'd24) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_bsy0 <= 6'd24 || p_col_norm == 5'd24) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : ((eff_outfit_wave == 4'd3) ? 12'hC12 : 12'hFE1)));
             end else if (p_sl_cur >= 4'd7) begin
                 // Smear 1: arms swinging forward-high
                 if ((p_col_norm >= 5'd21 && p_col_norm <= 5'd27 && p_bsy0 >= 6'd27 && p_bsy0 <= 6'd31) ||
                     (p_col_norm >= 5'd7  && p_col_norm <= 5'd9  && p_bsy0 >= 6'd29 && p_bsy0 <= 6'd34))
-                    p_body_0 = (p_col_norm >= 5'd26) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_col_norm >= 5'd26) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : ((eff_outfit_wave == 4'd3) ? 12'hC12 : 12'hFE1)));
             end else if (p_sl_cur >= 4'd4) begin
                 // Hit: both arms thrusting forward
                 if (p_col_norm >= 5'd22 && p_col_norm <= 5'd29 && p_bsy0 >= 6'd30 && p_bsy0 <= 6'd33)
-                    p_body_0 = (p_col_norm >= 5'd28) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_col_norm >= 5'd28) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : ((eff_outfit_wave == 4'd3) ? 12'hC12 : 12'hFE1)));
             end else if (p_sl_cur > 4'd0) begin
                 // Follow Through: extended forward-low
                 if (p_col_norm >= 5'd21 && p_col_norm <= 5'd28 && p_bsy0 >= 6'd32 && p_bsy0 <= 6'd35)
-                    p_body_0 = (p_col_norm >= 5'd27) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_col_norm >= 5'd27) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hFFF : ((eff_outfit_wave == 4'd2) ? 12'h467 : ((eff_outfit_wave == 4'd3) ? 12'hC12 : 12'hFE1)));
             end else begin
                 // Idle / Walk Arms
                 if ((p_col_norm >= 5'd7 && p_col_norm <= 5'd9 && p_bsy0 >= (p_wk_cur ? 6'd28 : 6'd29) && p_bsy0 <= (p_wk_cur ? 6'd35 : 6'd36)) ||
                     (p_col_norm >= 5'd22 && p_col_norm <= 5'd24 && p_bsy0 >= (p_wk_cur ? 6'd29 : 6'd28) && p_bsy0 <= (p_wk_cur ? 6'd36 : 6'd35)))
-                    p_body_0 = (p_bsy0 >= 6'd35) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hEEE : ((eff_outfit_wave == 4'd2) ? 12'h467 : 12'h223));
+                    p_body_0 = (p_bsy0 >= 6'd35) ? 12'hECA : ((eff_outfit_wave <= 4'd1) ? 12'hEEE : ((eff_outfit_wave == 4'd2) ? 12'h467 : ((eff_outfit_wave == 4'd3) ? 12'hC12 : 12'hFE1)));
             end
             // Legs / Gown Skirt (y=38..45)
             if (p_bsy0 >= 6'd38 && p_bsy0 < 6'd46) begin
-                if (eff_outfit_wave >= 4'd3 && p_bsy0 <= 6'd43) begin
+                if (eff_outfit_wave >= 4'd4 && p_bsy0 <= 6'd43) begin
+                    // Transcended Greaves (Gold Armor with Cyan Core Accent)
+                    if (p_col_norm >= 5'd8 && p_col_norm <= 5'd23) begin
+                        if (p_col_norm == 5'd15 || p_col_norm == 5'd16) p_body_0 = 12'h0FF;
+                        else p_body_0 = (p_col_norm == 5'd8 || p_col_norm == 5'd23) ? 12'hBA0 : 12'hFE1;
+                    end
+                end else if (eff_outfit_wave == 4'd3 && p_bsy0 <= 6'd43) begin
+                    // KMUTT Red Graduation Gown Skirt
                     if (p_col_norm >= 5'd8 && p_col_norm <= 5'd23) begin
                         if (p_col_norm == 5'd12 || p_col_norm == 5'd19) p_body_0 = 12'hF61;
                         else if (p_col_norm == 5'd13 || p_col_norm == 5'd18) p_body_0 = 12'hFD2;
-                        else p_body_0 = (p_col_norm == 5'd8 || p_col_norm == 5'd23) ? 12'h111 : 12'h223;
+                        else p_body_0 = (p_col_norm == 5'd8 || p_col_norm == 5'd23) ? 12'h811 : 12'hC12;
                     end
                 end else begin
                     // Left leg (11..14), Right leg (17..20), walking stride
@@ -1057,6 +1077,8 @@ module vga_renderer_v2 (
                 integer qdx, qdy, q_opt;
                 reg [3:0] opt_sum;
                 reg [2:0] opt_gate;
+                reg [1:0] opt_k;
+                reg [8:0] or_back_x, or_front_x;
                 hud_bg_en = 1;
                 hud_bg_color = (gx == 9'd56 || gx == 9'd263 || gy == 9'd44 || gy == 9'd203) ? 6'd59 : 6'd54;
                 // Title: "LOGIC GATE QUIZ"
@@ -1073,11 +1095,15 @@ module vga_renderer_v2 (
                 if (gx >= 9'd128 && gx < 9'd192 && gy >= 9'd66 && gy < 9'd106) begin
                     hud_bg_color = 6'd16;
                     qdy = (gy >= 9'd86) ? (gy - 9'd86) : (9'd86 - gy);
+                    or_back_x  = 9'd144 + ((14 - qdy) >> 1);
+                    or_front_x = 9'd174 - qdy - (qdy >> 1);
                     // Input & Output pins
                     if (quiz_gate == 3'd2) begin
                         if (gx >= 9'd134 && gx < 9'd148 && gy == 9'd86) hud_bg_color = 6'd59; // NOT single input
+                    end else if (quiz_gate == 3'd0 || quiz_gate == 3'd3) begin
+                        if (gx >= 9'd134 && gx < 9'd148 && (gy == 9'd78 || gy == 9'd94)) hud_bg_color = 6'd59; // AND/NAND pins
                     end else begin
-                        if (gx >= 9'd134 && gx < 9'd148 && (gy == 9'd78 || gy == 9'd94)) hud_bg_color = 6'd59;
+                        if (gx >= 9'd134 && gx <= or_back_x && (gy == 9'd78 || gy == 9'd94)) hud_bg_color = 6'd59; // OR/NOR/XOR pins touch back curve!
                     end
                     if (gx >= 9'd174 && gx < 9'd188 && gy == 9'd86) hud_bg_color = 6'd58; // Output Y
                     // Gate Body
@@ -1093,9 +1119,9 @@ module vga_renderer_v2 (
                         if (gx >= 9'd148 && gx <= 9'd170 && qdy <= ((170 - gx) >> 1) + 2) hud_bg_color = 6'd17;
                     end else begin
                         // OR / NOR / XOR (Pointed IEEE tip + Concave input curve)
-                        if (gx >= (9'd153 - ((qdy * 5) >> 4)) && gx <= (9'd174 - qdy - (qdy >> 1)) && qdy <= 14)
+                        if (gx >= or_back_x && gx <= or_front_x && qdy <= 14)
                             hud_bg_color = 6'd17;
-                        if (quiz_gate == 3'd5 && gx >= (9'd148 - ((qdy * 5) >> 4)) && gx <= (9'd150 - ((qdy * 5) >> 4)) && qdy <= 14)
+                        if (quiz_gate == 3'd5 && gx >= (or_back_x - 9'd4) && gx <= (or_back_x - 9'd3) && qdy <= 14)
                             hud_bg_color = 6'd58; // XOR extra input curve
                     end
                     // Inversion bubble for NOT(2), NAND(3), NOR(4)
@@ -1103,12 +1129,13 @@ module vga_renderer_v2 (
                         gx >= 9'd174 && gx <= 9'd178 && qdy <= 2)
                         hud_bg_color = 6'd52;
                 end
-                // 4 Answer Options (gy = 114, 130, 146, 162)
+                // 4 Answer Options (gy = 114, 130, 146, 162) - Guaranteed Zero Duplicate Choices!
                 for (q_opt = 0; q_opt < 4; q_opt = q_opt + 1) begin
                     if (gy >= (9'd114 + q_opt*16) && gy < (9'd122 + q_opt*16) && col_1x >= 6'd14 && col_1x < 6'd23) begin
                         if (q_opt[1:0] == quiz_ans_slot) opt_gate = quiz_gate;
                         else begin
-                            opt_sum = {1'b0, quiz_gate} + ((q_opt[1:0] > quiz_ans_slot) ? {2'b00, q_opt[1:0] - quiz_ans_slot} : ({2'b00, q_opt[1:0]} + 4'd1));
+                            opt_k = (q_opt[1:0] < quiz_ans_slot) ? q_opt[1:0] : (q_opt[1:0] - 2'd1);
+                            opt_sum = {1'b0, quiz_gate} + {2'b00, opt_k} + 4'd1;
                             opt_gate = (opt_sum >= 4'd6) ? (opt_sum - 4'd6) : opt_sum[2:0];
                         end
                         hud_text_en = 1;
