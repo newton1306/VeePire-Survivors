@@ -10,10 +10,15 @@ module audio_synth_v2 (
     input  wire       sfx_pickup,  // Gem / Heart
     input  wire       sfx_evolve,  // Upgrade Cutscene / Boss Kill
     input  wire       sfx_hit,     // Enemy Hit / Crit
+    input  wire [4:0] audio_sw,    // SW[15:11]: [4]=Mute All, [3]=Mute BGM, [2]=Mute SFX, [1:0]=Vol Atten
     output wire       aud_pwm,
     output wire       aud_sd
 );
-    assign aud_sd = 1'b1;
+    wire       master_mute = audio_sw[4];
+    wire       bgm_mute    = audio_sw[3];
+    wire       sfx_mute    = audio_sw[2];
+    wire [1:0] vol_atten   = audio_sw[1:0];
+    assign aud_sd = !rst && !master_mute;
 
     // 1 ms timer @ 25 MHz
     reg [14:0] ms_cnt = 0;
@@ -106,8 +111,9 @@ module audio_synth_v2 (
     end
 
     reg [16:0] lead_div;
+    wire sfx_active = (sfx_timer > 0) && !sfx_mute;
     always @(*) begin
-        if (sfx_timer > 0) begin
+        if (sfx_active) begin
             case (sfx_kind)
                 3'd1: lead_div = 17'd14000 + ({8'd0, (9'd70 - sfx_timer)} << 8); // Whoosh sweep
                 3'd2: lead_div = (sfx_timer > 9'd50) ? 17'd21283 : 17'd15944;     // Crisp Gem ding
@@ -120,19 +126,19 @@ module audio_synth_v2 (
                 3'd4: lead_div = 17'd24000 + ({8'd0, (9'd110 - sfx_timer)} << 7); // Crunch impact
                 default: lead_div = 17'd0;
             endcase
-        end else if (game_state == 3'd4) begin
+        end else if (game_state == 3'd4 || bgm_mute) begin
             lead_div = 17'd0;
         end else begin
             lead_div = note_div(lead_note);
         end
     end
-    wire [16:0] bass_div = (game_state == 3'd4) ? 17'd0 : note_div(bass_note);
+    wire [16:0] bass_div = (game_state == 3'd4 || bgm_mute) ? 17'd0 : note_div(bass_note);
 
     // Oscillators + LFSR Percussion Noise
     reg [16:0] cnt_lead = 0, cnt_bass = 0;
     reg        sq_lead = 0, sq_bass = 0;
     reg [11:0] lfsr = 12'hACE;
-    wire       drum_env = (bgm_ms < 8'd24) && (drum_trig != 4'd0) && (game_state == 3'd2 || game_state == 3'd3);
+    wire       drum_env = !bgm_mute && (bgm_ms < 8'd24) && (drum_trig != 4'd0) && (game_state == 3'd2 || game_state == 3'd3);
 
     always @(posedge clk) begin
         if (rst) begin
@@ -153,15 +159,18 @@ module audio_synth_v2 (
         end
     end
 
-    // 8-bit 97.6 kHz Sigma-Delta / PWM Mixer
-    wire [7:0] mix_lead = (lead_div != 0 && sq_lead) ? (sfx_timer > 0 ? 8'd110 : 8'd70) : 8'd0;
+    // 8-bit 97.6 kHz Sigma-Delta / PWM Mixer with Master Volume Attenuation SW[12:11]
+    wire [7:0] mix_lead = (lead_div != 0 && sq_lead) ? (sfx_active ? 8'd110 : 8'd70) : 8'd0;
     wire [7:0] mix_bass = (bass_div != 0 && sq_bass) ? 8'd55 : 8'd0;
     wire [7:0] mix_drum = (drum_env && lfsr[0])      ? (drum_trig[0] ? 8'd50 : 8'd30) : 8'd0;
-    wire [7:0] mix_total = mix_lead + mix_bass + mix_drum;
+    wire [7:0] mix_raw   = mix_lead + mix_bass + mix_drum;
+    wire [7:0] mix_total = (vol_atten == 2'd0) ? mix_raw :
+                           ((vol_atten == 2'd1) ? {1'b0, mix_raw[7:1]} :
+                           ((vol_atten == 2'd2) ? {2'b00, mix_raw[7:2]} : {3'b000, mix_raw[7:3]}));
 
     reg [7:0] pwm_cnt = 0;
     always @(posedge clk) pwm_cnt <= pwm_cnt + 8'd1;
-    wire pwm_out = (pwm_cnt < mix_total);
+    wire pwm_out = !master_mute && (pwm_cnt < mix_total);
 
     assign aud_pwm = pwm_out ? 1'bz : 1'b0;
 endmodule

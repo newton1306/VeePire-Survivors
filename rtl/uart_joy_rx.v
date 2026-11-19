@@ -5,7 +5,7 @@
 //   Byte 1: {1'b0, j2_shoot, p2_dy_enc[2:0], p2_dx_enc[2:0]}  (enc 0..4 => -2..+2)
 //   Byte 2: {1'b0, joy_start, p2_btn[2:0], p1_btn[2:0]}       ({fire, dash, nova})
 //   Byte 3: {1'b0, kb_shoot, kb_dy_enc[2:0], kb_dx_enc[2:0]}
-//   Byte 4: {1'b0, kb_quiz_hit, kb_quiz_sel[1:0], joy_select, kb_btn[2:0]}
+//   Byte 4: {1'b0, kb_quiz_hit, (kb_quiz_hit ? kb_quiz_sel[1:0] : {kb_esc, kb_start}), joy_select, kb_btn[2:0]}
 module uart_joy_rx (
     input  wire       clk,         // 25 MHz
     input  wire       rst,
@@ -18,12 +18,14 @@ module uart_joy_rx (
     output reg  [2:0] j2_btn      = 3'b0, // {fire, dash, nova}
     output reg        j1_shoot    = 1'b0, // Btn 1 (Top Green)
     output reg        j2_shoot    = 1'b0,
-    output reg        joy_pause   = 1'b0, // Start button / Enter
-    output reg        joy_select  = 1'b0, // Select button / Esc
+    output reg        joy_pause   = 1'b0, // Joystick Start button
+    output reg        joy_select  = 1'b0, // Joystick Select button
     output reg signed [2:0] uart_kb_dx = 3'sd0,
     output reg signed [2:0] uart_kb_dy = 3'sd0,
     output reg  [2:0] uart_kb_btn = 3'b0, // {atk, dash, nova}
     output reg        uart_kb_shoot = 1'b0,
+    output reg        uart_kb_start = 1'b0,
+    output reg        uart_kb_esc   = 1'b0,
     output reg  [1:0] uart_kb_quiz_sel = 2'd0,
     output reg        uart_kb_quiz_hit = 1'b0,
     output reg        joy_link_ok = 1'b0
@@ -127,7 +129,8 @@ module uart_joy_rx (
             j1_shoot         <= 1'b0;  j2_shoot <= 1'b0;
             joy_pause        <= 1'b0;  joy_select <= 1'b0;
             uart_kb_dx       <= 3'sd0; uart_kb_dy <= 3'sd0; uart_kb_btn <= 3'b0;
-            uart_kb_shoot    <= 1'b0;  uart_kb_quiz_sel <= 2'd0; uart_kb_quiz_hit <= 1'b0;
+            uart_kb_shoot    <= 1'b0;  uart_kb_start <= 1'b0; uart_kb_esc <= 1'b0;
+            uart_kb_quiz_sel <= 2'd0;  uart_kb_quiz_hit <= 1'b0;
             joy_link_ok      <= 1'b0;
             wdog_cnt         <= 25'd0;
         end else begin
@@ -140,7 +143,8 @@ module uart_joy_rx (
                 j1_shoot <= 1'b0; j2_shoot <= 1'b0;
                 joy_pause <= 1'b0; joy_select <= 1'b0;
                 uart_kb_dx <= 3'sd0; uart_kb_dy <= 3'sd0; uart_kb_btn <= 3'b0;
-                uart_kb_shoot <= 1'b0; uart_kb_quiz_hit <= 1'b0;
+                uart_kb_shoot <= 1'b0; uart_kb_start <= 1'b0; uart_kb_esc <= 1'b0;
+                uart_kb_quiz_hit <= 1'b0;
             end
 
             if (rx_valid) begin
@@ -173,6 +177,8 @@ module uart_joy_rx (
                     joy_select       <= rx_byte[3];
                     uart_kb_quiz_sel <= rx_byte[5:4];
                     uart_kb_quiz_hit <= rx_byte[6];
+                    uart_kb_start    <= !rx_byte[6] ? rx_byte[4] : 1'b0;
+                    uart_kb_esc      <= !rx_byte[6] ? rx_byte[5] : 1'b0;
                     joy_link_ok      <= 1'b1;
                     wdog_cnt         <= 25'd25000000;
                     pkt_state        <= 3'd0;

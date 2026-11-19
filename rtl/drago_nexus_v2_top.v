@@ -164,7 +164,7 @@ module drago_nexus_v2_top (
     wire [4:0]  btn_sync;
     wire [15:0] sw_sync;
     wire        btn_zero_pulse, btn_orient_pulse;
-    wire        eff_temp_fever = temp_fever | sw_sync[9];
+    wire        eff_temp_fever = temp_fever | sw_sync[0];
 
     // Character and Weapon Customization driven by Engine & Board 5 Pushbuttons
     wire [1:0] hero_sel_l, hero_sel_r;
@@ -195,7 +195,7 @@ module drago_nexus_v2_top (
 
     wire signed [2:0] j1_dx, j1_dy, j2_dx, j2_dy, uart_kb_dx, uart_kb_dy;
     wire [2:0]        j1_btn, j2_btn, uart_kb_btn;
-    wire              j1_shoot, j2_shoot, uart_kb_shoot;
+    wire              j1_shoot, j2_shoot, uart_kb_shoot, uart_kb_start, uart_kb_esc;
     wire              joy_pause, joy_select, joy_link_ok;
     wire [1:0]        uart_kb_quiz_sel;
     wire              uart_kb_quiz_hit;
@@ -205,6 +205,7 @@ module drago_nexus_v2_top (
         .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(j2_shoot),
         .joy_pause(joy_pause), .joy_select(joy_select),
         .uart_kb_dx(uart_kb_dx), .uart_kb_dy(uart_kb_dy), .uart_kb_btn(uart_kb_btn), .uart_kb_shoot(uart_kb_shoot),
+        .uart_kb_start(uart_kb_start), .uart_kb_esc(uart_kb_esc),
         .uart_kb_quiz_sel(uart_kb_quiz_sel), .uart_kb_quiz_hit(uart_kb_quiz_hit),
         .joy_link_ok(joy_link_ok)
     );
@@ -217,8 +218,8 @@ module drago_nexus_v2_top (
     wire kb_skill    = ps2_kb_skill  | uart_kb_btn[1];
     wire kb_nova     = ps2_kb_nova   | uart_kb_btn[0];
     wire kb_shoot    = ps2_kb_shoot  | uart_kb_shoot;
-    wire kb_start    = ps2_kb_start;
-    wire kb_esc      = ps2_kb_esc;
+    wire kb_start    = ps2_kb_start  | uart_kb_start;
+    wire kb_esc      = ps2_kb_esc    | uart_kb_esc;
     wire [1:0] kb_quiz_sel = ps2_kb_quiz_hit ? ps2_kb_quiz_sel : uart_kb_quiz_sel;
     wire       kb_quiz_hit = ps2_kb_quiz_hit | uart_kb_quiz_hit;
 
@@ -342,6 +343,7 @@ module drago_nexus_v2_top (
     audio_synth_v2 u_audio (
         .clk(clk25), .rst(rst), .game_state(game_state), .boss_active(boss_active), .chrono_active(chrono_active),
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+        .audio_sw(sw_sync[15:11]),
         .aud_pwm(AUD_PWM), .aud_sd(AUD_SD)
     );
 endmodule

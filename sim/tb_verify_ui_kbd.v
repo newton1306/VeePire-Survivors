@@ -43,10 +43,13 @@ module tb_verify_ui_kbd;
         .kb_quiz_sel(ps2_kb_quiz_sel), .kb_quiz_hit(ps2_kb_quiz_hit)
     );
 
+    reg        tb_mic_roar = 1'b0;
+    reg [5:0]  tb_sound_lvl = 6'd0;
+
     // UART 5-Byte Bridge RX
     wire signed [2:0] j1_dx, j1_dy, j2_dx, j2_dy, uart_kb_dx, uart_kb_dy;
     wire [2:0]        j1_btn, j2_btn, uart_kb_btn;
-    wire              j1_shoot, j2_shoot, uart_kb_shoot;
+    wire              j1_shoot, j2_shoot, uart_kb_shoot, uart_kb_start, uart_kb_esc;
     wire              joy_pause, joy_select, joy_link_ok;
     wire [1:0]        uart_kb_quiz_sel;
     wire              uart_kb_quiz_hit;
@@ -56,6 +59,7 @@ module tb_verify_ui_kbd;
         .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(j2_shoot),
         .joy_pause(joy_pause), .joy_select(joy_select),
         .uart_kb_dx(uart_kb_dx), .uart_kb_dy(uart_kb_dy), .uart_kb_btn(uart_kb_btn), .uart_kb_shoot(uart_kb_shoot),
+        .uart_kb_start(uart_kb_start), .uart_kb_esc(uart_kb_esc),
         .uart_kb_quiz_sel(uart_kb_quiz_sel), .uart_kb_quiz_hit(uart_kb_quiz_hit),
         .joy_link_ok(joy_link_ok)
     );
@@ -68,8 +72,8 @@ module tb_verify_ui_kbd;
     wire kb_skill    = ps2_kb_skill  | uart_kb_btn[1];
     wire kb_nova     = ps2_kb_nova   | uart_kb_btn[0];
     wire kb_shoot    = ps2_kb_shoot  | uart_kb_shoot;
-    wire kb_start    = ps2_kb_start;
-    wire kb_esc      = ps2_kb_esc;
+    wire kb_start    = ps2_kb_start  | uart_kb_start;
+    wire kb_esc      = ps2_kb_esc    | uart_kb_esc;
     wire [1:0] kb_quiz_sel = ps2_kb_quiz_hit ? ps2_kb_quiz_sel : uart_kb_quiz_sel;
     wire       kb_quiz_hit = ps2_kb_quiz_hit | uart_kb_quiz_hit;
 
@@ -138,7 +142,7 @@ module tb_verify_ui_kbd;
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
         .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r),
         .p1_weapon(p1_weapon), .p2_weapon(p2_weapon), .hero_cursor(hero_cursor),
-        .temp_fever(1'b0), .mic_roar(1'b0), .sound_level(6'd0),
+        .temp_fever(1'b0), .mic_roar(tb_mic_roar), .sound_level(tb_sound_lvl),
         .kb_up(kb_up), .kb_down(kb_down), .kb_left(kb_left), .kb_right(kb_right),
         .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_nova(kb_nova), .kb_shoot(kb_shoot),
         .kb_start(kb_start), .kb_esc(kb_esc),
@@ -193,7 +197,7 @@ module tb_verify_ui_kbd;
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
-        .temp_fever(1'b0), .mic_roar(1'b0), .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius),
+        .temp_fever(1'b0), .mic_roar(tb_mic_roar), .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -268,105 +272,126 @@ module tb_verify_ui_kbd;
         rst = 0;
         wait(vga_y == 10'd485);
 
-        // 1. Capture Title Screen Mode 0 (1P Joystick) - Frame A (Up) & Frame B (Pressed)
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_title_1p_joy_f0.ppm");
-        // Force anim_cnt[23:21] = 3'd6 (0x0C00000) to capture pressed frame cleanly
-        force u_renderer.anim_cnt = 26'h0C00000;
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_title_1p_joy_f1.ppm");
-        release u_renderer.anim_cnt;
+        // 1. Capture Title Screen Default (Joystick 1P)
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_title_joy_1p.ppm");
 
-        // 2. Test PS/2 Hardware Keyboard (send 'D' scancode 8'h23 -> should switch Mode 0 -> Mode 1!)
+        // 2. Joystick D-pad Right on Title -> switches to 2 PLAYERS (still Joystick hints)
+        send_5byte_pkt(8'h94, 8'h12, 8'h00, 8'h12, 8'h00); // J1 right
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
+        if (control_mode !== 2'b10 || !p2_active) begin
+            $display("FAIL: J1 Right on Title did not toggle 2 PLAYERS! control_mode=%b", control_mode);
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] Joystick Right toggled 2 PLAYERS!");
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_title_joy_2p.ppm");
+
+        // 3. PS/2 Keyboard 'D' -> Dead Cells auto-switch to Keyboard AND force 1P Single Player ONLY!
         send_ps2_byte(8'h23); // Make 'D'
         repeat (5) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
-        if (kb_right !== 1'b1) begin $display("FAIL: PS/2 'D' did not assert kb_right!"); fail_cnt = fail_cnt + 1; end
-        if (control_mode !== 2'd1) begin $display("FAIL: PS/2 'D' did not switch mode to 1 (got %0d)", control_mode); fail_cnt = fail_cnt + 1; end
-        else $display("[PASS] PS/2 Hardware Keyboard 'D' switched to Mode 1 (1P KEYBOARD)!");
-        // Release 'D' (F0 23)
-        send_ps2_byte(8'hF0); send_ps2_byte(8'h23);
+        send_ps2_byte(8'hF0); send_ps2_byte(8'h23); // Break 'D'
         repeat (2) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
-        if (kb_right !== 1'b0) begin $display("FAIL: PS/2 break 'F0 23' did not release kb_right!"); fail_cnt = fail_cnt + 1; end
+        if (control_mode !== 2'b01 || p2_active !== 1'b0) begin
+            $display("FAIL: Keyboard did not force 1P Single Player + KB hints! control_mode=%b", control_mode);
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] Keyboard auto-detected -> forced 1P Single Player + KB hints!");
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_title_kb_1p.ppm");
 
-        // Capture Title Screen Mode 1 (1P Keyboard)
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_title_1p_kb.ppm");
-
-        // 3. Test UART 5-Byte Packet Keyboard Right (Mode 1 -> Mode 2: 2P Dual Joy)
-        // b0=0x80|(2<<3)|2 = 0x92, b1=(2<<3)|2 = 0x12, b2=0, b3=(2<<3)|4=0x14 (kb_dx=+2), b4=0
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00);
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
-        if (control_mode !== 2'd2) begin $display("FAIL: UART KB Right did not switch mode to 2 (got %0d)", control_mode); fail_cnt = fail_cnt + 1; end
-        else $display("[PASS] UART KB Right switched to Mode 2 (2P DUAL JOY)!");
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_title_2p_joy.ppm");
-
-        // 4. Test Guide Open via PS/2 ESC (8'h76) -> Page 1
+        // 4. Title Guide Open via PS/2 ESC -> Page 1 -> Page 2 -> Page 3 (blocks Right & Fire) -> Exit via ESC
         send_ps2_byte(8'h76);
         repeat (3) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
         send_ps2_byte(8'hF0); send_ps2_byte(8'h76);
-        if (help_page !== 2'd1) begin $display("FAIL: ESC did not open Guide Page 1 (got %0d)", help_page); fail_cnt = fail_cnt + 1; end
-        else $display("[PASS] ESC opened Guide Page 1!");
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_guide_p1.ppm");
+        if (help_page !== 2'd1) begin $display("FAIL: ESC did not open Guide P1"); fail_cnt = fail_cnt + 1; end
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // KB right -> P2
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // KB right -> P3
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h04); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // Blocked
+        if (help_page !== 2'd3 || game_state !== 3'd0) begin $display("FAIL: Title P3 did not block Right/Fire!"); fail_cnt = fail_cnt + 1; end
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h20); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // UART KB ESC
+        if (help_page !== 2'd0 || game_state !== 3'd0) begin $display("FAIL: UART KB ESC did not exit Guide!"); fail_cnt = fail_cnt + 1; end
+        else $display("[PASS] Title Guide P1->P2->P3 & UART KB ESC Exit passed!");
 
-        // 5. Go Right -> Guide Page 2 (Joystick Diagram)
-        send_5byte_pkt(8'h94, 8'h12, 8'h00, 8'h12, 8'h00); // J1 right
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
-        if (help_page !== 2'd2) begin $display("FAIL: Right on P1 did not go to P2 (got %0d)", help_page); fail_cnt = fail_cnt + 1; end
-        else $display("[PASS] Guide Page 2 reached!");
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_guide_p2.ppm");
-
-        // 6. Go Right -> Guide Page 3 (Keyboard Controls, switch mode to 1 to show KB footer icons)
-        force u_engine.control_mode = 2'd1;
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); // KB right
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
-        if (help_page !== 2'd3) begin $display("FAIL: Right on P2 did not go to P3 (got %0d)", help_page); fail_cnt = fail_cnt + 1; end
-        else $display("[PASS] Guide Page 3 reached!");
-        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_guide_p3.ppm");
-
-        // 7. CRITICAL CHECK: On Page 3, press Right AND press Space/Fire -> MUST NOT advance or start game!
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h04); // KB right + Space
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
-        if (help_page !== 2'd3 || game_state !== 3'd0) begin
-            $display("FAIL: Page 3 did not block Right/Fire! help_page=%0d game_state=%0d", help_page, game_state);
-            fail_cnt = fail_cnt + 1;
-        end else begin
-            $display("[PASS] Page 3 properly blocks Right AND blocks starting game until Exit!");
-        end
-
-        // 8. Press Exit (UART Select/Esc b4[3]=1) -> returns to Title (help_page=0), STILL ST_TITLE!
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h08); // Select/Esc
-        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
-        if (help_page !== 2'd0 || game_state !== 3'd0) begin
-            $display("FAIL: Exit from P3 failed! help_page=%0d game_state=%0d", help_page, game_state);
-            fail_cnt = fail_cnt + 1;
-        end else begin
-            $display("[PASS] Exited Guide cleanly back to Title!");
-        end
-
-        // 9. Now press Space on Title -> starts game (game_state == ST_PLAY), then move & attack with KB!
-        release u_engine.control_mode;
-        send_ps2_byte(8'h29); // Spacebar Make
-        repeat (3) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
-        send_ps2_byte(8'hF0); send_ps2_byte(8'h29); // Spacebar Break
-        if (game_state !== 3'd2) begin
-            $display("FAIL: Spacebar on Title did not start game! game_state=%0d", game_state);
-            fail_cnt = fail_cnt + 1;
-        end else begin
-            $display("[PASS] Spacebar started gameplay (ST_PLAY)!");
-        end
-
-        // 10. Walk right in gameplay with PS/2 'D' (8'h23) & capture gameplay walking frame!
-        begin : blk_walk_chk
-            reg [10:0] px_before;
-            px_before = px;
-            send_ps2_byte(8'h23); // Make 'D'
-            repeat (12) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
-            capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_play_walk.ppm");
-            send_ps2_byte(8'hF0); send_ps2_byte(8'h23); // Break 'D'
-            if (px <= px_before) begin
-                $display("FAIL: PS/2 'D' did not move player right in ST_PLAY! before=%0d after=%0d", px_before, px);
+        // 5. Start game with Space -> Test BOTH KB and Joy control P1 seamlessly!
+        send_ps2_byte(8'h29); repeat (3) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+        send_ps2_byte(8'hF0); send_ps2_byte(8'h29);
+        if (game_state !== 3'd2) begin $display("FAIL: Spacebar did not start game!"); fail_cnt = fail_cnt + 1; end
+        begin : blk_dual_input
+            reg [10:0] x0, x1;
+            x0 = px;
+            send_ps2_byte(8'h23); repeat (6) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+            send_ps2_byte(8'hF0); send_ps2_byte(8'h23);
+            x1 = px;
+            send_5byte_pkt(8'h94, 8'h12, 8'h00, 8'h12, 8'h00);
+            send_5byte_pkt(8'h94, 8'h12, 8'h00, 8'h12, 8'h00);
+            send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00);
+            if (x1 <= x0 || px <= x1) begin
+                $display("FAIL: Dual KB + Joy P1 movement failed! x0=%0d x1=%0d x2=%0d", x0, x1, px);
                 fail_cnt = fail_cnt + 1;
-            end else begin
-                $display("[PASS] PS/2 'D' moved player right (%0d -> %0d)!", px_before, px);
-            end
+            end else $display("[PASS] In-game BOTH Keyboard (%0d->%0d) AND Joystick (%0d->%0d) move P1!", x0, x1, x1, px);
         end
+
+        // 6. Pause inside game with PS/2 ENTER (8'h5A) -> opens 3-page Guide with RESUME footer!
+        send_ps2_byte(8'h5A); repeat (3) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+        send_ps2_byte(8'hF0); send_ps2_byte(8'h5A);
+        if (!paused || help_page !== 2'd1 || control_mode[0] !== 1'b1) begin
+            $display("FAIL: Pause did not open P1 Guide in KB mode! paused=%b page=%0d cm=%b", paused, help_page, control_mode);
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] In-game Pause opened 1/3 Guide cleanly!");
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_pause_p1_kb.ppm");
+
+        // Navigate Pause Guide Page 2 & Page 3 in KB mode
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // P2
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // P3
+        if (!paused || help_page !== 2'd3) begin $display("FAIL: Pause Guide P3 not reached!"); fail_cnt = fail_cnt + 1; end
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_pause_p3_kb.ppm");
+
+        // Touch Joystick Left in Pause -> drops back to P2 AND dynamically switches footer to [STR] RESUME!
+        send_5byte_pkt(8'h90, 8'h12, 8'h00, 8'h12, 8'h00); // J1 Left
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // release
+        if (help_page !== 2'd2 || control_mode[0] !== 1'b0) begin
+            $display("FAIL: Joy Left in Pause failed to update P2/Joy hints! page=%0d cm=%b", help_page, control_mode);
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] Pause Guide live-switched to Joy [STR] RESUME on Page 2!");
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_pause_p2_joy.ppm");
+
+        // Resume via Joy START (b2[6]=1)
+        send_5byte_pkt(8'h92, 8'h12, 8'h40, 8'h12, 8'h00);
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00);
+        if (paused !== 1'b0 || help_page !== 2'd0 || game_state !== 3'd2) begin
+            $display("FAIL: START did not resume game! paused=%b page=%0d gs=%0d", paused, help_page, game_state);
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] Resumed gameplay cleanly!");
+
+        // 7. Final Outfit (Stage 3 Gold) Check: Quiz pass MUST NOT replay outfit_cut_t!
+        force u_engine.stage = 2'd3;
+        force u_engine.room_phase = 3'd3;
+        force u_engine.quiz_ans_slot = 2'd0;
+        force u_engine.quiz_lockout = 6'd0;
+        repeat (2) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+        release u_engine.stage; release u_engine.room_phase; release u_engine.quiz_ans_slot; release u_engine.quiz_lockout;
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h40); // KB Quiz key '1' (b4[6]=1, b4[5:4]=0)
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00);
+        if (room_phase !== 3'd4 || outfit_cut_t !== 8'd0 || stage !== 2'd3) begin
+            $display("FAIL: Final Gold outfit re-triggered animation! rp=%0d oct=%0d stg=%0d", room_phase, outfit_cut_t, stage);
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] Stage 3 Gold outfit skipped repeat transformation animation!");
+
+        // 8. 2-Player Mic Roar Sonic Wave Check (BOTH P1 & P2 expand shockwaves simultaneously!)
+        force u_engine.control_mode = 2'b10; // 2P Dual Joy
+        force u_engine.room_phase = 3'd1;
+        force u_engine.px = 11'd200; force u_engine.py = 10'd220;
+        force u_engine.p2x = 11'd420; force u_engine.p2y = 10'd220;
+        force u_engine.hp = 5'd24; force u_engine.hp2 = 5'd24;
+        repeat (2) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+        release u_engine.room_phase; release u_engine.px; release u_engine.py; release u_engine.p2x; release u_engine.p2y; release u_engine.hp; release u_engine.hp2;
+        tb_sound_lvl = 6'd45;
+        tb_mic_roar  = 1'b1;
+        repeat (2) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+        tb_mic_roar  = 1'b0;
+        repeat (6) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
+        if (sonic_wave_t == 5'd0) begin
+            $display("FAIL: Mic roar did not trigger sonic_wave_t!");
+            fail_cnt = fail_cnt + 1;
+        end else $display("[PASS] 2P Mic Roar active sonic_wave_t=%0d radius=%0d!", sonic_wave_t, sonic_radius);
+        capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_sonic_2p.ppm");
+        release u_engine.control_mode;
 
         if (fail_cnt == 0) $display("=== ALL RTL TESTS PASSED PERFECTLY! ===");
         else               $display("=== FAILED %0d TESTS ===", fail_cnt);

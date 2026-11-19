@@ -182,6 +182,7 @@ module tb_game_v2;
     );
     audio_synth_v2 u_audio (.clk(clk), .rst(rst), .game_state(game_state), .boss_active(boss_active), .chrono_active(chrono_active),
                             .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+                            .audio_sw(5'd0),
                             .aud_pwm(aud_pwm), .aud_sd(aud_sd));
 
     task step_frame;
