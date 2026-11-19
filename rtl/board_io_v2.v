@@ -87,17 +87,17 @@ module board_io_v2 (
     assign LED16_G = pwm_dim && (temp_fever ? anim_cnt[21] : (hp >= 5'd9));
     assign LED16_B = pwm_dim && (temp_fever ? 1'b0 : chrono_active);
 
-    assign LED17_R = pwm_dim && (mic_roar ? 1'b1 : sw_sync[3]);
-    assign LED17_G = pwm_dim && (mic_roar ? anim_cnt[20] : sw_sync[4]);
-    assign LED17_B = pwm_dim && (mic_roar ? 1'b1 : sw_sync[5]);
+    assign LED17_R = pwm_dim && (mic_roar ? 1'b1 : sw_sync[15]);
+    assign LED17_G = pwm_dim && (mic_roar ? anim_cnt[20] : (!sw_sync[15] && !sw_sync[14]));
+    assign LED17_B = pwm_dim && (mic_roar ? 1'b1 : (!sw_sync[15] && !sw_sync[13]));
 
     // 8-Digit 7-Segment:
-    // When SW[8] is ON (or auto every ~2.5s via anim_cnt[25]): Displays Live Temperature [  30.5 C] [SCORE]
-    // Otherwise: Standard RPG Status [E<stage>. H<hp>.] [SCORE]
+    // When SW[1] is ON: Displays Live Temperature [  30.5 C] [SCORE]
+    // Otherwise: Standard RPG Status [E<wave>.] [SCORE]
     wire [2:0] dig_sel = anim_cnt[15:13];
     reg  [4:0] char_code;
     reg        dp_val;
-    wire show_temp = sw_sync[8];
+    wire show_temp = sw_sync[1];
 
     always @(*) begin
         AN     = ~(8'b00000001 << dig_sel);

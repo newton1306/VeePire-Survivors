@@ -9,6 +9,12 @@ sim_work/
 *.str
 *.backup.*
 scripts/__pycache__/
+doc/__pycache__/
+**/__pycache__/
+*.dmp
+doc/diagrams/*.html
+doc/VeePire_*.html
+doc/ref/
 
 xsim.dir/
 *.sdb

@@ -282,9 +282,10 @@ def main():
 
             b0 = 0x80 | ((j1_shoot & 1) << 6) | (enc_axis(j1_dy) << 3) | enc_axis(j1_dx)
             b1 = 0x00 | ((j2_shoot & 1) << 6) | (enc_axis(j2_dy) << 3) | enc_axis(j2_dx)
-            b2 = (((j1_start | j2_start | kb_start) & 1) << 6) | ((j2_btn & 7) << 3) | (j1_btn & 7)
+            b2 = (((j1_start | j2_start) & 1) << 6) | ((j2_btn & 7) << 3) | (j1_btn & 7)
             b3 = 0x00 | ((kb_shoot & 1) << 6) | (enc_axis(kb_dy) << 3) | enc_axis(kb_dx)
-            b4 = 0x00 | ((kb_qhit & 1) << 6) | ((kb_qsel & 3) << 4) | (((j1_sel | j2_sel | kb_sel) & 1) << 3) | (kb_btn & 7)
+            kb_meta = (kb_qsel & 3) if kb_qhit else (((kb_sel & 1) << 1) | (kb_start & 1))
+            b4 = 0x00 | ((kb_qhit & 1) << 6) | (kb_meta << 4) | (((j1_sel | j2_sel) & 1) << 3) | (kb_btn & 7)
 
             pkt = bytes([b0, b1, b2, b3, b4])
             write_serial(h_ser, pkt)
