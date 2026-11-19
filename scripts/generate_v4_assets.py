@@ -211,9 +211,13 @@ def draw_dpad_icon(buf, bw, bh, cx, cy, lit_dir):
             in_lip = (abs(x - cx) <= 2 and y == cy + 6) or (abs(x - cx) <= 6 and y == cy + 3)
             if in_h or in_v:
                 col = 0x346
-                if lit_dir == 'L' and x <= cx - 2 and abs(y - cy) <= 1:
+                if 'L' in lit_dir and x <= cx - 2 and abs(y - cy) <= 1:
                     col = 0x3FF
-                elif lit_dir == 'R' and x >= cx + 2 and abs(y - cy) <= 1:
+                elif 'R' in lit_dir and x >= cx + 2 and abs(y - cy) <= 1:
+                    col = 0x3FF
+                elif 'U' in lit_dir and y <= cy - 2 and abs(x - cx) <= 1:
+                    col = 0x3FF
+                elif 'D' in lit_dir and y >= cy + 2 and abs(x - cx) <= 1:
                     col = 0x3FF
                 elif abs(x - cx) <= 1 and abs(y - cy) <= 1:
                     col = 0x223
@@ -229,14 +233,22 @@ def draw_dpad_icon(buf, bw, bh, cx, cy, lit_dir):
                     if 0 <= nx < bw and 0 <= ny < bh and snap[ny * bw + nx] != 0:
                         tmp[y * bw + x] = 0x111
                         break
-    if lit_dir == 'L':
+    if 'L' in lit_dir:
         set_px(tmp, bw, bh, cx - 5, cy, 0xFFF)
         set_px(tmp, bw, bh, cx - 4, cy - 1, 0xFFF)
         set_px(tmp, bw, bh, cx - 4, cy + 1, 0xFFF)
-    elif lit_dir == 'R':
+    if 'R' in lit_dir:
         set_px(tmp, bw, bh, cx + 5, cy, 0xFFF)
         set_px(tmp, bw, bh, cx + 4, cy - 1, 0xFFF)
         set_px(tmp, bw, bh, cx + 4, cy + 1, 0xFFF)
+    if 'U' in lit_dir:
+        set_px(tmp, bw, bh, cx, cy - 4, 0xFFF)
+        set_px(tmp, bw, bh, cx - 1, cy - 3, 0xFFF)
+        set_px(tmp, bw, bh, cx + 1, cy - 3, 0xFFF)
+    if 'D' in lit_dir:
+        set_px(tmp, bw, bh, cx, cy + 4, 0xFFF)
+        set_px(tmp, bw, bh, cx - 1, cy + 3, 0xFFF)
+        set_px(tmp, bw, bh, cx + 1, cy + 3, 0xFFF)
     add_sticker_outline(tmp, bw, bh, 0xFFF)
     for i, v in enumerate(tmp):
         if v != 0:
@@ -452,6 +464,24 @@ for wid in range(6):
         for x in range(32):
             if wbuf[y * 32 + x] != 0:
                 slots[slot_idx][y * 64 + ox + x] = wbuf[y * 32 + x]
+
+# Slot 10: Game Over / Victory Prompt Icons (4 quadrants of 32x16)
+# TL (0..31, 0..15): Joy Blue '(3)' button | TR (32..63, 0..15): Joy D-Pad L/R
+# BL (0..31,16..31): KB White [SPC] keycap | BR (32..63,16..31): KB White [A][D] dual keycaps
+draw_round_button(slots[10], 64, 32, 16, 6, 4, 0x7EF, 0x29F, 0x14A, '3', pressed=False, sticker=True, font=GLYPHS_3x5)
+draw_dpad_icon(slots[10], 64, 32, 48, 7, 'LR')
+draw_keycap(slots[10], 64, 32, 4,  17, 24, 10, 0xFFF, 0xEEE, 0x9AB, "SPC", text_col=0x112, sticker_col=0x3FE)
+draw_keycap(slots[10], 64, 32, 33, 17, 13, 10, 0xFFF, 0xEEE, 0x9AB, "A",   text_col=0x112, sticker_col=0xFD2)
+draw_keycap(slots[10], 64, 32, 48, 17, 13, 10, 0xFFF, 0xEEE, 0x9AB, "D",   text_col=0x112, sticker_col=0xFD2)
+
+# Slot 11: Logic Gate Quiz Prompt Icons (4 quadrants of 32x16)
+# TL (0..31, 0..15): Joy D-Pad U/D | TR (32..63, 0..15): Joy Blue '(3)' button
+# BL (0..31,16..31): KB White [1]-[4] | BR (32..63,16..31): KB White [SPC]
+draw_dpad_icon(slots[11], 64, 32, 16, 7, 'UD')
+draw_round_button(slots[11], 64, 32, 48, 6, 4, 0x7EF, 0x29F, 0x14A, '3', pressed=False, sticker=True, font=GLYPHS_3x5)
+draw_keycap(slots[11], 64, 32, 3,  17, 12, 10, 0xFFF, 0xEEE, 0x9AB, "1",   text_col=0x112, sticker_col=0xFD2)
+draw_keycap(slots[11], 64, 32, 17, 17, 12, 10, 0xFFF, 0xEEE, 0x9AB, "4",   text_col=0x112, sticker_col=0xFD2)
+draw_keycap(slots[11], 64, 32, 36, 17, 24, 10, 0xFFF, 0xEEE, 0x9AB, "SPC", text_col=0x112, sticker_col=0x3FE)
 
 with open(os.path.join(BASE_DIR, "ui_icons.mem"), "w") as f:
     for s_idx, buf in enumerate(slots):
