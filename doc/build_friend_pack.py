@@ -34,7 +34,7 @@ CURATED_ASSETS = [
     ("01_title_2p_joy.png",        os.path.join(SIM_DIR, "rtl_v5_title_joy_2p.png"), None, "Slide 1 (หน้าปก) & Slide 4 (Joy 2P)"),
     ("02_title_1p_kb.png",         os.path.join(SIM_DIR, "rtl_v5_title_kb_1p.png"), None, "Slide 2 & Slide 4 (KB 1P Auto-Detect)"),
     ("03_guide_board_btns.png",    os.path.join(SIM_DIR, "rtl_v6_guide_p1.png"), os.path.join(SIM_DIR, "rtl_guide_p1.png"), "Slide 3 (Nexys A7 Btns + SW0/1 + SW15-11)"),
-    ("04_guide_joystick.png",      os.path.join(SIM_DIR, "rtl_guide_p2.png"), None, "Slide 4 (Joystick Mapping Diagram)"),
+    ("04_guide_joystick.png",      os.path.join(SIM_DIR, "rtl_v7_guide_p2.png"), os.path.join(SIM_DIR, "rtl_guide_p2.png"), "Slide 4 (Joystick Mapping Diagram)"),
     ("05_guide_keyboard.png",      os.path.join(SIM_DIR, "rtl_guide_p3.png"), None, "Slide 4 (Keyboard Keycaps Diagram)"),
     ("06_combat_sword_lunge.png",  os.path.join(SCR_DIR, "shot_combat_lunge.png"), None, "Slide 5 (Arena Combat + 360 Nova)"),
     ("07_sprite_preview.png",      os.path.join(BASE, "sprite_preview.png"), None, "Slide 6 (All 4 KMUTT Outfits + 6 Weapons + Boss)"),
@@ -44,7 +44,7 @@ CURATED_ASSETS = [
     ("11_diag_block.png",          os.path.join(DIAG_DIR, "diag_block.png"), None, "Slide 8 (System Hardware Block Diagram)"),
     ("12_diag_fsm.png",            os.path.join(DIAG_DIR, "diag_fsm.png"), None, "Slide 9 (Master & Room Sub-FSM Diagrams)"),
     ("13_diag_bridge.png",         os.path.join(DIAG_DIR, "diag_bridge.png"), None, "Slide 10 (5-Byte UART + PS/2 Bridge)"),
-    ("14_pause_unified_guide.png", os.path.join(SIM_DIR, "rtl_v5_pause_p2_joy.png"), None, "Slide 4 (Unified Pause + [STR] RESUME)"),
+    ("14_pause_unified_guide.png", os.path.join(SIM_DIR, "rtl_v7_pause_joy.png"), os.path.join(SIM_DIR, "rtl_v5_pause_p2_joy.png"), "Slide 4 (Unified Pause + [STR] RESUME)"),
     ("15_sonic_wave_2p.png",       os.path.join(SIM_DIR, "rtl_v6_sonic_2p.png"), os.path.join(SIM_DIR, "rtl_v5_sonic_2p.png"), "Slide 7 & Slide 12 (2P Cyan/Pink Sonic Ring)"),
 ]
 

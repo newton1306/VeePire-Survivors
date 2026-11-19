@@ -797,7 +797,7 @@ def build_game_manual():
     img_title_joy2p = img_b64(os.path.join(sim_dir, "rtl_v5_title_joy_2p.png"), os.path.join(scr_dir, "shot_title.png"))
     img_title_kb1p = img_b64(os.path.join(sim_dir, "rtl_v5_title_kb_1p.png"), os.path.join(scr_dir, "shot_title.png"))
     img_guide_p1 = img_b64(os.path.join(sim_dir, "rtl_v6_guide_p1.png"), os.path.join(sim_dir, "rtl_guide_p1.png"))
-    img_pause = img_b64(os.path.join(sim_dir, "rtl_v5_pause_p2_joy.png"), os.path.join(sim_dir, "rtl_guide_p2.png"))
+    img_pause = img_b64(os.path.join(sim_dir, "rtl_v7_pause_joy.png"), os.path.join(sim_dir, "rtl_v5_pause_p2_joy.png"))
     img_sonic = img_b64(os.path.join(sim_dir, "rtl_v6_sonic_2p.png"), os.path.join(sim_dir, "rtl_v5_sonic_2p.png"))
     img_cutscene = img_b64(os.path.join(scr_dir, "shot_upgrade_cutscene.png"))
     img_boss = img_b64(os.path.join(scr_dir, "shot_boss_locked.png"))
