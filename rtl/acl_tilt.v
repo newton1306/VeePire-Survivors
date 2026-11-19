@@ -130,6 +130,7 @@ module acl_tilt (
                                 3'd1: x_reg[15:8] <= rx_shift;
                                 3'd2: y_reg[7:0]  <= rx_shift;
                                 3'd3: y_reg[15:8] <= rx_shift;
+                                default: ;
                             endcase
                             if (byte_idx == 3'd3) begin
                                 csn <= 1'b1; sclk <= 1'b0; wait_cnt <= 0;

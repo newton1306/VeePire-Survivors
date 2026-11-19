@@ -6,7 +6,8 @@ file mkdir $proj_dir
 create_project -force drago_nexus_v2 $proj_dir -part xc7a100tcsg324-1
 
 add_files -norecurse [glob D:/vivado_pj/DRAGO_NEXUS_V2/rtl/*.v]
-add_files -norecurse [glob D:/vivado_pj/DRAGO_NEXUS_V2/mem/*.mem]
+add_files -norecurse [glob -nocomplain D:/vivado_pj/DRAGO_NEXUS_V2/rtl/*.vh]
+add_files -norecurse [glob D:/vivado_pj/DRAGO_NEXUS_V2/*.mem]
 set_property file_type {Memory Initialization Files} [get_files *.mem]
 
 add_files -fileset constrs_1 -norecurse D:/vivado_pj/DRAGO_NEXUS_V2/constrs/nexys_a7_game_v2.xdc

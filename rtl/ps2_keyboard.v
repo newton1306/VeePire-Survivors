@@ -18,7 +18,10 @@ module ps2_keyboard (
     output reg         kb_right    = 1'b0,
     output reg         kb_attack   = 1'b0,
     output reg         kb_skill    = 1'b0,
+    output reg         kb_nova     = 1'b0,
+    output reg         kb_shoot    = 1'b0,
     output reg         kb_start    = 1'b0,
+    output reg         kb_esc      = 1'b0,
     // Quiz Door Number Selection (Keys 1..4)
     output reg  [1:0]  kb_quiz_sel = 2'd0,
     output reg         kb_quiz_hit = 1'b0
@@ -79,9 +82,9 @@ module ps2_keyboard (
 
                 if (bit_count == 4'd10) begin
                     bit_count <= 4'd0;
-                    // Check start=0 and stop=1
-                    if (shift_reg[0] == 1'b0 && ps2_dat_clean == 1'b1) begin
-                        scancode   <= shift_reg[8:1];
+                    // Check start=0 (shifted 10 times from bit 10 -> bit 1) and stop=1 (current ps2_dat_clean)
+                    if (shift_reg[1] == 1'b0 && ps2_dat_clean == 1'b1) begin
+                        scancode   <= shift_reg[9:2];
                         code_valid <= 1'b1;
                     end
                 end else begin
@@ -113,7 +116,10 @@ module ps2_keyboard (
             kb_right    <= 1'b0;
             kb_attack   <= 1'b0;
             kb_skill    <= 1'b0;
+            kb_nova     <= 1'b0;
+            kb_shoot    <= 1'b0;
             kb_start    <= 1'b0;
+            kb_esc      <= 1'b0;
             kb_quiz_sel <= 2'd0;
             kb_quiz_hit <= 1'b0;
         end else begin
@@ -134,18 +140,24 @@ module ps2_keyboard (
                         8'h1C, 8'h6B: kb_left   <= ~is_break;
                         // 'D' or Right Arrow (8'h74)
                         8'h23, 8'h74: kb_right  <= ~is_break;
-                        // Spacebar
-                        8'h29:        kb_attack <= ~is_break;
-                        // 'E' / 'K' / 'Z' (Skill)
+                        // Spacebar or 'J' (Attack / Play)
+                        8'h29, 8'h3B: kb_attack <= ~is_break;
+                        // 'K' / 'E' / 'Z' (Dash Skill)
                         8'h24, 8'h42, 8'h1A: kb_skill <= ~is_break;
+                        // 'L' (360 Nova)
+                        8'h4B:        kb_nova   <= ~is_break;
+                        // 'U' (Bullet Shoot)
+                        8'h3C:        kb_shoot  <= ~is_break;
                         // Enter (Start / Pause)
                         8'h5A:        kb_start  <= ~is_break;
+                        // Escape (Guide / Back)
+                        8'h76:        kb_esc    <= ~is_break;
 
-                        // Number keys 1..4 for instant Door Quiz selection
+                        // Number keys 1..4 for Door Quiz selection + '3'/'4' also trigger nova/shoot during combat
                         8'h16: begin if (!is_break) begin kb_quiz_sel <= 2'd0; kb_quiz_hit <= 1'b1; end end // '1'
                         8'h1E: begin if (!is_break) begin kb_quiz_sel <= 2'd1; kb_quiz_hit <= 1'b1; end end // '2'
-                        8'h26: begin if (!is_break) begin kb_quiz_sel <= 2'd2; kb_quiz_hit <= 1'b1; end end // '3'
-                        8'h25: begin if (!is_break) begin kb_quiz_sel <= 2'd3; kb_quiz_hit <= 1'b1; end end // '4'
+                        8'h26: begin kb_nova  <= ~is_break; if (!is_break) begin kb_quiz_sel <= 2'd2; kb_quiz_hit <= 1'b1; end end // '3'
+                        8'h25: begin kb_shoot <= ~is_break; if (!is_break) begin kb_quiz_sel <= 2'd3; kb_quiz_hit <= 1'b1; end end // '4'
                         default: ;
                     endcase
                     is_break <= 1'b0;
