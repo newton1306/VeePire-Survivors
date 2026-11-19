@@ -27,7 +27,7 @@ module game_engine_v2 (
     input  wire              mic_roar,   // ADMP421 Microphone Voice Roar Shockwave
     input  wire [5:0]        sound_level,// Microphone acoustic loudness 0..63
     input  wire              kb_up, kb_down, kb_left, kb_right,
-    input  wire              kb_attack, kb_skill, kb_start,
+    input  wire              kb_attack, kb_skill, kb_nova, kb_shoot, kb_start, kb_esc,
     input  wire [1:0]        kb_quiz_sel,
     input  wire              kb_quiz_hit,
 
@@ -64,7 +64,12 @@ module game_engine_v2 (
     output reg  [4:0]  hp2           = 5'd24,
     output reg  [5:0]  exp           = 6'd0,
     output reg  [1:0]  stage         = 2'd0,
-    output reg  [15:0] score_bcd     = 16'd0,
+    output reg  [23:0] score_bcd     = 24'd0,
+    output reg  [1:0]  hero_sel_l    = 2'd0,
+    output reg  [1:0]  hero_sel_r    = 2'd1,
+    output reg  [2:0]  p1_weapon     = 3'd0,
+    output reg  [2:0]  p2_weapon     = 3'd1,
+    output reg         hero_cursor   = 1'b0,
     output reg  [6:0]  chrono_energy = 7'd100,
     output wire        chrono_active,
     output reg         mirror        = 1'b0,
@@ -178,21 +183,29 @@ module game_engine_v2 (
 
     wire btnc = btn[4], btnu = btn[3], btnd = btn[2], btnl = btn[1], btnr = btn[0];
     wire use_joy   = 1'b1;
-    assign p2_active = (control_mode == 2'd1);
+    // Modes: 0=1P Joystick, 1=1P Keyboard, 2=2P Dual Joy, 3=2P Co-op (Joy + Keyboard)
+    assign p2_active = (control_mode == 2'd2 || control_mode == 2'd3);
     assign zoom_out  = (zoom_lvl > 7'd0);
 
     wire p1_alive = (hp > 5'd0);
     wire p2_alive = p2_active && (hp2 > 5'd0);
 
-    wire signed [2:0] kb_p1_dx = kb_right ? 3'sd1 : (kb_left ? -3'sd1 : 3'sd0);
-    wire signed [2:0] kb_p1_dy = kb_down ? 3'sd1 : (kb_up ? -3'sd1 : 3'sd0);
-    wire signed [2:0] p1_in_dx = (kb_p1_dx != 3'sd0) ? kb_p1_dx : j1_dx;
-    wire signed [2:0] p1_in_dy = (kb_p1_dy != 3'sd0) ? kb_p1_dy : j1_dy;
+    wire signed [2:0] kb_p1_dx = kb_right ? 3'sd2 : (kb_left ? -3'sd2 : 3'sd0);
+    wire signed [2:0] kb_p1_dy = kb_down ? 3'sd2 : (kb_up ? -3'sd2 : 3'sd0);
+    wire signed [2:0] p1_in_dx = (control_mode == 2'd3 || control_mode == 2'd2) ? j1_dx :
+                                 ((control_mode == 2'd1) ? ((kb_p1_dx != 3'sd0) ? kb_p1_dx : j1_dx) :
+                                                           ((j1_dx != 3'sd0) ? j1_dx : kb_p1_dx));
+    wire signed [2:0] p1_in_dy = (control_mode == 2'd3 || control_mode == 2'd2) ? j1_dy :
+                                 ((control_mode == 2'd1) ? ((kb_p1_dy != 3'sd0) ? kb_p1_dy : j1_dy) :
+                                                           ((j1_dy != 3'sd0) ? j1_dy : kb_p1_dy));
+    wire signed [2:0] p2_in_dx = (control_mode == 2'd3) ? kb_p1_dx : j2_dx;
+    wire signed [2:0] p2_in_dy = (control_mode == 2'd3) ? kb_p1_dy : j2_dy;
 
     reg [4:0] btn_prev = 0;
     reg [2:0] j1_btn_prev = 0, j2_btn_prev = 0;
     reg       joy_pause_prev = 1'b0, joy_select_prev = 1'b0;
-    reg       kb_u_prev = 0, kb_d_prev = 0, kb_l_prev = 0, kb_r_prev = 0, kb_atk_prev = 0, kb_start_prev = 0;
+    reg       kb_u_prev = 0, kb_d_prev = 0, kb_l_prev = 0, kb_r_prev = 0, kb_atk_prev = 0, kb_start_prev = 0, kb_esc_prev = 0;
+    reg       kb_nova_prev = 0, kb_quiz_prev = 0;
     reg       mic_roar_prev = 0;
     reg [2:0] wave_sub = 3'd0;
     reg signed [2:0] j1_dx_prev = 0, j2_dx_prev = 0;
@@ -205,8 +218,10 @@ module game_engine_v2 (
     wire btnr_edge    = btnr && !btn_prev[0];
     wire j1_fire_edge = j1_btn[2] && !j1_btn_prev[2];
     wire j1_dash_edge = j1_btn[1] && !j1_btn_prev[1];
+    wire j1_nova_edge = j1_btn[0] && !j1_btn_prev[0];
     wire j2_fire_edge = j2_btn[2] && !j2_btn_prev[2];
     wire j2_dash_edge = j2_btn[1] && !j2_btn_prev[1];
+    wire j2_nova_edge = j2_btn[0] && !j2_btn_prev[0];
     wire j1_left_edge = (j1_dx < 0) && (j1_dx_prev >= 0);
     wire j1_right_edge= (j1_dx > 0) && (j1_dx_prev <= 0);
     wire j2_left_edge = (j2_dx < 0) && (j2_dx_prev >= 0);
@@ -222,6 +237,9 @@ module game_engine_v2 (
     wire kb_r_e = kb_right && !kb_r_prev;
     wire kb_atk_e = kb_attack && !kb_atk_prev;
     wire kb_star_e = kb_start && !kb_start_prev;
+    wire kb_esc_e = kb_esc && !kb_esc_prev;
+    wire kb_nova_e = kb_nova && !kb_nova_prev;
+    wire kb_quiz_e = kb_quiz_hit && !kb_quiz_prev;
 
     wire any_left_edge  = btnl_edge || j1_left_edge  || j2_left_edge  || kb_l_e;
     wire any_right_edge = btnr_edge || j1_right_edge || j2_right_edge || kb_r_e;
@@ -229,7 +247,10 @@ module game_engine_v2 (
     wire any_down_edge  = btnd_edge || j1_down_edge  || j2_down_edge  || kb_d_e;
     wire any_start_edge = btnc_edge || j1_fire_edge  || j2_fire_edge  || j1_dash_edge || j2_dash_edge || kb_atk_e || kb_star_e;
     wire any_skip_edge  = btnc_edge || j1_fire_edge  || j2_fire_edge  || kb_atk_e;
-    wire real_start_edge = (joy_pause && !joy_pause_prev) || kb_star_e || btnu_edge;
+    wire joy_sel_edge   = joy_select && !joy_select_prev;
+    wire joy_pause_edge = joy_pause && !joy_pause_prev;
+    wire real_start_edge = joy_pause_edge || kb_star_e;
+    wire guide_exit_edge = joy_sel_edge || joy_pause_edge || kb_esc_e;
     wire any_action_edge = btnc_edge || j1_fire_edge || j2_fire_edge || kb_atk_e;
 
     assign chrono_active = (game_state == ST_PLAY) && (room_phase == RP_FIGHT) &&
@@ -294,6 +315,8 @@ module game_engine_v2 (
     reg [5:0]  p1_stun_t = 6'd0, p2_stun_t = 6'd0;
     reg [2:0]  p1_boss_melee_cnt = 3'd0, p2_boss_melee_cnt = 3'd0;
     reg [6:0]  p1_bmelee_rst = 7'd0, p2_bmelee_rst = 7'd0;
+    reg [5:0] p1_nova_cd = 6'd0, p2_nova_cd = 6'd0;
+    reg       fire_req_nova = 1'b0, p2_fire_req_nova = 1'b0;
     reg [5:0]  quiz_lockout = 6'd0;
 
     reg [10:0] sp_x      [0:11];
@@ -319,7 +342,7 @@ module game_engine_v2 (
                 4'd5:  is_solid = 1'b1;      // Torch pillar
                 4'd10: is_solid = 1'b1;      // Abyss
                 4'd12: is_solid = 1'b1;      // Lava River
-                4'd4:  is_solid = ~chr_on;   // Shadow Bridge
+                4'd4:  is_solid = 1'b0;      // Shadow Bridge (Passable)
                 4'd11: is_solid = ~z2_op;    // Gate 11 (Biome 1 East)
                 4'd13: is_solid = ~z3_op;    // Gate 13 (Biome 2/3)
                 4'd9:  is_solid = 1'b1;      // Sealed Red Boss Gate!
@@ -329,21 +352,31 @@ module game_engine_v2 (
     endfunction
 
     task automatic add_score;
-        input [9:0] pts;
-        reg [4:0] d0, d1, d2, d3;
+        input [15:0] pts;
+        reg [4:0] d0, d1, d2, d3, d4, d5;
         begin
             d0 = {1'b0, score_bcd[3:0]};   d1 = {1'b0, score_bcd[7:4]};
             d2 = {1'b0, score_bcd[11:8]};  d3 = {1'b0, score_bcd[15:12]};
-            if      (pts == 10'd10)  d1 = d1 + 1;
-            else if (pts == 10'd25)  begin d0 = d0 + 5; d1 = d1 + 2; end
-            else if (pts == 10'd50)  d1 = d1 + 5;
-            else if (pts == 10'd100) d2 = d2 + 1;
-            else if (pts == 10'd500) d2 = d2 + 5;
-            if (d0 >= 5'd10) begin d0 = d0 - 5'd10; d1 = d1 + 1; end
-            if (d1 >= 5'd10) begin d1 = d1 - 5'd10; d2 = d2 + 1; end
-            if (d2 >= 5'd10) begin d2 = d2 - 5'd10; d3 = d3 + 1; end
-            if (d3 >= 5'd10) begin d3 = 5'd9; d2 = 5'd9; d1 = 5'd9; d0 = 5'd9; end
-            score_bcd <= {d3[3:0], d2[3:0], d1[3:0], d0[3:0]};
+            d4 = {1'b0, score_bcd[19:16]}; d5 = {1'b0, score_bcd[23:20]};
+
+            if      (pts == 16'd10)   d1 = d1 + 5'd1;
+            else if (pts == 16'd15)  begin d0 = d0 + 5'd5; d1 = d1 + 5'd1; end
+            else if (pts == 16'd25)  begin d0 = d0 + 5'd5; d1 = d1 + 5'd2; end
+            else if (pts == 16'd50)   d1 = d1 + 5'd5;
+            else if (pts == 16'd100)  d2 = d2 + 5'd1;
+            else if (pts == 16'd250) begin d1 = d1 + 5'd5; d2 = d2 + 5'd2; end
+            else if (pts == 16'd500)  d2 = d2 + 5'd5;
+            else if (pts == 16'd1000) d3 = d3 + 5'd1;
+            else                      d1 = d1 + 5'd1;
+
+            if (d0 >= 5'd10) begin d0 = d0 - 5'd10; d1 = d1 + 5'd1; end
+            if (d1 >= 5'd10) begin d1 = d1 - 5'd10; d2 = d2 + 5'd1; end
+            if (d2 >= 5'd10) begin d2 = d2 - 5'd10; d3 = d3 + 5'd1; end
+            if (d3 >= 5'd10) begin d3 = d3 - 5'd10; d4 = d4 + 5'd1; end
+            if (d4 >= 5'd10) begin d4 = d4 - 5'd10; d5 = d5 + 5'd1; end
+            if (d5 >= 5'd10) begin d5 = 5'd9; d4 = 5'd9; d3 = 5'd9; d2 = 5'd9; d1 = 5'd9; d0 = 5'd9; end
+
+            score_bcd <= {d5[3:0], d4[3:0], d3[3:0], d2[3:0], d1[3:0], d0[3:0]};
         end
     endtask
 
@@ -507,7 +540,7 @@ module game_engine_v2 (
             p1_ooc_t <= 9'd0; p2_ooc_t <= 9'd0; p1_regen_div <= 7'd0; p2_regen_div <= 7'd0;
             p1_stun_t <= 6'd0; p2_stun_t <= 6'd0; p1_boss_melee_cnt <= 3'd0; p2_boss_melee_cnt <= 3'd0;
             p1_bmelee_rst <= 7'd0; p2_bmelee_rst <= 7'd0;
-            score_bcd <= 16'd0; chrono_energy <= 7'd100;
+            score_bcd <= 24'd0; chrono_energy <= 7'd100;
             wave <= 4'd1; wave_sub <= 3'd0; paused <= 1'b0; zone2_open <= 1'b0; zone3_open <= 1'b0;
             room_phase <= RP_BANNER; wave_banner_t <= 7'd90; door_slam_t <= 6'd45;
             door_slide <= 5'd0; boss_trans_t <= 8'd0; quiz_wrong_t <= 7'd0;
@@ -598,8 +631,8 @@ module game_engine_v2 (
         end else if (p2_dash_timer > 0) begin
             p2_move_dx = p2_face_dx * 5'sd4; p2_move_dy = p2_face_dy * 5'sd4;
         end else begin
-            p2_move_dx = (stage >= 2'd1 && j2_dx != 0) ? (j2_dx > 0 ? j2_dx + 5'sd1 : j2_dx - 5'sd1) : j2_dx;
-            p2_move_dy = (stage >= 2'd1 && j2_dy != 0) ? (j2_dy > 0 ? j2_dy + 5'sd1 : j2_dy - 5'sd1) : j2_dy;
+            p2_move_dx = (stage >= 2'd1 && p2_in_dx != 0) ? (p2_in_dx > 0 ? p2_in_dx + 5'sd1 : p2_in_dx - 5'sd1) : p2_in_dx;
+            p2_move_dy = (stage >= 2'd1 && p2_in_dy != 0) ? (p2_in_dy > 0 ? p2_in_dy + 5'sd1 : p2_in_dy - 5'sd1) : p2_in_dy;
         end
     end
 
@@ -632,11 +665,28 @@ module game_engine_v2 (
         end else begin
             if (game_state != ST_PLAY || room_phase == RP_QUIZ || paused) begin
                 fire_req <= 1'b0; p2_fire_req <= 1'b0;
+                fire_req_nova <= 1'b0; p2_fire_req_nova <= 1'b0;
             end else begin
-                if (p1_alive && j1_btn[2] && !j1f_prev_clk)
-                    fire_req <= 1'b1;
-                if (p2_alive && j2_btn[2] && !j2f_prev_clk)
-                    p2_fire_req <= 1'b1;
+                if (control_mode == 2'd3) begin
+                    if (p1_alive && ((j1_btn[2] && !j1f_prev_clk) || (j1_btn[0] && !j1_btn_prev[0] && p1_nova_cd == 0))) begin
+                        fire_req <= 1'b1;
+                        if (j1_btn[0] && p1_nova_cd == 0) fire_req_nova <= 1'b1;
+                    end
+                    if (p2_alive && ((kb_attack && !kb_atk_prev) || (kb_nova && !kb_nova_prev && p2_nova_cd == 0))) begin
+                        p2_fire_req <= 1'b1;
+                        if (kb_nova && p2_nova_cd == 0) p2_fire_req_nova <= 1'b1;
+                    end
+                end else begin
+                    if (p1_alive && ((j1_btn[2] && !j1f_prev_clk) || (kb_attack && !kb_atk_prev) ||
+                                     ((j1_btn[0] && !j1_btn_prev[0]) || (kb_nova && !kb_nova_prev)) && p1_nova_cd == 0)) begin
+                        fire_req <= 1'b1;
+                        if ((j1_btn[0] || kb_nova) && p1_nova_cd == 0) fire_req_nova <= 1'b1;
+                    end
+                    if (p2_alive && ((j2_btn[2] && !j2f_prev_clk) || (j2_btn[0] && !j2_btn_prev[0] && p2_nova_cd == 0))) begin
+                        p2_fire_req <= 1'b1;
+                        if (j2_btn[0] && p2_nova_cd == 0) p2_fire_req_nova <= 1'b1;
+                    end
+                end
             end
 
             for (idx = 0; idx < 16; idx = idx + 1) begin
@@ -676,9 +726,12 @@ module game_engine_v2 (
                     joy_select_prev <= joy_select;
                     kb_u_prev <= kb_up; kb_d_prev <= kb_down;
                     kb_l_prev <= kb_left; kb_r_prev <= kb_right;
-                    kb_atk_prev <= kb_attack; kb_start_prev <= kb_start;
+                    kb_atk_prev <= kb_attack; kb_start_prev <= kb_start; kb_esc_prev <= kb_esc;
+                    kb_nova_prev <= kb_nova; kb_quiz_prev <= kb_quiz_hit;
                     mic_roar_prev <= mic_roar;
                     frame_cnt <= frame_cnt + 9'd1;
+                    if (p1_nova_cd > 0) p1_nova_cd <= p1_nova_cd - 6'd1;
+                    if (p2_nova_cd > 0) p2_nova_cd <= p2_nova_cd - 6'd1;
 
                     if (shake_mag > 0) shake_mag <= shake_mag - 4'd1;
                     if (hit_stop > 0)  hit_stop  <= hit_stop - 3'd1;
@@ -686,34 +739,59 @@ module game_engine_v2 (
                     if (joy_select && !joy_select_prev && game_state != ST_TITLE) begin
                         init_game(); game_state <= ST_TITLE; help_page <= 2'd0; paused <= 1'b0; sfx_pickup <= 1'b1;
                     end else if (game_state == ST_TITLE) begin
+                        if (!p2_active) hero_cursor <= 1'b0;
                         if (help_page == 2'd0) begin
-                            if (any_right_edge || any_left_edge) begin
-                                control_mode <= (control_mode == 2'd0) ? 2'd1 : 2'd0; sfx_pickup <= 1'b1;
-                            end else if (real_start_edge) begin
-                                help_page <= 2'd1; sfx_pickup <= 1'b1; // Open Board Controls Guide
-                            end else if (any_action_edge) begin
-                                init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1; // Start Game immediately
+                            // Board 5 Pushbuttons for character & weapon customization:
+                            if (btnl_edge) begin
+                                hero_cursor <= 1'b0; sfx_pickup <= 1'b1;
+                            end else if (btnr_edge && p2_active) begin
+                                hero_cursor <= 1'b1; sfx_pickup <= 1'b1;
+                            end else if (btnc_edge) begin
+                                if (!hero_cursor || !p2_active) hero_sel_l <= hero_sel_l + 2'd1;
+                                else                            hero_sel_r <= hero_sel_r + 2'd1;
+                                sfx_pickup <= 1'b1;
+                            end else if (btnu_edge) begin
+                                if (!hero_cursor || !p2_active) p1_weapon <= (p1_weapon >= 3'd5) ? 3'd0 : (p1_weapon + 3'd1);
+                                else                            p2_weapon <= (p2_weapon >= 3'd5) ? 3'd0 : (p2_weapon + 3'd1);
+                                sfx_pickup <= 1'b1;
+                            end else if (btnd_edge) begin
+                                if (!hero_cursor || !p2_active) p1_weapon <= (p1_weapon == 3'd0) ? 3'd5 : (p1_weapon - 3'd1);
+                                else                            p2_weapon <= (p2_weapon == 3'd0) ? 3'd5 : (p2_weapon - 3'd1);
+                                sfx_pickup <= 1'b1;
+                            // Mode Selection via Joystick D-pad or Keyboard:
+                            end else if (j1_right_edge || j2_right_edge || kb_r_e || j1_down_edge || j2_down_edge || kb_d_e) begin
+                                control_mode <= control_mode + 2'd1; sfx_pickup <= 1'b1;
+                            end else if (j1_left_edge || j2_left_edge || kb_l_e || j1_up_edge || j2_up_edge || kb_u_e) begin
+                                control_mode <= control_mode - 2'd1; sfx_pickup <= 1'b1;
+                            // Controls Guide (Start / Select / Esc):
+                            end else if (guide_exit_edge) begin
+                                help_page <= 2'd1; sfx_pickup <= 1'b1;
+                            // Start Game (Button 3/Fire or Space key):
+                            end else if (j1_fire_edge || j2_fire_edge || kb_atk_e) begin
+                                init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1;
                             end
                         end else if (help_page == 2'd1) begin
-                            // Page 1: Board Controls -> Next to Joy Controls
-                            if (real_start_edge || any_action_edge || any_right_edge || any_down_edge) begin
+                            // Page 1: Board Hardware Controls -> Next to Joy Controls (or Exit via guide_exit_edge)
+                            if (guide_exit_edge) begin
+                                help_page <= 2'd0; sfx_pickup <= 1'b1;
+                            end else if (any_right_edge || any_down_edge) begin
                                 help_page <= 2'd2; sfx_pickup <= 1'b1;
-                            end else if (any_left_edge || joy_select) begin
-                                help_page <= 2'd0; sfx_pickup <= 1'b1; // Back to Title
                             end
                         end else if (help_page == 2'd2) begin
-                            // Page 2: Joystick Controls -> Next to Keyboard Controls
-                            if (real_start_edge || any_action_edge || any_right_edge || any_down_edge) begin
+                            // Page 2: Joystick Controls -> Prev/Next (or Exit via guide_exit_edge)
+                            if (guide_exit_edge) begin
+                                help_page <= 2'd0; sfx_pickup <= 1'b1;
+                            end else if (any_right_edge || any_down_edge) begin
                                 help_page <= 2'd3; sfx_pickup <= 1'b1;
-                            end else if (any_left_edge || joy_select) begin
-                                help_page <= 2'd1; sfx_pickup <= 1'b1; // Back to Board Controls
+                            end else if (any_left_edge || any_up_edge) begin
+                                help_page <= 2'd1; sfx_pickup <= 1'b1;
                             end
                         end else if (help_page == 2'd3) begin
-                            // Page 3: Keyboard Controls -> Start Game!
-                            if (real_start_edge || any_action_edge || any_right_edge || any_down_edge) begin
-                                init_game(); help_page <= 2'd0; game_state <= ST_PLAY; sfx_evolve <= 1'b1;
-                            end else if (any_left_edge || joy_select) begin
-                                help_page <= 2'd2; sfx_pickup <= 1'b1; // Back to Joy Controls
+                            // Page 3 (LAST PAGE): Cannot go right! Cannot start game here! Must exit guide first!
+                            if (guide_exit_edge) begin
+                                help_page <= 2'd0; sfx_pickup <= 1'b1;
+                            end else if (any_left_edge || any_up_edge) begin
+                                help_page <= 2'd2; sfx_pickup <= 1'b1;
                             end
                         end
                     end else if (game_state == ST_CUTSCENE) begin
@@ -725,7 +803,7 @@ module game_engine_v2 (
                         end else if (any_left_edge || any_right_edge) begin
                             init_game(); game_state <= ST_TITLE; sfx_pickup <= 1'b1;
                         end
-                    end else if (joy_pause && !joy_pause_prev && room_phase != RP_QUIZ) begin
+                    end else if ((joy_pause_edge || kb_star_e) && room_phase != RP_QUIZ) begin
                         paused <= ~paused; sfx_pickup <= 1'b1;
                     end else if (paused) begin
                         // Game paused via Joystick Start button: freeze engine cleanly!
@@ -744,7 +822,7 @@ module game_engine_v2 (
                                 wave_banner_t <= 7'd90; room_phase <= RP_BANNER;
                             end
                         end else if (quiz_lockout == 0) begin
-                            if (kb_quiz_hit) begin
+                            if (kb_quiz_e || kb_quiz_hit) begin
                                 if (kb_quiz_sel == quiz_ans_slot) begin
                                     room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
                                     outfit_cut_t <= 8'd120;
@@ -810,14 +888,10 @@ module game_engine_v2 (
                                 end
                             end
                         end
-                        if (chrono_active) begin
-                            chrono_div <= (chrono_div >= 2'd2) ? 2'd0 : chrono_div + 2'd1;
-                            world_tick <= (chrono_div == 2'd0);
-                            if (frame_cnt[0] && chrono_energy > 0) chrono_energy <= chrono_energy - 7'd1;
-                        end else begin
-                            chrono_div <= 2'd0; world_tick <= 1'b1;
-                            if (frame_cnt[2:0] == 3'b000 && chrono_energy < 7'd100) chrono_energy <= chrono_energy + 7'd1;
-                        end
+                        // Fast fluid 60fps action always (no enemy slow down!)
+                        chrono_div <= 2'd0;
+                        world_tick <= 1'b1;
+                        if (frame_cnt[2:0] == 3'b000 && chrono_energy < 7'd100) chrono_energy <= chrono_energy + 7'd1;
 
                         if (combo_timer > 0) combo_timer <= combo_timer - 8'd1; else combo_cnt <= 7'd0;
                         if (p1_combo_rst > 0) p1_combo_rst <= p1_combo_rst - 6'd1; else p1_combo_step <= 2'd0;
@@ -830,15 +904,15 @@ module game_engine_v2 (
                             if (p1_in_dy < 0) face_dy <= -3'sd1; else if (p1_in_dy > 0) face_dy <= 3'sd1; else face_dy <= 3'sd0;
                             if (frame_cnt[2:0] == 3'b000) walk_frame <= ~walk_frame;
                         end
-                        if (p2_alive && (j2_dx != 0 || j2_dy != 0)) begin
-                            if (j2_dx < 0) begin p2_face_dx <= -3'sd1; p2_mirror <= 1'b1; end
-                            else if (j2_dx > 0) begin p2_face_dx <= 3'sd1; p2_mirror <= 1'b0; end
+                        if (p2_alive && (p2_in_dx != 0 || p2_in_dy != 0)) begin
+                            if (p2_in_dx < 0) begin p2_face_dx <= -3'sd1; p2_mirror <= 1'b1; end
+                            else if (p2_in_dx > 0) begin p2_face_dx <= 3'sd1; p2_mirror <= 1'b0; end
                             else p2_face_dx <= 3'sd0;
-                            if (j2_dy < 0) p2_face_dy <= -3'sd1; else if (j2_dy > 0) p2_face_dy <= 3'sd1; else p2_face_dy <= 3'sd0;
+                            if (p2_in_dy < 0) p2_face_dy <= -3'sd1; else if (p2_in_dy > 0) p2_face_dy <= 3'sd1; else p2_face_dy <= 3'sd0;
                             if (frame_cnt[2:0] == 3'b000) p2_walk_frame <= ~p2_walk_frame;
                         end
 
-                        if (p1_alive && p1_stun_t == 0 && (btnu_edge || (use_joy && j1_dash_edge)) && dash_cd == 0) begin
+                        if (p1_alive && p1_stun_t == 0 && ((control_mode == 2'd3) ? j1_dash_edge : (j1_dash_edge || kb_skill)) && dash_cd == 0) begin
                             dash_timer <= 5'd10; dash_cd <= 6'd36; invuln_timer <= 6'd15;
                             dash_gx <= px; dash_gy <= py; sfx_shoot <= 1'b1;
                         end else begin
@@ -846,7 +920,7 @@ module game_engine_v2 (
                             if (dash_cd > 0)    dash_cd    <= dash_cd - 6'd1;
                         end
 
-                        if (p2_alive && p2_stun_t == 0 && j2_dash_edge && p2_dash_cd == 0) begin
+                        if (p2_alive && p2_stun_t == 0 && ((control_mode == 2'd3) ? kb_skill : j2_dash_edge) && p2_dash_cd == 0) begin
                             p2_dash_timer <= 5'd10; p2_dash_cd <= 6'd36; p2_invuln <= 6'd15;
                             p2_dash_gx <= p2x; p2_dash_gy <= p2y; sfx_shoot <= 1'b1;
                         end else begin
@@ -870,8 +944,8 @@ module game_engine_v2 (
                         if (p1_bmelee_rst > 0) p1_bmelee_rst <= p1_bmelee_rst - 7'd1; else p1_boss_melee_cnt <= 3'd0;
                         if (p2_bmelee_rst > 0) p2_bmelee_rst <= p2_bmelee_rst - 7'd1; else p2_boss_melee_cnt <= 3'd0;
 
-                        // Y Button: Fire 100% Single-Target Lock-On Homing Blue Gun Bullets!
-                        if (p1_alive && p1_stun_t == 0 && j1_shoot && p1_gun_cd == 0) begin
+                        // Bullet Shoot (Joy Btn 1 / KB 4 or U): Fire 100% Single-Target Lock-On Homing Blue Gun Bullets!
+                        if (p1_alive && p1_stun_t == 0 && ((control_mode == 2'd3) ? j1_shoot : (j1_shoot || kb_shoot)) && p1_gun_cd == 0) begin
                             p1_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p1_ooc_t <= 9'd0; p1_regen_div <= 7'd0;
                             if (gun1_valid) begin
                                 gdx = $signed({1'b0, gun1_x}) - $signed({1'b0, px});
@@ -897,7 +971,7 @@ module game_engine_v2 (
                                 end
                             end
                         end
-                        if (p2_alive && p2_stun_t == 0 && j2_shoot && p2_gun_cd == 0) begin
+                        if (p2_alive && p2_stun_t == 0 && ((control_mode == 2'd3) ? kb_shoot : j2_shoot) && p2_gun_cd == 0) begin
                             p2_gun_cd <= 4'd10; sfx_shoot <= 1'b1; p2_ooc_t <= 9'd0; p2_regen_div <= 7'd0;
                             if (gun2_valid) begin
                                 gdx = $signed({1'b0, gun2_x}) - $signed({1'b0, p2x});
@@ -946,9 +1020,10 @@ module game_engine_v2 (
 
                         // P1 3-Hit Melee Combo & Magnetic Lunge-Snap (blocked while stunned!)
                         if (fire_req && p1_alive && p1_stun_t == 0) begin
-                            fire_req <= 1'b0; sfx_shoot <= 1'b1;
+                            fire_req <= 1'b0; fire_req_nova <= 1'b0; sfx_shoot <= 1'b1;
                             p1_slash_t <= 4'd12; p1_hit_mask <= 16'b0; p1_boss_hit <= 1'b0;
-                            p1_nova_r <= (p1_combo_step == 2'd2);
+                            p1_nova_r <= (p1_combo_step == 2'd2) || fire_req_nova;
+                            if (fire_req_nova) p1_nova_cd <= 6'd45;
                             p1_combo_step <= (p1_combo_step == 2'd2) ? 2'd0 : (p1_combo_step + 2'd1);
                             p1_combo_rst  <= 6'd50;
                             if (invuln_timer < 6'd14) invuln_timer <= 6'd14;
@@ -968,13 +1043,14 @@ module game_engine_v2 (
                                 p1_lunge_t <= 4'd3; p1_has_tgt <= 1'b0;
                                 p1_slash_dx <= face_dx[1:0]; p1_slash_dy <= face_dy[1:0];
                             end
-                        end else fire_req <= 1'b0;
+                        end else begin fire_req <= 1'b0; fire_req_nova <= 1'b0; end
 
                         // P2 3-Hit Melee Combo & Magnetic Lunge-Snap (blocked while stunned!)
                         if (p2_fire_req && p2_alive && p2_stun_t == 0) begin
-                            p2_fire_req <= 1'b0; sfx_shoot <= 1'b1;
+                            p2_fire_req <= 1'b0; p2_fire_req_nova <= 1'b0; sfx_shoot <= 1'b1;
                             p2_slash_t <= 4'd12; p2_hit_mask <= 16'b0; p2_boss_hit <= 1'b0;
-                            p2_nova_r <= (p2_combo_step == 2'd2);
+                            p2_nova_r <= (p2_combo_step == 2'd2) || p2_fire_req_nova;
+                            if (p2_fire_req_nova) p2_nova_cd <= 6'd45;
                             p2_combo_step <= (p2_combo_step == 2'd2) ? 2'd0 : (p2_combo_step + 2'd1);
                             p2_combo_rst  <= 6'd50;
                             if (p2_invuln < 6'd14) p2_invuln <= 6'd14;
@@ -994,7 +1070,7 @@ module game_engine_v2 (
                                 p2_lunge_t <= 4'd3; p2_has_tgt <= 1'b0;
                                 p2_slash_dx <= p2_face_dx[1:0]; p2_slash_dy <= p2_face_dy[1:0];
                             end
-                        end else p2_fire_req <= 1'b0;
+                        end else begin p2_fire_req <= 1'b0; p2_fire_req_nova <= 1'b0; end
 
                         // Single Rectangular Arena Bounds (x=[84..550], y=[84..358], doorway x=564)
                         min_px = 11'd84;

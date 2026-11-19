@@ -15,7 +15,7 @@ module board_io_v2 (
     input  wire [4:0]  hp,           // 0..24 HP bar
     input  wire [4:0]  hp2,          // 0..24 P2 HP bar
     input  wire [5:0]  exp,          // 0..63
-    input  wire [15:0] score_bcd,
+    input  wire [23:0] score_bcd,
     input  wire [4:0]  evolve_flash,
     input  wire        chrono_active,
     input  wire [15:0] temp_bcd,
@@ -103,20 +103,20 @@ module board_io_v2 (
         AN     = ~(8'b00000001 << dig_sel);
         dp_val = 1'b1;
         case (dig_sel)
-            3'd7: char_code = show_temp ? {1'b0, temp_bcd[11:8]} : 5'd14; // Tens or 'E'
+            3'd7: char_code = show_temp ? {1'b0, temp_bcd[11:8]} : 5'd14; // 'E' or Temp Tens
             3'd6: begin
-                char_code = show_temp ? {1'b0, temp_bcd[7:4]} : {3'd0, stage};
-                dp_val = 1'b0; // Decimal point for temp or stage
+                char_code = show_temp ? {1'b0, temp_bcd[7:4]} : {1'b0, wave}; // Wave 1..10 or Temp Ones
+                dp_val = 1'b0; // Decimal point separator
             end
-            3'd5: char_code = show_temp ? {1'b0, temp_bcd[3:0]} : 5'd17; // Fraction or 'H'
+            3'd5: char_code = show_temp ? {1'b0, temp_bcd[3:0]} : {1'b0, score_bcd[23:20]}; // 100k digit or Temp Frac
             3'd4: begin
-                char_code = show_temp ? 5'd12 : {2'd0, hp[4:2]}; // 'C' (Celsius) or HP
-                dp_val = show_temp ? 1'b1 : 1'b0;
+                char_code = show_temp ? 5'd12 : {1'b0, score_bcd[19:16]}; // 10k digit or 'C'
+                dp_val = show_temp ? 1'b1 : 1'b1;
             end
-            3'd3: char_code = {1'b0, score_bcd[15:12]};
-            3'd2: char_code = {1'b0, score_bcd[11:8]};
-            3'd1: char_code = {1'b0, score_bcd[7:4]};
-            3'd0: char_code = {1'b0, score_bcd[3:0]};
+            3'd3: char_code = {1'b0, score_bcd[15:12]}; // 1k digit
+            3'd2: char_code = {1'b0, score_bcd[11:8]};  // 100 digit
+            3'd1: char_code = {1'b0, score_bcd[7:4]};   // 10 digit
+            3'd0: char_code = {1'b0, score_bcd[3:0]};   // 1 digit
         endcase
     end
 

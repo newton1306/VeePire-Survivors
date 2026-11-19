@@ -74,7 +74,7 @@ module drago_nexus_v2_top (
     wire [4:0]  p2_dash_timer;
     wire [4:0]  hp, hp2;
     wire [5:0]  exp;
-    wire [15:0] score_bcd;
+    wire [23:0] score_bcd;
     wire [6:0]  chrono_energy;
     wire        chrono_active, mirror, walk_frame;
     wire [4:0]  dash_timer, evolve_flash;
@@ -148,28 +148,36 @@ module drago_nexus_v2_top (
     );
 
     // 3. USB Host Keyboard via PS/2 (Direct WASD, Space, Keys 1-4 for Quiz)
-    wire kb_up, kb_down, kb_left, kb_right;
-    wire kb_attack, kb_skill, kb_start;
-    wire [1:0] kb_quiz_sel;
-    wire       kb_quiz_hit;
+    wire ps2_kb_up, ps2_kb_down, ps2_kb_left, ps2_kb_right;
+    wire ps2_kb_attack, ps2_kb_skill, ps2_kb_nova, ps2_kb_shoot, ps2_kb_start, ps2_kb_esc;
+    wire [1:0] ps2_kb_quiz_sel;
+    wire       ps2_kb_quiz_hit;
     ps2_keyboard u_kb (
         .clk(clk25), .rst(rst),
         .PS2_CLK(PS2_CLK), .PS2_DATA(PS2_DATA),
-        .kb_up(kb_up), .kb_down(kb_down), .kb_left(kb_left), .kb_right(kb_right),
-        .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_start(kb_start),
-        .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit)
+        .kb_up(ps2_kb_up), .kb_down(ps2_kb_down), .kb_left(ps2_kb_left), .kb_right(ps2_kb_right),
+        .kb_attack(ps2_kb_attack), .kb_skill(ps2_kb_skill), .kb_nova(ps2_kb_nova), .kb_shoot(ps2_kb_shoot),
+        .kb_start(ps2_kb_start), .kb_esc(ps2_kb_esc),
+        .kb_quiz_sel(ps2_kb_quiz_sel), .kb_quiz_hit(ps2_kb_quiz_hit)
     );
 
     wire [4:0]  btn_sync;
     wire [15:0] sw_sync;
     wire        btn_zero_pulse, btn_orient_pulse;
     wire        eff_temp_fever = temp_fever | sw_sync[9];
+
+    // Character and Weapon Customization driven by Engine & Board 5 Pushbuttons
+    wire [1:0] hero_sel_l, hero_sel_r;
+    wire [2:0] p1_weapon, p2_weapon;
+    wire       hero_cursor;
+
     board_io_v2 u_board_io (
         .clk(clk25), .rst(rst),
         .btnc_raw(BTNC), .btnu_raw(BTNU), .btnd_raw(BTND), .btnl_raw(BTNL), .btnr_raw(BTNR),
         .sw_raw(SW), .game_state(game_state), .wave(wave), .stage(stage), .hp(hp), .hp2(hp2), .exp(exp),
         .score_bcd(score_bcd), .evolve_flash(evolve_flash), .chrono_active(chrono_active),
-        .temp_bcd(temp_bcd), .temp_fever(eff_temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
+        .temp_bcd(temp_bcd),
+        .temp_fever(eff_temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
         .btn_sync(btn_sync), .sw_sync(sw_sync), .btn_zero_pulse(btn_zero_pulse), .btn_orient_pulse(btn_orient_pulse),
         .LED(LED), .LED16_R(LED16_R), .LED16_G(LED16_G), .LED16_B(LED16_B),
         .LED17_R(LED17_R), .LED17_G(LED17_G), .LED17_B(LED17_B),
@@ -185,27 +193,37 @@ module drago_nexus_v2_top (
         .raw_x(raw_x), .raw_y(raw_y), .tilt_dx(tilt_dx), .tilt_dy(tilt_dy), .orient_mode(orient_mode)
     );
 
-    wire signed [2:0] j1_dx, j1_dy, j2_dx, j2_dy;
-    wire [2:0]        j1_btn, j2_btn;
-    wire              j1_shoot, j2_shoot;
+    wire signed [2:0] j1_dx, j1_dy, j2_dx, j2_dy, uart_kb_dx, uart_kb_dy;
+    wire [2:0]        j1_btn, j2_btn, uart_kb_btn;
+    wire              j1_shoot, j2_shoot, uart_kb_shoot;
     wire              joy_pause, joy_select, joy_link_ok;
+    wire [1:0]        uart_kb_quiz_sel;
+    wire              uart_kb_quiz_hit;
     uart_joy_rx u_uart_joy (
         .clk(clk25), .rst(rst), .uart_rxd(UART_TXD_IN),
         .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j1_shoot(j1_shoot),
         .j2_dx(j2_dx), .j2_dy(j2_dy), .j2_btn(j2_btn), .j2_shoot(j2_shoot),
-        .joy_pause(joy_pause), .joy_select(joy_select), .joy_link_ok(joy_link_ok)
+        .joy_pause(joy_pause), .joy_select(joy_select),
+        .uart_kb_dx(uart_kb_dx), .uart_kb_dy(uart_kb_dy), .uart_kb_btn(uart_kb_btn), .uart_kb_shoot(uart_kb_shoot),
+        .uart_kb_quiz_sel(uart_kb_quiz_sel), .uart_kb_quiz_hit(uart_kb_quiz_hit),
+        .joy_link_ok(joy_link_ok)
     );
+
+    wire kb_up       = ps2_kb_up     | (uart_kb_dy < 0);
+    wire kb_down     = ps2_kb_down   | (uart_kb_dy > 0);
+    wire kb_left     = ps2_kb_left   | (uart_kb_dx < 0);
+    wire kb_right    = ps2_kb_right  | (uart_kb_dx > 0);
+    wire kb_attack   = ps2_kb_attack | uart_kb_btn[2];
+    wire kb_skill    = ps2_kb_skill  | uart_kb_btn[1];
+    wire kb_nova     = ps2_kb_nova   | uart_kb_btn[0];
+    wire kb_shoot    = ps2_kb_shoot  | uart_kb_shoot;
+    wire kb_start    = ps2_kb_start;
+    wire kb_esc      = ps2_kb_esc;
+    wire [1:0] kb_quiz_sel = ps2_kb_quiz_hit ? ps2_kb_quiz_sel : uart_kb_quiz_sel;
+    wire       kb_quiz_hit = ps2_kb_quiz_hit | uart_kb_quiz_hit;
 
     wire signed [2:0] hud_dx = j1_dx;
     wire signed [2:0] hud_dy = j1_dy;
-
-    // SW[15:12] = Left Character (P1), SW[3:0] = Right Character (P2)
-    wire [1:0] hero_sel_l = sw_sync[15] ? 2'd3 :
-                            sw_sync[14] ? 2'd2 :
-                            sw_sync[13] ? 2'd1 : 2'd0;
-    wire [1:0] hero_sel_r = sw_sync[3]  ? 2'd3 :
-                            sw_sync[2]  ? 2'd2 :
-                            sw_sync[1]  ? 2'd1 : 2'd0;
 
     wire [2:0] room_phase;
     wire [6:0] wave_banner_t;
@@ -260,9 +278,12 @@ module drago_nexus_v2_top (
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
         .sfx_shoot(sfx_shoot), .sfx_pickup(sfx_pickup), .sfx_evolve(sfx_evolve), .sfx_hit(sfx_hit),
+        .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r),
+        .p1_weapon(p1_weapon), .p2_weapon(p2_weapon), .hero_cursor(hero_cursor),
         .temp_fever(eff_temp_fever), .mic_roar(mic_roar), .sound_level(sound_level),
         .kb_up(kb_up), .kb_down(kb_down), .kb_left(kb_left), .kb_right(kb_right),
-        .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_start(kb_start),
+        .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_nova(kb_nova), .kb_shoot(kb_shoot),
+        .kb_start(kb_start), .kb_esc(kb_esc),
         .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
@@ -307,7 +328,9 @@ module drago_nexus_v2_top (
         .boss_x(boss_x), .boss_y(boss_y), .boss_hp(boss_hp), .boss_kind(boss_kind),
         .boss_active(boss_active), .boss_locked(boss_locked), .boss_enraged(boss_enraged),
         .laser_state(laser_state), .laser_y(laser_y),
-        .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r), .room_phase(room_phase), .wave_banner_t(wave_banner_t),
+        .hero_sel_l(hero_sel_l), .hero_sel_r(hero_sel_r),
+        .p1_weapon(p1_weapon), .p2_weapon(p2_weapon), .hero_cursor(hero_cursor),
+        .room_phase(room_phase), .wave_banner_t(wave_banner_t),
         .door_slam_t(door_slam_t), .door_slide(door_slide), .quiz_gate(quiz_gate),
         .quiz_cursor(quiz_cursor), .quiz_ans_slot(quiz_ans_slot),
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),

@@ -13,6 +13,8 @@ scripts/__pycache__/
 xsim.dir/
 *.sdb
 *.rlx
+clockInfo.txt
+vivado_tmp/
 
 
 .agents/

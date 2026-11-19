@@ -1,7 +1,17 @@
 """
-DRAGO-NEXUS V2 - Twin USB Joystick -> Nexys A7-100T UART Bridge (Zero-dependency)
-Reads Joystick 1 & Joystick 2 via Windows winmm.dll (works in both Digital & Analog modes)
-and streams 3-byte packets @ 115200 baud to Nexys A7 USB-UART (UART_TXD_IN).
+DRAGO-NEXUS V2 - Twin USB Joystick & Wireless Keyboard -> Nexys A7 UART Bridge
+Reads:
+  1. USB Joystick 1 & 2 via Windows winmm.dll (Digital & Analog modes)
+     Matching real_joystick buttons:
+       Btn 1 (Top Green)  = Bullet Shoot
+       Btn 2 (Right Red)  = Dash
+       Btn 3 (Bottom Blue)= Attack / Play
+       Btn 4 (Left Pink)  = 360 Nova
+       Select (Btn 9)     = Controls Guide / Exit
+       Start  (Btn 10)    = Pause / Guide
+  2. Wireless / USB / Laptop Keyboard via Windows user32.dll GetAsyncKeyState
+     (WASD / Arrows = Move, Space/J = Attack, K/E/Z = Dash, 3/L = Nova, 4/U = Bullet, 1-4 = Quiz, Enter = Pause, Esc = Guide/Back)
+Streams 5-byte packets @ 115200 baud to Nexys A7 USB-UART (UART_TXD_IN).
 """
 import argparse
 import ctypes
@@ -12,11 +22,25 @@ import winreg
 
 winmm = ctypes.WinDLL("winmm")
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+user32 = ctypes.WinDLL("user32", use_last_error=True)
 
 GENERIC_READ = 0x80000000
 GENERIC_WRITE = 0x40000000
 OPEN_EXISTING = 3
 INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+# Virtual-Key codes
+VK_LEFT = 0x25
+VK_UP = 0x26
+VK_RIGHT = 0x27
+VK_DOWN = 0x28
+VK_SPACE = 0x20
+VK_RETURN = 0x0D
+VK_ESCAPE = 0x1B
+
+
+def is_key_down(vk):
+    return bool(user32.GetAsyncKeyState(vk) & 0x8000)
 
 
 class JOYCAPS(ctypes.Structure):
@@ -78,7 +102,6 @@ class COMMTIMEOUTS(ctypes.Structure):
 
 
 def find_nexys_com_port():
-    """Auto-detect FTDI VCP port for Nexys A7 (prefers \\Device\\VCP* over Bluetooth)."""
     candidates = []
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM")
@@ -94,11 +117,9 @@ def find_nexys_com_port():
     except OSError:
         pass
 
-    # Prefer USB FTDI VCP ports first
     for name, val in candidates:
         if "VCP" in name.upper() or "FTDI" in name.upper():
             return val
-    # Fallback to non-BthModem port
     for name, val in candidates:
         if "BTH" not in name.upper():
             return val
@@ -120,9 +141,9 @@ def open_serial(port_name, baud=115200):
 
     dcb.BaudRate = baud
     dcb.ByteSize = 8
-    dcb.Parity = 0    # NOPARITY
-    dcb.StopBits = 0  # ONESTOPBIT
-    dcb.fBits = 0x00000011  # fBinary=1, fDtrControl=DTR_CONTROL_ENABLE (no parity/flow control)
+    dcb.Parity = 0
+    dcb.StopBits = 0
+    dcb.fBits = 0x00000011
     if not kernel32.SetCommState(h, ctypes.byref(dcb)):
         kernel32.CloseHandle(h)
         raise OSError("SetCommState failed")
@@ -156,12 +177,11 @@ def read_pad(joy_id):
     info.dwSize = ctypes.sizeof(JOYINFOEX)
     info.dwFlags = 0xFF
     if winmm.joyGetPosEx(joy_id, ctypes.byref(info)) != 0:
-        return 0, 0, 0, False
+        return 0, 0, 0, 0, 0, 0, False
 
     dx = decode_axis(info.dwXpos)
     dy = decode_axis(info.dwYpos)
 
-    # Also read POV hat (active when Twin USB controller is in Analog mode!)
     pov = info.dwPOV
     if pov != 0xFFFF and pov < 36000:
         if pov >= 31500 or pov <= 4500:
@@ -174,77 +194,116 @@ def read_pad(joy_id):
             dx = -2
 
     b = info.dwButtons
-    # Fire (Melee): Btn2(Circle/B), Btn3(Cross/A), Btn6(R1)
-    fire = 1 if (b & ((1 << 1) | (1 << 2) | (1 << 5))) else 0
-    # Dash: Btn4(Square/X), Btn5(L1)
-    dash = 1 if (b & ((1 << 3) | (1 << 4))) else 0
-    # Chrono: Btn7(L2), Btn8(R2)
-    chrono = 1 if (b & ((1 << 6) | (1 << 7))) else 0
-    # Y / Triangle (Btn1): Shoot Long Blue Gun Bullet
-    shoot_y = 1 if (b & (1 << 0)) else 0
-    # Select (Btn9 = Menu), Start (Btn10 = Pause)
+    # Matching real_joystick.webp:
+    #   Btn 1 (bit 0, Top Green)   -> Bullet Shoot
+    #   Btn 2 (bit 1, Right Red)   -> Dash (+ L1 bit 4)
+    #   Btn 3 (bit 2, Bottom Blue) -> Attack / Play (+ R1 bit 5)
+    #   Btn 4 (bit 3, Left Pink)   -> 360 Nova (+ L2/R2 bits 6..7)
+    shoot_y    = 1 if (b & (1 << 0)) else 0
+    dash       = 1 if (b & ((1 << 1) | (1 << 4))) else 0
+    fire       = 1 if (b & ((1 << 2) | (1 << 5))) else 0
+    nova       = 1 if (b & ((1 << 3) | (1 << 6) | (1 << 7))) else 0
     select_btn = 1 if (b & (1 << 8)) else 0
-    start_btn = 1 if (b & (1 << 9)) else 0
-    btn_bits = (fire << 2) | (dash << 1) | chrono
+    start_btn  = 1 if (b & (1 << 9)) else 0
+    btn_bits   = (fire << 2) | (dash << 1) | nova
     return dx, dy, btn_bits, shoot_y, start_btn, select_btn, True
 
 
+def read_keyboard():
+    dx = 0
+    dy = 0
+    if is_key_down(0x41) or is_key_down(VK_LEFT):   # A or Left
+        dx -= 2
+    if is_key_down(0x44) or is_key_down(VK_RIGHT):  # D or Right
+        dx += 2
+    if is_key_down(0x57) or is_key_down(VK_UP):     # W or Up
+        dy -= 2
+    if is_key_down(0x53) or is_key_down(VK_DOWN):   # S or Down
+        dy += 2
+
+    dx = max(-2, min(2, dx))
+    dy = max(-2, min(2, dy))
+
+    fire       = 1 if (is_key_down(VK_SPACE) or is_key_down(0x4A)) else 0  # Space or J
+    dash       = 1 if (is_key_down(0x4B) or is_key_down(0x45) or is_key_down(0x5A)) else 0 # K, E, Z
+    nova       = 1 if (is_key_down(0x33) or is_key_down(0x4C)) else 0      # 3 or L
+    shoot_y    = 1 if (is_key_down(0x34) or is_key_down(0x55)) else 0      # 4 or U
+    start_btn  = 1 if is_key_down(VK_RETURN) else 0                        # Enter
+    select_btn = 1 if is_key_down(VK_ESCAPE) else 0                        # Esc
+
+    quiz_hit = 0
+    quiz_sel = 0
+    for idx, vk in enumerate((0x31, 0x32, 0x33, 0x34)):
+        if is_key_down(vk):
+            quiz_hit = 1
+            quiz_sel = idx
+            break
+
+    btn_bits = (fire << 2) | (dash << 1) | nova
+    has_kb = any([dx, dy, btn_bits, shoot_y, start_btn, select_btn, quiz_hit])
+    return dx, dy, btn_bits, shoot_y, start_btn, select_btn, quiz_sel, quiz_hit, has_kb
+
+
+def enc_axis(v):
+    return max(0, min(4, int(v) + 2))
+
+
 def main():
-    parser = argparse.ArgumentParser(description="DRAGO-NEXUS V2 Dual USB Joystick Bridge")
+    parser = argparse.ArgumentParser(description="DRAGO-NEXUS V2 Joystick & Wireless Keyboard Bridge")
     parser.add_argument("--port", default="", help="COM port (auto-detected if omitted)")
     parser.add_argument("--baud", type=int, default=115200, help="UART baud rate (default 115200)")
     args = parser.parse_args()
 
     port = args.port or find_nexys_com_port()
     print("==========================================================")
-    print("  VeePire Survivors : Twin USB Joystick -> Nexys A7 Bridge")
-    print("==========================================================")
-    print(f"  UART Port : {port} @ {args.baud} baud")
-
-    for jid in (0, 1):
-        caps = JOYCAPS()
-        if winmm.joyGetDevCapsW(jid, ctypes.byref(caps), ctypes.sizeof(caps)) == 0:
-            dx, dy, bb, sy, sb, selb, ok = read_pad(jid)
-            status = "READY" if ok else "NOT CONNECTED"
-            print(f"  Joystick P{jid+1} (ID {jid}): {caps.szPname} [{status}]")
-        else:
-            print(f"  Joystick P{jid+1} (ID {jid}): Not found")
-
-    h = open_serial(port, args.baud)
-    print("----------------------------------------------------------")
-    print("  Streaming at 60 Hz! Press Ctrl+C to stop.")
-    print("  Analog LED ON : Smooth 2-speed Left Stick + D-Pad active")
-    print("  Analog LED OFF: Digital D-Pad full-speed active")
+    print("  DRAGO-NEXUS V2 : Dual USB Joystick + Keyboard Bridge")
+    print(f"  Target Port : {port} @ {args.baud} baud")
+    print("  Controls:")
+    print("    - Gamepad : D-pad=Move, Btn1=Bullet, Btn2=Dash, Btn3=Attack, Btn4=Nova, Select/Start")
+    print("    - Keyboard: W/A/S/D/Arrows=Move, Space/J=Attack, K/E/Z=Dash, 3/L=Nova, 4/U=Bullet, 1-4=Quiz, Esc=Guide")
     print("==========================================================")
 
-    last_log = 0.0
+    try:
+        h_ser = open_serial(port, args.baud)
+    except Exception as e:
+        print(f"[ERROR] Failed to open serial port {port}: {e}")
+        sys.exit(1)
+
+    print(f"[OK] Connected to {port}. Streaming 5-byte packets to FPGA...")
+    frame = 0
+    prev_state = None
+
     try:
         while True:
-            dx1, dy1, b1, sy1, s1, sel1, ok1 = read_pad(0)
-            dx2, dy2, b2, sy2, s2, sel2, ok2 = read_pad(1)
-            pause_bit = 1 if (s1 or s2) else 0
-            select_bit = 1 if (sel1 or sel2) else 0
-            byte0 = 0x80 | ((sy1 & 0x1) << 6) | (((dy1 + 2) & 0x7) << 3) | ((dx1 + 2) & 0x7)
-            byte1 = ((sy2 & 0x1) << 6) | (((dy2 + 2) & 0x7) << 3) | ((dx2 + 2) & 0x7)
-            byte2 = ((pause_bit & 0x1) << 6) | ((b2 & 0x7) << 3) | (b1 & 0x7)
-            byte3 = (select_bit & 0x1)
-            write_serial(h, bytes([byte0, byte1, byte2, byte3]))
+            j1_dx, j1_dy, j1_btn, j1_shoot, j1_start, j1_sel, has_j1 = read_pad(0)
+            j2_dx, j2_dy, j2_btn, j2_shoot, j2_start, j2_sel, has_j2 = read_pad(1)
 
-            now = time.monotonic()
-            if now - last_log > 0.25:
-                last_log = now
-                sys.stdout.write(
-                    f"\r  P1({'OK' if ok1 else '--'}): dx={dx1:+d} dy={dy1:+d} F/D/C={b1:03b} | "
-                    f"P2({'OK' if ok2 else '--'}): dx={dx2:+d} dy={dy2:+d} F/D/C={b2:03b}   "
-                )
-                sys.stdout.flush()
-            time.sleep(1.0 / 60.0)
+            kb_dx, kb_dy, kb_btn, kb_shoot, kb_start, kb_sel, kb_qsel, kb_qhit, has_kb = read_keyboard()
+
+            b0 = 0x80 | ((j1_shoot & 1) << 6) | (enc_axis(j1_dy) << 3) | enc_axis(j1_dx)
+            b1 = 0x00 | ((j2_shoot & 1) << 6) | (enc_axis(j2_dy) << 3) | enc_axis(j2_dx)
+            b2 = (((j1_start | j2_start | kb_start) & 1) << 6) | ((j2_btn & 7) << 3) | (j1_btn & 7)
+            b3 = 0x00 | ((kb_shoot & 1) << 6) | (enc_axis(kb_dy) << 3) | enc_axis(kb_dx)
+            b4 = 0x00 | ((kb_qhit & 1) << 6) | ((kb_qsel & 3) << 4) | (((j1_sel | j2_sel | kb_sel) & 1) << 3) | (kb_btn & 7)
+
+            pkt = bytes([b0, b1, b2, b3, b4])
+            write_serial(h_ser, pkt)
+
+            cur_state = (j1_dx, j1_dy, j1_btn, j1_shoot, j2_dx, j2_dy, j2_btn, kb_dx, kb_dy, kb_btn, kb_shoot, kb_start, kb_sel, kb_qhit)
+            if cur_state != prev_state and any(cur_state):
+                print(f"[Input] J1=({j1_dx:+d},{j1_dy:+d},b={j1_btn:03b}) KB=({kb_dx:+d},{kb_dy:+d},b={kb_btn:03b},sh={kb_shoot},ent={kb_start},esc={kb_sel})")
+            prev_state = cur_state
+
+            frame += 1
+            if frame % 300 == 0:
+                print(f"[Alive #{frame:06d}] Port={port} | J1:({j1_dx:+d},{j1_dy:+d}) | KB:({kb_dx:+d},{kb_dy:+d},b={kb_btn:03b})")
+
+            time.sleep(0.016)
+
     except KeyboardInterrupt:
-        print("\nStopped.")
+        print("\n[STOP] Bridge terminated by user.")
     finally:
-        # Send neutral stop packet before closing
-        write_serial(h, bytes([0x80 | (2 << 3) | 2, (2 << 3) | 2, 0, 0]))
-        kernel32.CloseHandle(h)
+        kernel32.CloseHandle(h_ser)
 
 
 if __name__ == "__main__":
