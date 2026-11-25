@@ -41,13 +41,23 @@ jobs:
 
       - name: Lint and elaborate top-level Verilog RTL (iverilog)
         run: |
-          iverilog -g2012 -Wall -I rtl -s drago_nexus_v2_top -o /tmp/top_check.vvp rtl/*.v
+          cat <<'EOF' > /tmp/xilinx_stubs.v
+          module MMCME2_BASE #(parameter CLKIN1_PERIOD=10.0, parameter CLKFBOUT_MULT_F=8.0, parameter DIVCLK_DIVIDE=1, parameter CLKOUT0_DIVIDE_F=32.0)
+            (input CLKIN1, CLKFBIN, PWRDWN, RST, output CLKFBOUT, CLKFBOUTB, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, LOCKED);
+            assign CLKOUT0 = CLKIN1;
+            assign LOCKED = 1'b1;
+          endmodule
+          module BUFG (input I, output O);
+            assign O = I;
+          endmodule
+          EOF
+          iverilog -g2012 -Wall -I rtl -s drago_nexus_v2_top -o /tmp/top_check.vvp /tmp/xilinx_stubs.v rtl/*.v
           rm -f /tmp/top_check.vvp
 
       - name: Run Verilog testbench elaboration checks
         run: |
           for tb in sim/tb_v6_verify.v sim/tb_v8_mouse_quiz.v sim/tb_verify_ui_kbd.v; do
             echo "Checking $tb..."
-            iverilog -g2012 -I rtl -o /tmp/tb_check.vvp rtl/*.v "$tb"
+            iverilog -g2012 -I rtl -o /tmp/tb_check.vvp /tmp/xilinx_stubs.v rtl/*.v "$tb"
           done
-          rm -f /tmp/tb_check.vvp
+          rm -f /tmp/tb_check.vvp /tmp/xilinx_stubs.v
