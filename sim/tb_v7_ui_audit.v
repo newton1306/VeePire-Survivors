@@ -15,7 +15,7 @@ module tb_v7_ui_audit;
     reg  [1:0] control_mode = 2'b10;
     reg  [2:0] game_state   = 3'd0;
     reg  [2:0] room_phase   = 3'd0;
-    reg  [1:0] help_page    = 2'd2;
+    reg  [2:0] help_page    = 3'd2;
     reg        paused       = 1'b0;
     reg  [1:0] quiz_ans_slot = 2'd0;
     reg  [1:0] quiz_cursor   = 2'd1;
@@ -65,6 +65,7 @@ module tb_v7_ui_audit;
         .door_slide(5'd0), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(7'd0), .boss_trans_t(8'd0), .outfit_cut_t(8'd0), .paused(paused),
         .temp_fever(1'b0), .mic_roar(1'b0), .help_page(help_page), .sonic_wave_t(5'd0), .sonic_radius(9'd0),
+        .mouse_x(9'd160), .mouse_y(8'd120), .mouse_lmb(1'b0),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 

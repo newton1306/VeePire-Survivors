@@ -1,0 +1,3 @@
+# scripts/joy_bridge.py runs on Windows using only the Python standard library (ctypes + Win32 winmm/user32/kernel32/winreg).
+# Required only when regenerating BRAM sprite/tile/UI assets via scripts/generate_*.py:
+Pillow>=10.0.0

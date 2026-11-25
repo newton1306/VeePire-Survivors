@@ -199,6 +199,9 @@ module drago_nexus_v2_top (
     wire              joy_pause, joy_select, joy_link_ok;
     wire [1:0]        uart_kb_quiz_sel;
     wire              uart_kb_quiz_hit;
+    wire [8:0]        mouse_x;
+    wire [7:0]        mouse_y;
+    wire              mouse_lmb;
     uart_joy_rx u_uart_joy (
         .clk(clk25), .rst(rst), .uart_rxd(UART_TXD_IN),
         .j1_dx(j1_dx), .j1_dy(j1_dy), .j1_btn(j1_btn), .j1_shoot(j1_shoot),
@@ -207,6 +210,7 @@ module drago_nexus_v2_top (
         .uart_kb_dx(uart_kb_dx), .uart_kb_dy(uart_kb_dy), .uart_kb_btn(uart_kb_btn), .uart_kb_shoot(uart_kb_shoot),
         .uart_kb_start(uart_kb_start), .uart_kb_esc(uart_kb_esc),
         .uart_kb_quiz_sel(uart_kb_quiz_sel), .uart_kb_quiz_hit(uart_kb_quiz_hit),
+        .mouse_x(mouse_x), .mouse_y(mouse_y), .mouse_lmb(mouse_lmb),
         .joy_link_ok(joy_link_ok)
     );
 
@@ -235,7 +239,7 @@ module drago_nexus_v2_top (
     wire [1:0] quiz_cursor, quiz_ans_slot;
     wire [7:0] boss_trans_t, outfit_cut_t;
     wire       paused;
-    wire [1:0] help_page;
+    wire [2:0] help_page;
     wire [4:0] sonic_wave_t;
     wire [8:0] sonic_radius;
 
@@ -286,6 +290,7 @@ module drago_nexus_v2_top (
         .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_nova(kb_nova), .kb_shoot(kb_shoot),
         .kb_start(kb_start), .kb_esc(kb_esc),
         .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit),
+        .mouse_x(mouse_x), .mouse_y(mouse_y), .mouse_lmb(mouse_lmb),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t),
@@ -337,6 +342,7 @@ module drago_nexus_v2_top (
         .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
         .temp_fever(eff_temp_fever), .mic_roar(mic_roar),
         .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius),
+        .mouse_x(mouse_x), .mouse_y(mouse_y), .mouse_lmb(mouse_lmb),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 

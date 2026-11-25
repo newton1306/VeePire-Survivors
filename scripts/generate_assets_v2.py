@@ -3,13 +3,12 @@ import math
 from collections import deque
 from PIL import Image, ImageEnhance
 
-BASE_DIR = r"D:\vivado_pj\DRAGO_NEXUS_V2"
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT_DIR = os.path.join(BASE_DIR, "mem")
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, "rtl"), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, "constrs"), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, "sim"), exist_ok=True)
-os.makedirs(os.path.join(BASE_DIR, "docs", "screenshots"), exist_ok=True)
 
 # =========================================================================
 # 1. DYNAMIC CHROMA & ENVIRONMENT PALETTES
@@ -763,5 +762,6 @@ for i, fid in enumerate([0, 2, 4, 6, 8, 10, 12, 14]):
             for dy in range(2):
                 for dx in range(2): prev.putpixel((ox + x*2 + dx, oy + y*2 + dy), rgb)
 
-prev.save(os.path.join(BASE_DIR, "sprite_preview.png"))
-print("Generated V4 KMUTT Edition Assets & sprite_preview.png cleanly!")
+os.makedirs(os.path.join(BASE_DIR, "sim_work"), exist_ok=True)
+prev.save(os.path.join(BASE_DIR, "sim_work", "sprite_preview.png"))
+print("Generated V4 KMUTT Edition Assets cleanly into mem/!")

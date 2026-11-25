@@ -1,0 +1,53 @@
+name: RTL & Tooling CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Icarus Verilog & Python tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check Python scripts syntax
+        run: python3 -m py_compile scripts/*.py
+
+      - name: Verify all BRAM .mem files referenced in RTL exist in mem/
+        run: |
+          python3 - <<'EOF'
+          import glob, os, re, sys
+          refs = set()
+          for path in glob.glob("rtl/*.v"):
+              with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                  txt = f.read()
+              refs.update(re.findall(r'["\']([A-Za-z0-9_]+\.mem)["\']', txt))
+          missing = sorted(r for r in refs if not os.path.exists(os.path.join("mem", r)))
+          print("Referenced .mem files:", sorted(refs))
+          if missing:
+              print("MISSING in mem/:", missing, file=sys.stderr)
+              sys.exit(1)
+          EOF
+
+      - name: Lint and elaborate top-level Verilog RTL (iverilog)
+        run: |
+          iverilog -g2012 -Wall -I rtl -s drago_nexus_v2_top -o /tmp/top_check.vvp rtl/*.v
+          rm -f /tmp/top_check.vvp
+
+      - name: Run Verilog testbench elaboration checks
+        run: |
+          for tb in sim/tb_v6_verify.v sim/tb_v8_mouse_quiz.v sim/tb_verify_ui_kbd.v; do
+            echo "Checking $tb..."
+            iverilog -g2012 -I rtl -o /tmp/tb_check.vvp rtl/*.v "$tb"
+          done
+          rm -f /tmp/tb_check.vvp

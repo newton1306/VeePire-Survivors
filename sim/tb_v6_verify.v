@@ -68,8 +68,8 @@ module tb_v6_verify;
     reg        tb_mic_roar = 1'b0;
     reg  [5:0] tb_sound_lvl = 6'd0;
 
-    wire [1:0]  control_mode, hero_sel_l, hero_sel_r, quiz_cursor, quiz_ans_slot, help_page;
-    wire [2:0]  game_state, room_phase, p1_weapon, p2_weapon;
+    wire [1:0]  control_mode, hero_sel_l, hero_sel_r, quiz_cursor, quiz_ans_slot;
+    wire [2:0]  game_state, room_phase, p1_weapon, p2_weapon, help_page;
     wire [3:0]  wave, p1_slash_t, p2_slash_t;
     wire [1:0]  stage, cut_id, boss_kind;
     wire [4:0]  hp, hp2, dash_timer, p2_dash_timer, evolve_flash, door_slide, sonic_wave_t;
@@ -147,6 +147,7 @@ module tb_v6_verify;
         .kb_attack(ukb_btn[2]), .kb_skill(ukb_btn[1]), .kb_nova(ukb_btn[0]), .kb_shoot(ukb_shoot),
         .kb_start(ukb_start), .kb_esc(ukb_esc),
         .kb_quiz_sel(ukb_quiz_sel), .kb_quiz_hit(ukb_quiz_hit),
+        .mouse_x(9'd160), .mouse_y(8'd120), .mouse_lmb(1'b0),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t),
@@ -198,6 +199,7 @@ module tb_v6_verify;
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
         .temp_fever(sw[0]), .mic_roar(tb_mic_roar), .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius),
+        .mouse_x(9'd160), .mouse_y(8'd120), .mouse_lmb(1'b0),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 

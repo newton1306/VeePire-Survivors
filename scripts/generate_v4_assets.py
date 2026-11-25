@@ -18,7 +18,11 @@ Generates:
 import os
 from PIL import Image
 
-BASE_DIR = "D:/vivado_pj/DRAGO_NEXUS_V2"
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+MEM_DIR = os.path.join(BASE_DIR, "mem")
+PREVIEW_DIR = os.path.join(BASE_DIR, "sim_work")
+os.makedirs(MEM_DIR, exist_ok=True)
+os.makedirs(PREVIEW_DIR, exist_ok=True)
 
 GLYPHS_5x7 = {
     '1': ["  #  ", " ##  ", "  #  ", "  #  ", "  #  ", "  #  ", " ### "],
@@ -483,12 +487,12 @@ draw_keycap(slots[11], 64, 32, 3,  17, 12, 10, 0xFFF, 0xEEE, 0x9AB, "1",   text_
 draw_keycap(slots[11], 64, 32, 17, 17, 12, 10, 0xFFF, 0xEEE, 0x9AB, "4",   text_col=0x112, sticker_col=0xFD2)
 draw_keycap(slots[11], 64, 32, 36, 17, 24, 10, 0xFFF, 0xEEE, 0x9AB, "SPC", text_col=0x112, sticker_col=0x3FE)
 
-with open(os.path.join(BASE_DIR, "ui_icons.mem"), "w") as f:
+with open(os.path.join(MEM_DIR, "ui_icons.mem"), "w") as f:
     for s_idx, buf in enumerate(slots):
         f.write(f"// Slot {s_idx}\n")
         for i in range(0, len(buf), 16):
             f.write(" ".join(f"{v:03X}" for v in buf[i:i+16]) + "\n")
-print("[OK] Wrote ui_icons.mem (32768 words)")
+print("[OK] Wrote mem/ui_icons.mem (32768 words)")
 
 # Preview ui_icons.mem (slots 0..9)
 ui_prev = Image.new("RGB", (64 * 5, 32 * 2), (18, 20, 36))
@@ -501,7 +505,7 @@ for s_idx in range(10):
             v = slots[s_idx][y * 64 + x]
             if v != 0:
                 upx[ox + x, oy + y] = (((v>>8)&0xF)*17, ((v>>4)&0xF)*17, (v&0xF)*17)
-ui_prev.resize((64 * 5 * 3, 32 * 2 * 3), Image.NEAREST).save(os.path.join(BASE_DIR, "image_source/ui_icons_preview.png"))
+ui_prev.resize((64 * 5 * 3, 32 * 2 * 3), Image.NEAREST).save(os.path.join(PREVIEW_DIR, "ui_icons_preview.png"))
 
 # ---------------------------------------------------------------------------
 # 2. Build hero_body.mem (4 outfits x 4 walk frames x 32x24 -> 16384 words)
@@ -649,10 +653,10 @@ for out_i in range(4):
             for x in range(32):
                 hero_mem[base + y * 32 + x] = sp[y * 32 + x]
 
-with open(os.path.join(BASE_DIR, "hero_body.mem"), "w") as f:
+with open(os.path.join(MEM_DIR, "hero_body.mem"), "w") as f:
     for i in range(0, 16384, 16):
         f.write(" ".join(f"{v:03X}" for v in hero_mem[i:i+16]) + "\n")
-print("[OK] Wrote hero_body.mem (16384 words)")
+print("[OK] Wrote mem/hero_body.mem (16384 words)")
 
 # Preview hero_body.mem (4 outfits x 4 walk frames)
 hb_prev = Image.new("RGB", (32 * 4, 24 * 4), (20, 24, 38))
@@ -665,7 +669,7 @@ for out_i in range(4):
                 v = hero_mem[base + y * 32 + x]
                 if v != 0:
                     hpx[wf_i * 32 + x, out_i * 24 + y] = (((v>>8)&0xF)*17, ((v>>4)&0xF)*17, (v&0xF)*17)
-hb_prev.resize((32 * 4 * 4, 24 * 4 * 4), Image.NEAREST).save(os.path.join(BASE_DIR, "image_source/hero_body_preview.png"))
+hb_prev.resize((32 * 4 * 4, 24 * 4 * 4), Image.NEAREST).save(os.path.join(PREVIEW_DIR, "hero_body_preview.png"))
 
 # ---------------------------------------------------------------------------
 # 3. Build kb_guide.mem (256x144 x 4-bit) & rtl/kb_palette.vh (Real White Keys!)
@@ -785,7 +789,7 @@ draw_white_key(136, 74, 26, 13, "ESC")
 draw_text(kb_buf, 256, 144, 170, 78, "EXIT", 7)
 
 # Write kb_guide.mem (18432 bytes = 128 bytes/row x 144 rows)
-with open(os.path.join(BASE_DIR, "kb_guide.mem"), "w") as f:
+with open(os.path.join(MEM_DIR, "kb_guide.mem"), "w") as f:
     f.write("// 256x144 4-bit Real White Keyboard Controls Guide\n")
     for y in range(144):
         row_bytes = []
@@ -793,7 +797,7 @@ with open(os.path.join(BASE_DIR, "kb_guide.mem"), "w") as f:
             b = ((kb_buf[y * 256 + xb * 2] & 0xF) << 4) | (kb_buf[y * 256 + xb * 2 + 1] & 0xF)
             row_bytes.append(f"{b:02X}")
         f.write(" ".join(row_bytes) + "\n")
-print("[OK] Wrote kb_guide.mem (18432 bytes)")
+print("[OK] Wrote mem/kb_guide.mem (18432 bytes)")
 
 # Preview kb_guide.mem
 kb_prev = Image.new("RGB", (256, 144), (20, 24, 38))
@@ -804,5 +808,5 @@ for y in range(144):
         if v != 0:
             c = KB_PAL[v]
             kpx[x, y] = (((c>>8)&0xF)*17, ((c>>4)&0xF)*17, (c&0xF)*17)
-kb_prev.resize((512, 288), Image.NEAREST).save(os.path.join(BASE_DIR, "image_source/kb_guide_preview.png"))
-print("[OK] Saved kb_guide_preview.png, hero_body_preview.png, ui_icons_preview.png")
+kb_prev.resize((512, 288), Image.NEAREST).save(os.path.join(PREVIEW_DIR, "kb_guide_preview.png"))
+print("[OK] Saved previews in sim_work/")

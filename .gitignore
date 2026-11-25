@@ -1,26 +1,53 @@
-# Vivado build & simulation artifacts
+# Vivado / Simulation Build Artifacts
 .Xil/
 vivado_proj/
+vivado_tmp/
 sim_work/
+xsim.dir/
+build/
 *.jou
 *.log
 *.pb
 *.wdb
 *.str
 *.backup.*
-scripts/__pycache__/
-doc/__pycache__/
-**/__pycache__/
 *.dmp
-doc/diagrams/*.html
-doc/VeePire_*.html
-doc/ref/
-
-xsim.dir/
 *.sdb
 *.rlx
+*.dcp
+*.bit
+*.ppm
+*.raw
+*.tsv
 clockInfo.txt
-vivado_tmp/
 
+# Python & Environment
+__pycache__/
+*.pyc
+.venv/
+venv/
 
+# Local Report / Video Production Workspace (kept off GitHub)
+report_maker/
 .agents/
+
+# Local Scratch Media / Video Authoring Scripts (kept off GitHub)
+doc/
+docs/
+image_source/
+scripts/build_demo_video.py
+scripts/build_overlays_fast*.py
+scripts/dub_krit_v4.py
+scripts/gen_seg2_voice*.py
+scripts/krit_v4_script.txt
+scripts/make_autodetect_gif.py
+scripts/vga_sim_render.cpp
+sim/tb_full_demo_bot*.v
+sim/tb_report_shots.v
+sim/tb_v7_autodetect_gif.v
+UTF-8CPE222+Final+brief.pdf
+DRAGO_NEXUS_*_Report.pdf
+วิธีเล่น.md
+preview_*.png
+preview_*.gif
+sprite_preview.png

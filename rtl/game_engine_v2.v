@@ -30,6 +30,9 @@ module game_engine_v2 (
     input  wire              kb_attack, kb_skill, kb_nova, kb_shoot, kb_start, kb_esc,
     input  wire [1:0]        kb_quiz_sel,
     input  wire              kb_quiz_hit,
+    input  wire [8:0]        mouse_x,
+    input  wire [7:0]        mouse_y,
+    input  wire              mouse_lmb,
 
     // Tilemap Dual-Port B (128x64 = 13-bit addr)
     output reg  [12:0] map_addr_b = 0,
@@ -172,7 +175,7 @@ module game_engine_v2 (
     output reg  [6:0]  quiz_wrong_t  = 7'd0,
     output reg  [7:0]  boss_trans_t  = 8'd0,
     output reg  [7:0]  outfit_cut_t  = 8'd0,
-    output reg  [1:0]  help_page     = 2'd0,
+    output reg  [2:0]  help_page     = 3'd0,
     output reg  [4:0]  sonic_wave_t  = 5'd0,
     output reg  [8:0]  sonic_radius  = 9'd100,
     output reg         paused        = 1'b0
@@ -204,6 +207,9 @@ module game_engine_v2 (
     reg       joy_pause_prev = 1'b0, joy_select_prev = 1'b0;
     reg       kb_u_prev = 0, kb_d_prev = 0, kb_l_prev = 0, kb_r_prev = 0, kb_atk_prev = 0, kb_start_prev = 0, kb_esc_prev = 0;
     reg       kb_nova_prev = 0, kb_quiz_prev = 0;
+    reg [8:0] mouse_x_prev = 9'd160;
+    reg [7:0] mouse_y_prev = 8'd120;
+    reg       mouse_lmb_prev = 1'b0;
     reg       mic_roar_prev = 0;
     reg [2:0] wave_sub = 3'd0;
     reg signed [2:0] j1_dx_prev = 0, j2_dx_prev = 0;
@@ -238,6 +244,15 @@ module game_engine_v2 (
     wire kb_esc_e = kb_esc && !kb_esc_prev;
     wire kb_nova_e = kb_nova && !kb_nova_prev;
     wire kb_quiz_e = kb_quiz_hit && !kb_quiz_prev;
+    wire mouse_moved     = (mouse_x != mouse_x_prev) || (mouse_y != mouse_y_prev);
+    wire mouse_lmb_edge  = mouse_lmb && !mouse_lmb_prev;
+    wire mouse_in_qx     = (mouse_x >= 9'd96 && mouse_x < 9'd224);
+    wire mouse_row0      = mouse_in_qx && (mouse_y >= 8'd110 && mouse_y < 8'd126);
+    wire mouse_row1      = mouse_in_qx && (mouse_y >= 8'd126 && mouse_y < 8'd142);
+    wire mouse_row2      = mouse_in_qx && (mouse_y >= 8'd142 && mouse_y < 8'd158);
+    wire mouse_row3      = mouse_in_qx && (mouse_y >= 8'd158 && mouse_y < 8'd174);
+    wire mouse_hover_val = mouse_row0 || mouse_row1 || mouse_row2 || mouse_row3;
+    wire [1:0] mouse_hover_slot = mouse_row0 ? 2'd0 : (mouse_row1 ? 2'd1 : (mouse_row2 ? 2'd2 : 2'd3));
 
     wire any_left_edge  = btnl_edge || j1_left_edge  || j2_left_edge  || kb_l_e;
     wire any_right_edge = btnr_edge || j1_right_edge || j2_right_edge || kb_r_e;
@@ -667,6 +682,8 @@ module game_engine_v2 (
             init_game();
             step_state <= 0;
             btn_prev <= 0; j1_btn_prev <= 0; j2_btn_prev <= 0; j1_dx_prev <= 0; j2_dx_prev <= 0;
+            mouse_x_prev <= 9'd160; mouse_y_prev <= 8'd120; mouse_lmb_prev <= 1'b0;
+            help_page <= 3'd0;
             fire_req <= 0; p2_fire_req <= 0;
         end else begin
             if (game_state != ST_PLAY || room_phase == RP_QUIZ || paused) begin
@@ -723,6 +740,7 @@ module game_engine_v2 (
                     kb_l_prev <= kb_left; kb_r_prev <= kb_right;
                     kb_atk_prev <= kb_attack; kb_start_prev <= kb_start; kb_esc_prev <= kb_esc;
                     kb_nova_prev <= kb_nova; kb_quiz_prev <= kb_quiz_hit;
+                    mouse_x_prev <= mouse_x; mouse_y_prev <= mouse_y; mouse_lmb_prev <= mouse_lmb;
                     mic_roar_prev <= mic_roar;
                     frame_cnt <= frame_cnt + 9'd1;
                     if (p1_nova_cd > 0) p1_nova_cd <= p1_nova_cd - 6'd1;
@@ -742,10 +760,10 @@ module game_engine_v2 (
                     end
 
                     if (joy_select && !joy_select_prev && game_state != ST_TITLE && (game_state != ST_PLAY || paused)) begin
-                        init_game(); game_state <= ST_TITLE; help_page <= 2'd0; paused <= 1'b0; sfx_pickup <= 1'b1;
+                        init_game(); game_state <= ST_TITLE; help_page <= 3'd0; paused <= 1'b0; sfx_pickup <= 1'b1;
                     end else if (game_state == ST_TITLE) begin
                         if (!p2_active) hero_cursor <= 1'b0;
-                        if (help_page == 2'd0) begin
+                        if (help_page == 3'd0) begin
                             // Board 5 Pushbuttons for character & weapon customization:
                             if (btnl_edge) begin
                                 hero_cursor <= 1'b0; sfx_pickup <= 1'b1;
@@ -769,33 +787,42 @@ module game_engine_v2 (
                                 control_mode[1] <= ~control_mode[1]; sfx_pickup <= 1'b1;
                             // Controls Guide (Select / Start / Esc):
                             end else if (guide_exit_edge) begin
-                                help_page <= 2'd1; sfx_pickup <= 1'b1;
+                                help_page <= 3'd1; sfx_pickup <= 1'b1;
                             // Start Game (Button 3/Fire or Space/J key):
                             end else if (j1_fire_edge || j2_fire_edge || kb_atk_e) begin
                                 init_game(); game_state <= ST_PLAY; sfx_evolve <= 1'b1;
                             end
-                        end else if (help_page == 2'd1) begin
+                        end else if (help_page == 3'd1) begin
                             // Page 1: Board Hardware Controls -> Next to Joy Controls (or Exit via guide_exit_edge)
                             if (guide_exit_edge) begin
-                                help_page <= 2'd0; sfx_pickup <= 1'b1;
+                                help_page <= 3'd0; sfx_pickup <= 1'b1;
                             end else if (any_right_edge || any_down_edge) begin
-                                help_page <= 2'd2; sfx_pickup <= 1'b1;
+                                help_page <= 3'd2; sfx_pickup <= 1'b1;
                             end
-                        end else if (help_page == 2'd2) begin
+                        end else if (help_page == 3'd2) begin
                             // Page 2: Joystick Controls -> Prev/Next (or Exit via guide_exit_edge)
                             if (guide_exit_edge) begin
-                                help_page <= 2'd0; sfx_pickup <= 1'b1;
+                                help_page <= 3'd0; sfx_pickup <= 1'b1;
                             end else if (any_right_edge || any_down_edge) begin
-                                help_page <= 2'd3; sfx_pickup <= 1'b1;
+                                help_page <= 3'd3; sfx_pickup <= 1'b1;
                             end else if (any_left_edge || any_up_edge) begin
-                                help_page <= 2'd1; sfx_pickup <= 1'b1;
+                                help_page <= 3'd1; sfx_pickup <= 1'b1;
                             end
-                        end else if (help_page == 2'd3) begin
-                            // Page 3 (LAST PAGE): Cannot go right! Cannot start game here! Must exit guide first!
+                        end else if (help_page == 3'd3) begin
+                            // Page 3: Keyboard Controls -> Prev/Next to Mouse Guide
                             if (guide_exit_edge) begin
-                                help_page <= 2'd0; sfx_pickup <= 1'b1;
+                                help_page <= 3'd0; sfx_pickup <= 1'b1;
+                            end else if (any_right_edge || any_down_edge) begin
+                                help_page <= 3'd4; sfx_pickup <= 1'b1;
                             end else if (any_left_edge || any_up_edge) begin
-                                help_page <= 2'd2; sfx_pickup <= 1'b1;
+                                help_page <= 3'd2; sfx_pickup <= 1'b1;
+                            end
+                        end else if (help_page == 3'd4) begin
+                            // Page 4 (LAST PAGE): Mouse Controls (Quiz Only)
+                            if (guide_exit_edge) begin
+                                help_page <= 3'd0; sfx_pickup <= 1'b1;
+                            end else if (any_left_edge || any_up_edge) begin
+                                help_page <= 3'd3; sfx_pickup <= 1'b1;
                             end
                         end
                     end else if (game_state == ST_CUTSCENE) begin
@@ -808,22 +835,25 @@ module game_engine_v2 (
                             init_game(); game_state <= ST_TITLE; control_mode[1] <= 1'b0; sfx_pickup <= 1'b1;
                         end
                     end else if (!paused && (joy_pause_edge || kb_star_e || kb_esc_e) && room_phase != RP_QUIZ && outfit_cut_t == 0) begin
-                        paused <= 1'b1; help_page <= 2'd1; sfx_pickup <= 1'b1;
+                        paused <= 1'b1; help_page <= 3'd1; sfx_pickup <= 1'b1;
                     end else if (paused) begin
-                        // In-game Pause opens the exact 3-page Controls Guide + Resume via START/ENTER/ESC!
+                        // In-game Pause opens the exact 4-page Controls Guide + Resume via START/ENTER/ESC!
                         if (joy_pause_edge || kb_star_e || kb_esc_e) begin
-                            paused <= 1'b0; help_page <= 2'd0; sfx_pickup <= 1'b1;
-                        end else if (help_page == 2'd1) begin
-                            if (any_right_edge || any_down_edge) begin help_page <= 2'd2; sfx_pickup <= 1'b1; end
-                        end else if (help_page == 2'd2) begin
-                            if (any_right_edge || any_down_edge) begin help_page <= 2'd3; sfx_pickup <= 1'b1; end
-                            else if (any_left_edge || any_up_edge) begin help_page <= 2'd1; sfx_pickup <= 1'b1; end
-                        end else if (help_page == 2'd3) begin
-                            if (any_left_edge || any_up_edge) begin help_page <= 2'd2; sfx_pickup <= 1'b1; end
+                            paused <= 1'b0; help_page <= 3'd0; sfx_pickup <= 1'b1;
+                        end else if (help_page == 3'd1) begin
+                            if (any_right_edge || any_down_edge) begin help_page <= 3'd2; sfx_pickup <= 1'b1; end
+                        end else if (help_page == 3'd2) begin
+                            if (any_right_edge || any_down_edge) begin help_page <= 3'd3; sfx_pickup <= 1'b1; end
+                            else if (any_left_edge || any_up_edge) begin help_page <= 3'd1; sfx_pickup <= 1'b1; end
+                        end else if (help_page == 3'd3) begin
+                            if (any_right_edge || any_down_edge) begin help_page <= 3'd4; sfx_pickup <= 1'b1; end
+                            else if (any_left_edge || any_up_edge) begin help_page <= 3'd2; sfx_pickup <= 1'b1; end
+                        end else if (help_page == 3'd4) begin
+                            if (any_left_edge || any_up_edge) begin help_page <= 3'd3; sfx_pickup <= 1'b1; end
                         end
                         step_state <= 6'd0;
                     end else if (room_phase == RP_QUIZ) begin
-                        // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR (Anti-Mash + Retake Replay!) ----
+                        // ---- LOGIC GATE QUIZ BEFORE SLIDING DOOR (Anti-Mash + Retake Replay + Quiz-Only Mouse!) ----
                         if (quiz_lockout > 0) quiz_lockout <= quiz_lockout - 6'd1;
                         if (quiz_wrong_t > 0) begin
                             quiz_wrong_t <= quiz_wrong_t - 7'd1;
@@ -836,7 +866,20 @@ module game_engine_v2 (
                                 wave_banner_t <= 7'd90; room_phase <= RP_BANNER;
                             end
                         end else if (quiz_lockout == 0) begin
-                            if (kb_quiz_e || kb_quiz_hit) begin
+                            if (mouse_lmb_edge && mouse_hover_val) begin
+                                quiz_cursor <= mouse_hover_slot;
+                                if (mouse_hover_slot == quiz_ans_slot) begin
+                                    room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
+                                    if (stage < 2'd3) begin
+                                        stage        <= stage + 2'd1;
+                                        outfit_cut_t <= 8'd120;
+                                    end
+                                end else begin
+                                    quiz_wrong_t <= 7'd105; sfx_hit <= 1'b1; shake_mag <= 4'd6;
+                                    quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
+                                    quiz_ans_slot <= frame_cnt[1:0];
+                                end
+                            end else if (kb_quiz_e || kb_quiz_hit) begin
                                 if (kb_quiz_sel == quiz_ans_slot) begin
                                     room_phase <= RP_DOOR; door_slide <= 5'd0; quiz_wrong_t <= 7'd0; sfx_evolve <= 1'b1;
                                     if (stage < 2'd3) begin
@@ -864,6 +907,8 @@ module game_engine_v2 (
                                     quiz_gate <= (quiz_gate == 3'd5) ? 3'd0 : (quiz_gate + 3'd1);
                                     quiz_ans_slot <= frame_cnt[1:0];
                                 end
+                            end else if (mouse_moved && mouse_hover_val && (quiz_cursor != mouse_hover_slot)) begin
+                                quiz_cursor <= mouse_hover_slot; sfx_pickup <= 1'b1;
                             end
                         end
                     end else if (outfit_cut_t > 0) begin

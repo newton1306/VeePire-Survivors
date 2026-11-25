@@ -12,7 +12,9 @@ Generates:
 import os
 from PIL import Image
 
-BASE_DIR = "D:/vivado_pj/DRAGO_NEXUS_V2"
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+MEM_DIR = os.path.join(BASE_DIR, "mem")
+os.makedirs(MEM_DIR, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Crisp 5x7 & 3x5 Pixel Font bitmaps for numbers/letters inside buttons
@@ -315,7 +317,7 @@ draw_keycap(slots[6], 64, 32, 4,  17, 24, 10, 0xFA5, 0xC62, 0x731, "ESC")
 draw_keycap(slots[6], 64, 32, 35, 17, 26, 10, 0x88A, 0x557, 0x224, "ENT", spacing=4)
 
 # Write ui_icons.mem
-mem_path = os.path.join(BASE_DIR, "ui_icons.mem")
+mem_path = os.path.join(MEM_DIR, "ui_icons.mem")
 with open(mem_path, "w") as f:
     for s_idx, buf in enumerate(slots):
         f.write(f"// Slot {s_idx}\n")
@@ -324,6 +326,7 @@ with open(mem_path, "w") as f:
 print("[OK] Wrote ui_icons.mem (16384 words)")
 
 # Save visual preview sheet of ui_icons.mem
+os.makedirs(os.path.join(BASE_DIR, "sim_work"), exist_ok=True)
 sheet = Image.new("RGB", (64 * 4, 32 * 2), (18, 20, 36))
 px = sheet.load()
 for s_idx, buf in enumerate(slots):
@@ -334,8 +337,8 @@ for s_idx, buf in enumerate(slots):
             v = buf[y * 64 + x]
             if v != 0:
                 px[ox + x, oy + y] = (((v >> 8) & 0xF) * 17, ((v >> 4) & 0xF) * 17, (v & 0xF) * 17)
-sheet.resize((64 * 4 * 3, 32 * 2 * 3), Image.NEAREST).save(os.path.join(BASE_DIR, "image_source/ui_icons_preview.png"))
-print("[OK] Saved image_source/ui_icons_preview.png")
+sheet.resize((64 * 4 * 3, 32 * 2 * 3), Image.NEAREST).save(os.path.join(BASE_DIR, "sim_work", "ui_icons_preview.png"))
+print("[OK] Saved sim_work/ui_icons_preview.png")
 
 # ---------------------------------------------------------------------------
 # Update joy_palette.vh & joy_pixel.mem with real_joystick.webp button colors
@@ -374,7 +377,7 @@ with open(os.path.join(BASE_DIR, "rtl/joy_palette.vh"), "w") as f:
     f.write(pal_vh)
 
 # Load existing joy_pixel.mem nibbles (clean old duplicate 3/5/6/10 -> 4/2/11 first!)
-joy_src = os.path.join(BASE_DIR, "joy_pixel.mem")
+joy_src = os.path.join(MEM_DIR, "joy_pixel.mem")
 with open(joy_src, "r") as f:
     toks = [t for l in f if l.strip() and not l.strip().startswith("//") for t in l.strip().split()]
 

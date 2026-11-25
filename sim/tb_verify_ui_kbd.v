@@ -77,8 +77,8 @@ module tb_verify_ui_kbd;
     wire [1:0] kb_quiz_sel = ps2_kb_quiz_hit ? ps2_kb_quiz_sel : uart_kb_quiz_sel;
     wire       kb_quiz_hit = ps2_kb_quiz_hit | uart_kb_quiz_hit;
 
-    wire [1:0]  control_mode, cut_id, stage, hero_sel_l, hero_sel_r, boss_kind, laser_state, help_page;
-    wire [2:0]  game_state, p1_weapon, p2_weapon, room_phase, quiz_gate;
+    wire [1:0]  control_mode, cut_id, stage, hero_sel_l, hero_sel_r, boss_kind, laser_state;
+    wire [2:0]  game_state, p1_weapon, p2_weapon, room_phase, quiz_gate, help_page;
     wire [3:0]  wave, shake_mag, p1_slash_t, p2_slash_t;
     wire [4:0]  enemies_left, p2_dash_timer, hp, hp2, dash_timer, evolve_flash, door_slide, sonic_wave_t;
     wire [5:0]  exp, invuln_timer, p2_invuln;
@@ -147,6 +147,7 @@ module tb_verify_ui_kbd;
         .kb_attack(kb_attack), .kb_skill(kb_skill), .kb_nova(kb_nova), .kb_shoot(kb_shoot),
         .kb_start(kb_start), .kb_esc(kb_esc),
         .kb_quiz_sel(kb_quiz_sel), .kb_quiz_hit(kb_quiz_hit),
+        .mouse_x(9'd160), .mouse_y(8'd120), .mouse_lmb(1'b0),
         .room_phase(room_phase), .wave_banner_t(wave_banner_t), .door_slam_t(door_slam_t),
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t),
@@ -198,6 +199,7 @@ module tb_verify_ui_kbd;
         .door_slide(door_slide), .quiz_gate(quiz_gate), .quiz_cursor(quiz_cursor),
         .quiz_ans_slot(quiz_ans_slot), .quiz_wrong_t(quiz_wrong_t), .boss_trans_t(boss_trans_t), .outfit_cut_t(outfit_cut_t), .paused(paused),
         .temp_fever(1'b0), .mic_roar(tb_mic_roar), .help_page(help_page), .sonic_wave_t(sonic_wave_t), .sonic_radius(sonic_radius),
+        .mouse_x(9'd160), .mouse_y(8'd120), .mouse_lmb(1'b0),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS)
     );
 
@@ -295,18 +297,19 @@ module tb_verify_ui_kbd;
         end else $display("[PASS] Keyboard auto-detected -> forced 1P Single Player + KB hints!");
         capture_ppm("D:/vivado_pj/DRAGO_NEXUS_V2/sim_work/rtl_v5_title_kb_1p.ppm");
 
-        // 4. Title Guide Open via PS/2 ESC -> Page 1 -> Page 2 -> Page 3 (blocks Right & Fire) -> Exit via ESC
+        // 4. Title Guide Open via PS/2 ESC -> Page 1 -> Page 2 -> Page 3 -> Page 4 (blocks Right & Fire) -> Exit via ESC
         send_ps2_byte(8'h76);
         repeat (3) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end
         send_ps2_byte(8'hF0); send_ps2_byte(8'h76);
-        if (help_page !== 2'd1) begin $display("FAIL: ESC did not open Guide P1"); fail_cnt = fail_cnt + 1; end
+        if (help_page !== 3'd1) begin $display("FAIL: ESC did not open Guide P1"); fail_cnt = fail_cnt + 1; end
         send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // KB right -> P2
         send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // KB right -> P3
+        send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h00); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // KB right -> P4
         send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h14, 8'h04); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // Blocked
-        if (help_page !== 2'd3 || game_state !== 3'd0) begin $display("FAIL: Title P3 did not block Right/Fire!"); fail_cnt = fail_cnt + 1; end
+        if (help_page !== 3'd4 || game_state !== 3'd0) begin $display("FAIL: Title P4 did not block Right/Fire!"); fail_cnt = fail_cnt + 1; end
         send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h20); send_5byte_pkt(8'h92, 8'h12, 8'h00, 8'h12, 8'h00); // UART KB ESC
-        if (help_page !== 2'd0 || game_state !== 3'd0) begin $display("FAIL: UART KB ESC did not exit Guide!"); fail_cnt = fail_cnt + 1; end
-        else $display("[PASS] Title Guide P1->P2->P3 & UART KB ESC Exit passed!");
+        if (help_page !== 3'd0 || game_state !== 3'd0) begin $display("FAIL: UART KB ESC did not exit Guide!"); fail_cnt = fail_cnt + 1; end
+        else $display("[PASS] Title Guide P1->P2->P3->P4 & UART KB ESC Exit passed!");
 
         // 5. Start game with Space -> Test BOTH KB and Joy control P1 seamlessly!
         send_ps2_byte(8'h29); repeat (3) begin wait(vga_y == 10'd481); wait(vga_y == 10'd0); end

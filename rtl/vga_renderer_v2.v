@@ -109,9 +109,12 @@ module vga_renderer_v2 (
     input  wire        paused,
     input  wire        temp_fever,
     input  wire        mic_roar,
-    input  wire [1:0]  help_page,
+    input  wire [2:0]  help_page,
     input  wire [4:0]  sonic_wave_t,
     input  wire [8:0]  sonic_radius,
+    input  wire [8:0]  mouse_x,
+    input  wire [7:0]  mouse_y,
+    input  wire        mouse_lmb,
 
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
     output reg         VGA_HS = 1, VGA_VS = 1
@@ -179,7 +182,7 @@ module vga_renderer_v2 (
     assign map_addr_a = {wy[9:4], wx[10:4]}; // 128 x 64 tilemap
 
     // 1. Arcade Title Logo ROM (160 x 48 centered at gx=80..239, gy=4..51)
-    wire in_logo_box = (game_state == 3'd0 && help_page == 2'd0) && (gx >= 9'd80 && gx < 9'd240 && gy >= 9'd4 && gy < 9'd52);
+    wire in_logo_box = (game_state == 3'd0 && help_page == 3'd0) && (gx >= 9'd80 && gx < 9'd240 && gy >= 9'd4 && gy < 9'd52);
     wire [5:0] logo_ly = gy - 9'd4;
     wire [7:0] logo_lx = gx - 9'd80;
     wire [12:0] logo_addr = ({7'd0, logo_ly} << 7) + ({7'd0, logo_ly} << 5) + {5'd0, logo_lx}; // y*160 + x (no mul!)
@@ -188,10 +191,10 @@ module vga_renderer_v2 (
         .clk(clk), .addr(logo_addr), .q(logo_pix_1)
     );
 
-    wire in_guide_view = (game_state == 3'd0 && help_page != 2'd0) || (game_state == 3'd2 && paused && help_page != 2'd0);
+    wire in_guide_view = (game_state == 3'd0 && help_page != 3'd0) || (game_state == 3'd2 && paused && help_page != 3'd0);
 
     // 96x64 4-bit DualShock Joystick Pixel Art ROM (3072 bytes) placed at gx=96..191, gy=58..121
-    wire in_joy_box = in_guide_view && (help_page == 2'd2) && (gx >= 9'd96 && gx < 9'd192 && gy >= 9'd58 && gy < 9'd122);
+    wire in_joy_box = in_guide_view && (help_page == 3'd2) && (gx >= 9'd96 && gx < 9'd192 && gy >= 9'd58 && gy < 9'd122);
     wire [11:0] joy_rom_addr = in_joy_box ? ((gy - 9'd58) * 6'd48 + ((gx - 9'd96) >> 1)) : 12'd0;
     wire [7:0] joy_rom_byte_1;
     rom_1p #(.DW(8), .AW(12), .DEPTH(3072), .FILE("joy_pixel.mem")) u_joy_rom (
@@ -199,7 +202,7 @@ module vga_renderer_v2 (
     );
 
     // 256x144 4-bit Real White Keyboard Keycaps Guide ROM (18432 bytes) placed at gx=32..287, gy=46..189
-    wire in_kb_box = in_guide_view && (help_page == 2'd3) && (gx >= 9'd32 && gx < 9'd288 && gy >= 9'd46 && gy < 9'd190);
+    wire in_kb_box = in_guide_view && (help_page == 3'd3) && (gx >= 9'd32 && gx < 9'd288 && gy >= 9'd46 && gy < 9'd190);
     wire [7:0] kb_ly = gy - 9'd46;
     wire [7:0] kb_lx = gx - 9'd32;
     wire [14:0] kb_rom_addr_ok = in_kb_box ? {kb_ly, kb_lx[7:1]} : 15'd0;
@@ -216,13 +219,13 @@ module vga_renderer_v2 (
     wire [8:0] guide_top_0  = 9'd202 - {8'd0, anim_cnt[22]};
     wire [8:0] nav_mid_x0   = (game_state == 3'd2 && paused) ? 9'd114 : 9'd122;
 
-    wire in_cta_icon   = (game_state == 3'd0 && help_page == 2'd0) && (gx >= 9'd128 && gx < 9'd192 && gy >= cta_top_0 && gy < cta_top_0 + 9'd32);
-    wire in_guide_pill = (game_state == 3'd0 && help_page == 2'd0) && (gx >= 9'd128 && gx < 9'd192 && gy >= guide_top_0 && gy < guide_top_0 + 9'd16);
-    wire in_wpn1_box   = (game_state == 3'd0 && help_page == 2'd0) && (p2_active ? (gx >= 9'd60  && gx < 9'd92)  : (gx >= 9'd180 && gx < 9'd212)) && (gy >= 9'd96 && gy < 9'd128);
-    wire in_wpn2_box   = (game_state == 3'd0 && help_page == 2'd0 && p2_active) && (gx >= 9'd228 && gx < 9'd260 && gy >= 9'd96 && gy < 9'd128);
-    wire in_nav_prev   = in_guide_view && (help_page > 2'd1)  && (gx >= 9'd36  && gx < 9'd68  && gy >= 9'd199 && gy < 9'd215);
+    wire in_cta_icon   = (game_state == 3'd0 && help_page == 3'd0) && (gx >= 9'd128 && gx < 9'd192 && gy >= cta_top_0 && gy < cta_top_0 + 9'd32);
+    wire in_guide_pill = (game_state == 3'd0 && help_page == 3'd0) && (gx >= 9'd128 && gx < 9'd192 && gy >= guide_top_0 && gy < guide_top_0 + 9'd16);
+    wire in_wpn1_box   = (game_state == 3'd0 && help_page == 3'd0) && (p2_active ? (gx >= 9'd60  && gx < 9'd92)  : (gx >= 9'd180 && gx < 9'd212)) && (gy >= 9'd96 && gy < 9'd128);
+    wire in_wpn2_box   = (game_state == 3'd0 && help_page == 3'd0 && p2_active) && (gx >= 9'd228 && gx < 9'd260 && gy >= 9'd96 && gy < 9'd128);
+    wire in_nav_prev   = in_guide_view && (help_page > 3'd1)  && (gx >= 9'd36  && gx < 9'd68  && gy >= 9'd199 && gy < 9'd215);
     wire in_nav_exit   = in_guide_view && (gx >= nav_mid_x0 && gx < nav_mid_x0 + 9'd32 && gy >= 9'd199 && gy < 9'd215);
-    wire in_nav_next   = in_guide_view && (help_page < 2'd3) && (gx >= 9'd212 && gx < 9'd244 && gy >= 9'd199 && gy < 9'd215);
+    wire in_nav_next   = in_guide_view && (help_page < 3'd4) && (gx >= 9'd212 && gx < 9'd244 && gy >= 9'd199 && gy < 9'd215);
     wire in_pause_row2 = in_guide_view && paused && (gx >= 9'd108 && gx < 9'd140 && gy >= 9'd215 && gy < 9'd231);
     wire in_end_retry  = (game_state == 3'd3 || game_state == 3'd4) && (gx >= 9'd104 && gx < 9'd136 && gy >= 9'd132 && gy < 9'd148);
     wire in_end_menu   = (game_state == 3'd3 || game_state == 3'd4) && (gx >= 9'd104 && gx < 9'd136 && gy >= 9'd151 && gy < 9'd167);
@@ -312,8 +315,8 @@ module vga_renderer_v2 (
 
     wire p1_dead_floor = (game_state == 3'd2 && in_playfield && hp == 0 && !in_outfit_cut);
     wire p2_dead_floor = (game_state == 3'd2 && in_playfield && p2_active && hp2 == 0 && !in_outfit_cut);
-    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 48)) && ((game_state == 3'd0 && help_page == 2'd0) || in_outfit_cut || in_playfield);
-    wire show_p2   = (game_state == 3'd0 && help_page == 2'd0 && p2_active) || (p2_active && in_outfit_cut) || (p2_active && in_playfield);
+    wire on_p1_box = (psx >= 0 && psx < 32 && psy >= 0 && psy < (p1_dead_floor ? 32 : 48)) && ((game_state == 3'd0 && help_page == 3'd0) || in_outfit_cut || in_playfield);
+    wire show_p2   = (game_state == 3'd0 && help_page == 3'd0 && p2_active) || (p2_active && in_outfit_cut) || (p2_active && in_playfield);
     wire on_p2_box = show_p2 && (p2sx >= 0 && p2sx < 32 && p2sy >= 0 && p2sy < (p2_dead_floor ? 32 : 48));
     wire on_player_box = on_p1_box || on_p2_box;
     wire sel_p2_0      = !on_p1_box && on_p2_box;
@@ -1047,6 +1050,51 @@ module vga_renderer_v2 (
     wire [3:0] tri_row = gy - tri_y_base;
     wire [3:0] tri_hw = (tri_row <= 4'd1) ? 4'd4 : ((tri_row <= 4'd3) ? 4'd3 : ((tri_row <= 4'd5) ? 4'd2 : ((tri_row <= 4'd7) ? 4'd1 : 4'd0)));
 
+    // Page 4 Mouse Graphic Geometry (centered at gx=160, gy=64..121)
+    wire [8:0] g4_dx = (gx >= 9'd160) ? (gx - 9'd160) : (9'd160 - gx);
+    wire [8:0] g4_mw = (gy < 9'd64 || gy >= 9'd122) ? 9'd0 :
+                       ((gy < 9'd74) ? (9'd6 + ((gy - 9'd64) << 1)) :
+                       ((gy < 9'd108) ? 9'd24 : (9'd24 - (gy - 9'd108))));
+    wire       g4_in_body = (gy >= 9'd64 && gy < 9'd122) && (g4_dx <= g4_mw);
+    wire       g4_rim     = g4_in_body && (g4_dx >= g4_mw - 9'd1 || gy == 9'd64 || gy == 9'd121);
+    wire       g4_wheel   = (gx >= 9'd158 && gx <= 9'd162 && gy >= 9'd71 && gy <= 9'd84);
+    wire       g4_cable   = (gy >= 9'd52 && gy < 9'd64) && ((gy < 9'd58) ? (gx >= 9'd156 && gx <= 9'd158) : (gx >= 9'd159 && gx <= 9'd161));
+
+    // Quiz-Only Mouse Hover & Hardware Arrow Cursor (STRICTLY active ONLY inside RP_QUIZ!)
+    wire quiz_mouse_active = (game_state == 3'd2) && !paused && (outfit_cut_t == 8'd0) && (room_phase == 3'd3) && (quiz_wrong_t == 7'd0);
+    wire mq_in_x           = (mouse_x >= 9'd96 && mouse_x < 9'd224);
+    wire [1:0] mq_hover_slot = (mouse_y < 8'd126) ? 2'd0 : ((mouse_y < 8'd142) ? 2'd1 : ((mouse_y < 8'd158) ? 2'd2 : 2'd3));
+    wire mq_hover_val      = quiz_mouse_active && mq_in_x && (mouse_y >= 8'd110 && mouse_y < 8'd174);
+
+    wire signed [9:0] m_dx = $signed({1'b0, gx}) - $signed({1'b0, mouse_x});
+    wire signed [8:0] m_dy = $signed({1'b0, gy}) - $signed({1'b0, mouse_y});
+    reg [9:0] m_mask_b, m_mask_f;
+    always @(*) begin
+        case (m_dy[3:0])
+            4'd0:  begin m_mask_b = 10'b1000000000; m_mask_f = 10'b0000000000; end
+            4'd1:  begin m_mask_b = 10'b1100000000; m_mask_f = 10'b0000000000; end
+            4'd2:  begin m_mask_b = 10'b1010000000; m_mask_f = 10'b0100000000; end
+            4'd3:  begin m_mask_b = 10'b1001000000; m_mask_f = 10'b0110000000; end
+            4'd4:  begin m_mask_b = 10'b1000100000; m_mask_f = 10'b0111000000; end
+            4'd5:  begin m_mask_b = 10'b1000010000; m_mask_f = 10'b0111100000; end
+            4'd6:  begin m_mask_b = 10'b1000001000; m_mask_f = 10'b0111110000; end
+            4'd7:  begin m_mask_b = 10'b1000000100; m_mask_f = 10'b0111111000; end
+            4'd8:  begin m_mask_b = 10'b1000000010; m_mask_f = 10'b0111111100; end
+            4'd9:  begin m_mask_b = 10'b1000011111; m_mask_f = 10'b0111100000; end
+            4'd10: begin m_mask_b = 10'b1010010000; m_mask_f = 10'b0101100000; end
+            4'd11: begin m_mask_b = 10'b1101001000; m_mask_f = 10'b0000110000; end
+            4'd12: begin m_mask_b = 10'b0001001000; m_mask_f = 10'b0000110000; end
+            4'd13: begin m_mask_b = 10'b0000111000; m_mask_f = 10'b0000000000; end
+            default: begin m_mask_b = 10'd0; m_mask_f = 10'd0; end
+        endcase
+    end
+    wire in_mouse_box = quiz_mouse_active && (m_dx >= 0 && m_dx < 10 && m_dy >= 0 && m_dy < 14);
+    wire [3:0] m_bit_idx = 4'd9 - m_dx[3:0];
+    wire m_is_b = in_mouse_box && m_mask_b[m_bit_idx];
+    wire m_is_f = in_mouse_box && m_mask_f[m_bit_idx];
+    wire on_mouse_0 = m_is_b || m_is_f;
+    wire [5:0] mouse_col_0 = m_is_b ? 6'd16 : (mouse_lmb ? 6'd58 : 6'd59);
+
     always @(*) begin
         hud_char_code = C_SP; hud_char_row = gy[2:0]; hud_char_col = gx[2:0];
         hud_text_color = 6'd17; hud_text_en = 0; hud_bg_en = 0; hud_bg_color = 6'd54;
@@ -1070,41 +1118,49 @@ module vga_renderer_v2 (
             end else if (gx >= 9'd24 && gx < 9'd296 && gy >= 9'd16 && gy < (paused ? 9'd236 : 9'd228)) begin
                 hud_bg_en = 1;
                 hud_bg_color = (gx == 9'd24 || gx == 9'd295 || gy == 9'd16 || gy == (paused ? 9'd235 : 9'd227) || gy == 9'd42 || gy == 9'd196) ?
-                               ((help_page == 2'd1) ? 6'd58 : ((help_page == 2'd2) ? 6'd59 : 6'd28)) : 6'd54;
+                               ((help_page == 3'd1) ? 6'd58 : ((help_page == 3'd2) ? 6'd59 : ((help_page == 3'd3) ? 6'd28 : 6'd51))) : 6'd54;
             end
             // Header (gy=24..32) — NO < > ARROWS!
             if (gy >= 9'd24 && gy < 9'd32 && col_1x >= 6'd6 && col_1x < 6'd34) begin
                 hud_text_en = 1; hud_char_row = gy - 9'd24;
-                hud_text_color = (help_page == 2'd1) ? 6'd58 : ((help_page == 2'd2) ? 6'd59 : 6'd28);
-                if (help_page == 2'd1) begin
+                hud_text_color = (help_page == 3'd1) ? 6'd58 : ((help_page == 3'd2) ? 6'd59 : ((help_page == 3'd3) ? 6'd28 : 6'd51));
+                if (help_page == 3'd1) begin
                     case (col_1x - 6'd11)
-                        0:hud_char_code=lch("1"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("3");
+                        0:hud_char_code=lch("1"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("4");
                         3:hud_char_code=C_SP;     4:hud_char_code=lch("B"); 5:hud_char_code=lch("O"); 6:hud_char_code=lch("A"); 7:hud_char_code=lch("R");
                         8:hud_char_code=lch("D"); 9:hud_char_code=C_SP;   10:hud_char_code=lch("H"); 11:hud_char_code=lch("A"); 12:hud_char_code=lch("R");
                         13:hud_char_code=lch("D"); 14:hud_char_code=lch("W"); 15:hud_char_code=lch("A"); 16:hud_char_code=lch("R"); 17:hud_char_code=lch("E");
                         default:hud_char_code=C_SP;
                     endcase
-                end else if (help_page == 2'd2) begin
+                end else if (help_page == 3'd2) begin
                     case (col_1x - 6'd9)
-                        0:hud_char_code=lch("2"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("3");
+                        0:hud_char_code=lch("2"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("4");
                         3:hud_char_code=C_SP;     4:hud_char_code=lch("J"); 5:hud_char_code=lch("O"); 6:hud_char_code=lch("Y"); 7:hud_char_code=lch("S");
                         8:hud_char_code=lch("T"); 9:hud_char_code=lch("I"); 10:hud_char_code=lch("C"); 11:hud_char_code=lch("K"); 12:hud_char_code=C_SP;
                         13:hud_char_code=lch("C"); 14:hud_char_code=lch("O"); 15:hud_char_code=lch("N"); 16:hud_char_code=lch("T"); 17:hud_char_code=lch("R");
                         18:hud_char_code=lch("O"); 19:hud_char_code=lch("L"); 20:hud_char_code=lch("S"); default:hud_char_code=C_SP;
                     endcase
-                end else begin
+                end else if (help_page == 3'd3) begin
                     case (col_1x - 6'd9)
-                        0:hud_char_code=lch("3"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("3");
+                        0:hud_char_code=lch("3"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("4");
                         3:hud_char_code=C_SP;     4:hud_char_code=lch("K"); 5:hud_char_code=lch("E"); 6:hud_char_code=lch("Y"); 7:hud_char_code=lch("B");
                         8:hud_char_code=lch("O"); 9:hud_char_code=lch("A"); 10:hud_char_code=lch("R"); 11:hud_char_code=lch("D"); 12:hud_char_code=C_SP;
                         13:hud_char_code=lch("C"); 14:hud_char_code=lch("O"); 15:hud_char_code=lch("N"); 16:hud_char_code=lch("T"); 17:hud_char_code=lch("R");
                         18:hud_char_code=lch("O"); 19:hud_char_code=lch("L"); 20:hud_char_code=lch("S"); default:hud_char_code=C_SP;
                     endcase
+                end else begin
+                    case (col_1x - 6'd11)
+                        0:hud_char_code=lch("4"); 1:hud_char_code=lch("/"); 2:hud_char_code=lch("4");
+                        3:hud_char_code=C_SP;     4:hud_char_code=lch("M"); 5:hud_char_code=lch("O"); 6:hud_char_code=lch("U"); 7:hud_char_code=lch("S");
+                        8:hud_char_code=lch("E"); 9:hud_char_code=C_SP;   10:hud_char_code=lch("C"); 11:hud_char_code=lch("O"); 12:hud_char_code=lch("N");
+                        13:hud_char_code=lch("T"); 14:hud_char_code=lch("R"); 15:hud_char_code=lch("O"); 16:hud_char_code=lch("L"); 17:hud_char_code=lch("S");
+                        default:hud_char_code=C_SP;
+                    endcase
                 end
             end
 
                 // PAGE 1: BOARD HARDWARE TERMINAL
-                if (help_page == 2'd1) begin
+                if (help_page == 3'd1) begin
                     if (gy >= 9'd48 && gy < 9'd56 && col_1x >= 6'd4 && col_1x < 6'd36) begin
                         hud_text_en = 1; hud_char_row = gy - 9'd48; hud_text_color = 6'd59;
                         case (col_1x - 6'd4)
@@ -1190,7 +1246,7 @@ module vga_renderer_v2 (
                     end
                 // PAGE 2: JOYSTICK TERMINAL (ACCURATE POINTER LINES TO EXACT BUTTONS, NO BUTTON NAMES!)
                 // joy_pixel placed at gx=96..191, gy=58..121
-                end else if (help_page == 2'd2) begin
+                end else if (help_page == 3'd2) begin
                     // 1. Left D-Pad Cross exact center (115, 79) -> Left to gx=68 -> MOVE
                     if ((gy == 9'd79 && gx >= 9'd68 && gx <= 9'd115) ||
                         (gx >= 9'd114 && gx <= 9'd116 && gy >= 9'd78 && gy <= 9'd80)) begin
@@ -1269,13 +1325,109 @@ module vga_renderer_v2 (
                         endcase
                     end
                 // PAGE 3: KEYBOARD CONTROLS TERMINAL (Rendered cleanly via kb_guide ROM real white keycaps!)
-                end else begin
+                end else if (help_page == 3'd3) begin
                     // Real white mechanical keycaps are composited directly from u_kb_rom at gx=32..287, gy=46..189
+                // PAGE 4: MOUSE CONTROLS TERMINAL (Quiz-Only Hover + Left Click Graphic!)
+                end else begin
+                    // Procedural Pixel-Art Mouse (gx=136..184, gy=52..121)
+                    if (g4_cable) begin
+                        guide_line_en = 1; guide_line_col = 6'd17;
+                    end else if (g4_in_body) begin
+                        guide_line_en = 1;
+                        if (g4_rim)
+                            guide_line_col = 6'd17;
+                        else if (g4_wheel)
+                            guide_line_col = gy[1] ? 6'd58 : 6'd56;
+                        else if (gy == 9'd92 || (gy < 9'd92 && gx >= 9'd159 && gx <= 9'd160))
+                            guide_line_col = 6'd16;
+                        else if (gy < 9'd92 && gx < 9'd159)
+                            guide_line_col = 6'd59; // Highlighted Left Mouse Button!
+                        else if (gy < 9'd92 && gx > 9'd160)
+                            guide_line_col = 6'd55; // Right Mouse Button
+                        else if (gx >= 9'd158 && gx <= 9'd162 && gy >= 9'd103 && gy <= 9'd107)
+                            guide_line_col = 6'd51; // Glowing Dragon Emblem
+                        else
+                            guide_line_col = 6'd56; // Mouse Palm Body
+                    end
+                    // Left & Right Pointer Lines from Mouse to Action Labels
+                    if (gy == 9'd75 && gx >= 9'd122 && gx <= 9'd144) begin
+                        guide_line_en = 1; guide_line_col = 6'd59;
+                    end else if (gy == 9'd78 && gx >= 9'd182 && gx <= 9'd196) begin
+                        guide_line_en = 1; guide_line_col = 6'd58;
+                    end
+                    // Divider line above Quiz-only note
+                    if (gy == 9'd133 && gx >= 9'd44 && gx < 9'd276) begin
+                        guide_line_en = 1; guide_line_col = 6'd51;
+                    end
+
+                    // Left Label: LEFT CLICK / PICK QUIZ
+                    if (gy >= 9'd71 && gy < 9'd79 && col_1x >= 6'd5 && col_1x < 6'd15) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd71; hud_text_color = 6'd59;
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("L"); 1:hud_char_code=lch("E"); 2:hud_char_code=lch("F"); 3:hud_char_code=lch("T");
+                            4:hud_char_code=C_SP;     5:hud_char_code=lch("C"); 6:hud_char_code=lch("L"); 7:hud_char_code=lch("I");
+                            8:hud_char_code=lch("C"); 9:hud_char_code=lch("K");
+                        endcase
+                    end else if (gy >= 9'd82 && gy < 9'd90 && col_1x >= 6'd5 && col_1x < 6'd16) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd82; hud_text_color = 6'd17;
+                        case (col_1x - 6'd5)
+                            0:hud_char_code=lch("A"); 1:hud_char_code=lch("N"); 2:hud_char_code=lch("S"); 3:hud_char_code=lch("W");
+                            4:hud_char_code=lch("E"); 5:hud_char_code=lch("R"); 6:hud_char_code=C_SP;     7:hud_char_code=lch("Q");
+                            8:hud_char_code=lch("U"); 9:hud_char_code=lch("I"); 10:hud_char_code=lch("Z");
+                        endcase
+                    // Right Label: MOVE MOUSE / HOVER ITEM
+                    end else if (gy >= 9'd74 && gy < 9'd82 && col_1x >= 6'd25 && col_1x < 6'd35) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd74; hud_text_color = 6'd58;
+                        case (col_1x - 6'd25)
+                            0:hud_char_code=lch("M"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("V"); 3:hud_char_code=lch("E");
+                            4:hud_char_code=C_SP;     5:hud_char_code=lch("M"); 6:hud_char_code=lch("O"); 7:hud_char_code=lch("U");
+                            8:hud_char_code=lch("S"); 9:hud_char_code=lch("E");
+                        endcase
+                    end else if (gy >= 9'd85 && gy < 9'd93 && col_1x >= 6'd25 && col_1x < 6'd35) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd85; hud_text_color = 6'd17;
+                        case (col_1x - 6'd25)
+                            0:hud_char_code=lch("H"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("V"); 3:hud_char_code=lch("E");
+                            4:hud_char_code=lch("R"); 5:hud_char_code=C_SP;     6:hud_char_code=lch("I"); 7:hud_char_code=lch("T");
+                            8:hud_char_code=lch("E"); 9:hud_char_code=lch("M");
+                        endcase
+                    // Bottom Explanatory Rules
+                    end else if (gy >= 9'd142 && gy < 9'd150 && col_1x >= 6'd10 && col_1x < 6'd31) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd142; hud_text_color = 6'd58;
+                        case (col_1x - 6'd10)
+                            0:hud_char_code=lch("L"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("G"); 3:hud_char_code=lch("I");
+                            4:hud_char_code=lch("C"); 5:hud_char_code=C_SP;     6:hud_char_code=lch("G"); 7:hud_char_code=lch("A");
+                            8:hud_char_code=lch("T"); 9:hud_char_code=lch("E"); 10:hud_char_code=C_SP;   11:hud_char_code=lch("Q");
+                            12:hud_char_code=lch("U"); 13:hud_char_code=lch("I"); 14:hud_char_code=lch("Z"); 15:hud_char_code=C_SP;
+                            16:hud_char_code=lch("O"); 17:hud_char_code=lch("N"); 18:hud_char_code=lch("L"); 19:hud_char_code=lch("Y");
+                            20:hud_char_code=lch("!");
+                        endcase
+                    end else if (gy >= 9'd157 && gy < 9'd165 && col_1x >= 6'd7 && col_1x < 6'd33) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd157; hud_text_color = 6'd28;
+                        case (col_1x - 6'd7)
+                            0:hud_char_code=lch("H"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("V"); 3:hud_char_code=lch("E");
+                            4:hud_char_code=lch("R"); 5:hud_char_code=C_SP;     6:hud_char_code=lch("R"); 7:hud_char_code=lch("O");
+                            8:hud_char_code=lch("W"); 9:hud_char_code=C_SP;    10:hud_char_code=lch("+"); 11:hud_char_code=C_SP;
+                            12:hud_char_code=lch("L"); 13:hud_char_code=lch("M"); 14:hud_char_code=lch("B"); 15:hud_char_code=C_SP;
+                            16:hud_char_code=lch("T"); 17:hud_char_code=lch("O"); 18:hud_char_code=C_SP;   19:hud_char_code=lch("C");
+                            20:hud_char_code=lch("O"); 21:hud_char_code=lch("N"); 22:hud_char_code=lch("F"); 23:hud_char_code=lch("I");
+                            24:hud_char_code=lch("R"); 25:hud_char_code=lch("M");
+                        endcase
+                    end else if (gy >= 9'd172 && gy < 9'd180 && col_1x >= 6'd8 && col_1x < 6'd32) begin
+                        hud_text_en = 1; hud_char_row = gy - 9'd172; hud_text_color = 6'd59;
+                        case (col_1x - 6'd8)
+                            0:hud_char_code=lch("J"); 1:hud_char_code=lch("O"); 2:hud_char_code=lch("Y"); 3:hud_char_code=C_SP;
+                            4:hud_char_code=lch("/"); 5:hud_char_code=C_SP;     6:hud_char_code=lch("K"); 7:hud_char_code=lch("B");
+                            8:hud_char_code=C_SP;     9:hud_char_code=lch("S"); 10:hud_char_code=lch("T"); 11:hud_char_code=lch("I");
+                            12:hud_char_code=lch("L"); 13:hud_char_code=lch("L"); 14:hud_char_code=C_SP;   15:hud_char_code=lch("W");
+                            16:hud_char_code=lch("O"); 17:hud_char_code=lch("R"); 18:hud_char_code=lch("K"); 19:hud_char_code=C_SP;
+                            20:hud_char_code=lch("T"); 21:hud_char_code=lch("O"); 22:hud_char_code=lch("O"); 23:hud_char_code=lch("!");
+                        endcase
+                    end
                 end
 
                 // Footer Labels beside Real Button Icons (gy=203..211, NO < > arrows!)
                 // PREV (col_1x=9..12, only when help_page > 1)
-                if (help_page > 2'd1 && gy >= 9'd203 && gy < 9'd211 && col_1x >= 6'd9 && col_1x < 6'd13) begin
+                if (help_page > 3'd1 && gy >= 9'd203 && gy < 9'd211 && col_1x >= 6'd9 && col_1x < 6'd13) begin
                     hud_text_en = 1; hud_char_row = gy - 9'd203; hud_text_color = 6'd59;
                     case (col_1x - 6'd9)
                         0:hud_char_code=lch("P"); 1:hud_char_code=lch("R"); 2:hud_char_code=lch("E"); 3:hud_char_code=lch("V");
@@ -1292,8 +1444,8 @@ module vga_renderer_v2 (
                     case (col_1x - 6'd20)
                         0:hud_char_code=lch("E"); 1:hud_char_code=lch("X"); 2:hud_char_code=lch("I"); 3:hud_char_code=lch("T");
                     endcase
-                // NEXT (col_1x=31..34, hidden on Page 3!)
-                end else if (help_page < 2'd3 && gy >= 9'd203 && gy < 9'd211 && col_1x >= 6'd31 && col_1x < 6'd35) begin
+                // NEXT (col_1x=31..34, hidden on Page 4!)
+                end else if (help_page < 3'd4 && gy >= 9'd203 && gy < 9'd211 && col_1x >= 6'd31 && col_1x < 6'd35) begin
                     hud_text_en = 1; hud_char_row = gy - 9'd203; hud_text_color = 6'd59;
                     case (col_1x - 6'd31)
                         0:hud_char_code=lch("N"); 1:hud_char_code=lch("E"); 2:hud_char_code=lch("X"); 3:hud_char_code=lch("T");
@@ -1646,8 +1798,16 @@ module vga_renderer_v2 (
                         gx >= 9'd174 && gx <= 9'd178 && qdy <= 2)
                         hud_bg_color = 6'd52;
                 end
-                // 4 Answer Options (gy = 114, 130, 146, 162) - Guaranteed Zero Duplicate Choices!
+                // 4 Answer Options (gy = 114, 130, 146, 162) - Guaranteed Zero Duplicate Choices + Mouse Hover Box!
                 for (q_opt = 0; q_opt < 4; q_opt = q_opt + 1) begin
+                    if (mq_hover_val && mq_hover_slot == q_opt[1:0] &&
+                        gx >= 9'd96 && gx < 9'd224 &&
+                        gy >= (9'd110 + q_opt*16) && gy < (9'd126 + q_opt*16)) begin
+                        if (gx == 9'd96 || gx == 9'd223 || gy == (9'd110 + q_opt*16) || gy == (9'd125 + q_opt*16))
+                            hud_bg_color = 6'd59;
+                        else
+                            hud_bg_color = 6'd55;
+                    end
                     if (gy >= (9'd114 + q_opt*16) && gy < (9'd122 + q_opt*16) && col_1x >= 6'd14 && col_1x < 6'd23) begin
                         if (q_opt[1:0] == quiz_ans_slot) opt_gate = quiz_gate;
                         else begin
@@ -1820,9 +1980,9 @@ module vga_renderer_v2 (
     reg [3:0] wx_1=0, wy_1=0;
     reg [8:0] gx_1=0, gy_1=0;
     reg on_p_1=0, sel_p2_1=0, on_aura_1=0, on_ghost_1=0, on_b_1=0, on_mon_1=0, on_item_1=0, on_logo_1=0;
-    reg on_joy_1=0, joy_x0_1=0, on_kb_1=0, kb_x0_1=0, on_ui_1=0, guide_line_1=0;
+    reg on_joy_1=0, joy_x0_1=0, on_kb_1=0, kb_x0_1=0, on_ui_1=0, guide_line_1=0, on_mouse_1=0;
     reg on_pb_1=0, on_eb_1=0, on_dropfx_1=0, on_laser_1=0, on_tag_1=0, on_sonic_1=0;
-    reg [5:0] aura_col_1=0, pb_col_1=0, eb_col_1=0, dropfx_col_1=0, laser_col_1=0, tag_col_1=0, guide_lcol_1=0;
+    reg [5:0] aura_col_1=0, pb_col_1=0, eb_col_1=0, dropfx_col_1=0, laser_col_1=0, tag_col_1=0, guide_lcol_1=0, mouse_col_1=0;
     reg [11:0] sonic_col_1=0;
     reg hud_text_en_1=0, hud_bg_en_1=0;
     reg [2:0] hud_col_1=0;
@@ -1847,6 +2007,7 @@ module vga_renderer_v2 (
         on_ghost_1 <= on_ghost; on_b_1 <= on_boss_box; on_mon_1 <= on_mon_box; on_item_1 <= on_item_box; on_logo_1 <= in_logo_box;
         on_joy_1 <= in_joy_box; joy_x0_1 <= gx[0]; on_kb_1 <= in_kb_box; kb_x0_1 <= kb_lx[0]; on_ui_1 <= in_ui_box;
         guide_line_1 <= guide_line_en; guide_lcol_1 <= guide_line_col;
+        on_mouse_1   <= on_mouse_0;    mouse_col_1  <= mouse_col_0;
         on_tag_1 <= (on_p1_tag || on_p2_tag); tag_col_1 <= on_p1_tag ? 6'd58 : 6'd59;
         on_pb_1 <= on_pb_0; pb_col_1 <= pb_col_0;
         on_eb_1 <= on_eb_0; eb_col_1 <= eb_col_0;
@@ -1871,9 +2032,9 @@ module vga_renderer_v2 (
     reg [11:0] p_pix_2=0, b_pix_2=0, mon_pix_2=0;
     reg [5:0]  item_pix_2=0, logo_pix_2=0;
     reg on_p_2=0, sel_p2_2=0, on_aura_2=0, on_ghost_2=0, on_b_2=0, on_mon_2=0, on_item_2=0, on_logo_2=0;
-    reg on_joy_2=0, on_kb_2=0, on_ui_2=0, guide_line_2=0; reg [3:0] joy_nib_2=0, kb_nib_2=0; reg [11:0] ui_pix_2=0;
+    reg on_joy_2=0, on_kb_2=0, on_ui_2=0, guide_line_2=0, on_mouse_2=0; reg [3:0] joy_nib_2=0, kb_nib_2=0; reg [11:0] ui_pix_2=0;
     reg on_pb_2=0, on_eb_2=0, on_dropfx_2=0, on_laser_2=0, on_tag_2=0, on_sonic_2=0;
-    reg [5:0] aura_col_2=0, pb_col_2=0, eb_col_2=0, dropfx_col_2=0, laser_col_2=0, tag_col_2=0, guide_lcol_2=0;
+    reg [5:0] aura_col_2=0, pb_col_2=0, eb_col_2=0, dropfx_col_2=0, laser_col_2=0, tag_col_2=0, guide_lcol_2=0, mouse_col_2=0;
     reg [11:0] sonic_col_2=0;
     reg hud_bit_2=0, hud_bg_en_2=0;
     reg [5:0] hud_tcol_2=0, hud_bcol_2=0;
@@ -1892,6 +2053,7 @@ module vga_renderer_v2 (
         on_kb_2  <= on_kb_1;  kb_nib_2  <= (kb_x0_1  == 1'b0) ? kb_rom_byte_1[7:4]  : kb_rom_byte_1[3:0];
         on_ui_2 <= on_ui_1; ui_pix_2 <= ui_pix_1;
         guide_line_2 <= guide_line_1; guide_lcol_2 <= guide_lcol_1;
+        on_mouse_2   <= on_mouse_1;   mouse_col_2  <= mouse_col_1;
         on_tag_2 <= on_tag_1; tag_col_2 <= tag_col_1;
         on_pb_2 <= on_pb_1; pb_col_2 <= pb_col_1;
         on_eb_2 <= on_eb_1; eb_col_2 <= eb_col_1;
@@ -1913,7 +2075,8 @@ module vga_renderer_v2 (
         use_direct_rgb_2 = 1'b0;
         direct_rgb_2     = 12'h000;
         final_idx_2      = 6'd0;
-        if (hud_bit_2)            final_idx_2 = hud_tcol_2;
+        if (on_mouse_2)           final_idx_2 = mouse_col_2;
+        else if (hud_bit_2)       final_idx_2 = hud_tcol_2;
         else if (in_outfit_2 && on_p_2 && p_pix_2 != 12'd0) begin
             use_direct_rgb_2 = 1'b1;
             direct_rgb_2     = p_pix_2;

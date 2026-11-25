@@ -11,7 +11,8 @@ Reads:
        Start  (Btn 10)    = Pause / Guide
   2. Wireless / USB / Laptop Keyboard via Windows user32.dll GetAsyncKeyState
      (WASD / Arrows = Move, Space/J = Attack, K/E/Z = Dash, 3/L = Nova, 4/U = Bullet, 1-4 = Quiz, Enter = Pause, Esc = Guide/Back)
-Streams 5-byte packets @ 115200 baud to Nexys A7 USB-UART (UART_TXD_IN).
+Streams 8-byte packets @ 115200 baud to Nexys A7 USB-UART (UART_TXD_IN)
+  including PC Mouse (X, Y, LMB) for Logic Gate Quiz selection.
 """
 import argparse
 import ctypes
@@ -30,6 +31,7 @@ OPEN_EXISTING = 3
 INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
 
 # Virtual-Key codes
+VK_LBUTTON = 0x01
 VK_LEFT = 0x25
 VK_UP = 0x26
 VK_RIGHT = 0x27
@@ -37,6 +39,10 @@ VK_DOWN = 0x28
 VK_SPACE = 0x20
 VK_RETURN = 0x0D
 VK_ESCAPE = 0x1B
+
+
+class POINT(ctypes.Structure):
+    _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
 
 def is_key_down(vk):
@@ -244,23 +250,36 @@ def read_keyboard():
     return dx, dy, btn_bits, shoot_y, start_btn, select_btn, quiz_sel, quiz_hit, has_kb
 
 
+def read_mouse():
+    pt = POINT()
+    if not user32.GetCursorPos(ctypes.byref(pt)):
+        return 160, 120, 0
+    sw = max(1, user32.GetSystemMetrics(0))
+    sh = max(1, user32.GetSystemMetrics(1))
+    mx = max(0, min(319, int(pt.x * 320 // sw)))
+    my = max(0, min(239, int(pt.y * 240 // sh)))
+    lmb = 1 if is_key_down(VK_LBUTTON) else 0
+    return mx, my, lmb
+
+
 def enc_axis(v):
     return max(0, min(4, int(v) + 2))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DRAGO-NEXUS V2 Joystick & Wireless Keyboard Bridge")
+    parser = argparse.ArgumentParser(description="DRAGO-NEXUS V2 Joystick, Keyboard & Quiz Mouse Bridge")
     parser.add_argument("--port", default="", help="COM port (auto-detected if omitted)")
     parser.add_argument("--baud", type=int, default=115200, help="UART baud rate (default 115200)")
     args = parser.parse_args()
 
     port = args.port or find_nexys_com_port()
     print("==========================================================")
-    print("  DRAGO-NEXUS V2 : Dual USB Joystick + Keyboard Bridge")
+    print("  DRAGO-NEXUS V2 : Dual USB Joystick + Keyboard + Mouse Bridge")
     print(f"  Target Port : {port} @ {args.baud} baud")
     print("  Controls:")
     print("    - Gamepad : D-pad=Move, Btn1=Bullet, Btn2=Dash, Btn3=Attack, Btn4=Nova, Select/Start")
     print("    - Keyboard: W/A/S/D/Arrows=Move, Space/J=Attack, K/E/Z=Dash, 3/L=Nova, 4/U=Bullet, 1-4=Quiz, Esc=Guide")
+    print("    - Mouse   : Hover + Left Click (LOGIC GATE QUIZ ONLY)")
     print("==========================================================")
 
     try:
@@ -269,7 +288,7 @@ def main():
         print(f"[ERROR] Failed to open serial port {port}: {e}")
         sys.exit(1)
 
-    print(f"[OK] Connected to {port}. Streaming 5-byte packets to FPGA...")
+    print(f"[OK] Connected to {port}. Streaming 8-byte packets to FPGA...")
     frame = 0
     prev_state = None
 
@@ -279,6 +298,7 @@ def main():
             j2_dx, j2_dy, j2_btn, j2_shoot, j2_start, j2_sel, has_j2 = read_pad(1)
 
             kb_dx, kb_dy, kb_btn, kb_shoot, kb_start, kb_sel, kb_qsel, kb_qhit, has_kb = read_keyboard()
+            mx, my, mlmb = read_mouse()
 
             b0 = 0x80 | ((j1_shoot & 1) << 6) | (enc_axis(j1_dy) << 3) | enc_axis(j1_dx)
             b1 = 0x00 | ((j2_shoot & 1) << 6) | (enc_axis(j2_dy) << 3) | enc_axis(j2_dx)
@@ -286,8 +306,11 @@ def main():
             b3 = 0x00 | ((kb_shoot & 1) << 6) | (enc_axis(kb_dy) << 3) | enc_axis(kb_dx)
             kb_meta = (kb_qsel & 3) if kb_qhit else (((kb_sel & 1) << 1) | (kb_start & 1))
             b4 = 0x00 | ((kb_qhit & 1) << 6) | (kb_meta << 4) | (((j1_sel | j2_sel) & 1) << 3) | (kb_btn & 7)
+            b5 = 0x00 | ((mlmb & 1) << 6) | ((mx >> 3) & 0x3F)
+            b6 = 0x00 | ((mx & 7) << 4) | ((my >> 4) & 0x0F)
+            b7 = 0x00 | (my & 0x0F)
 
-            pkt = bytes([b0, b1, b2, b3, b4])
+            pkt = bytes([b0, b1, b2, b3, b4, b5, b6, b7])
             write_serial(h_ser, pkt)
 
             cur_state = (j1_dx, j1_dy, j1_btn, j1_shoot, j2_dx, j2_dy, j2_btn, kb_dx, kb_dy, kb_btn, kb_shoot, kb_start, kb_sel, kb_qhit)

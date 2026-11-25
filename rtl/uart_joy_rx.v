@@ -1,11 +1,14 @@
 `timescale 1ns / 1ps
-// UART 115200 8N1 Dual USB Joystick + Wireless Keyboard Receiver (PC Bridge -> FPGA)
-// Packet Format (5 bytes):
+// UART 115200 8N1 Dual USB Joystick + Wireless Keyboard + Quiz Mouse Receiver (PC Bridge -> FPGA)
+// Packet Format (5-byte legacy compatible + optional Bytes 5..7 for Quiz Mouse):
 //   Byte 0: {1'b1, j1_shoot, p1_dy_enc[2:0], p1_dx_enc[2:0]}  (enc 0..4 => -2..+2)
 //   Byte 1: {1'b0, j2_shoot, p2_dy_enc[2:0], p2_dx_enc[2:0]}  (enc 0..4 => -2..+2)
 //   Byte 2: {1'b0, joy_start, p2_btn[2:0], p1_btn[2:0]}       ({fire, dash, nova})
 //   Byte 3: {1'b0, kb_shoot, kb_dy_enc[2:0], kb_dx_enc[2:0]}
 //   Byte 4: {1'b0, kb_quiz_hit, (kb_quiz_hit ? kb_quiz_sel[1:0] : {kb_esc, kb_start}), joy_select, kb_btn[2:0]}
+//   Byte 5: {1'b0, mouse_lmb, mouse_x[8:3]}
+//   Byte 6: {1'b0, mouse_x[2:0], mouse_y[7:4]}
+//   Byte 7: {1'b0, 3'b000, mouse_y[3:0]}
 module uart_joy_rx (
     input  wire       clk,         // 25 MHz
     input  wire       rst,
@@ -28,6 +31,9 @@ module uart_joy_rx (
     output reg        uart_kb_esc   = 1'b0,
     output reg  [1:0] uart_kb_quiz_sel = 2'd0,
     output reg        uart_kb_quiz_hit = 1'b0,
+    output reg  [8:0] mouse_x     = 9'd160,
+    output reg  [7:0] mouse_y     = 8'd120,
+    output reg        mouse_lmb   = 1'b0,
     output reg        joy_link_ok = 1'b0
 );
     localparam integer CLKS_PER_BIT = 217; // 25,000,000 / 115,200 = 217.01
@@ -116,9 +122,10 @@ module uart_joy_rx (
         end
     endfunction
 
-    // 5-Byte Packet Framing + 1-Second Watchdog
+    // 5-to-8 Byte Packet Framing + 1-Second Watchdog
     reg [2:0]  pkt_state = 3'd0;
     reg [7:0]  b0_latch = 8'd0, b1_latch = 8'd0, b2_latch = 8'd0, b3_latch = 8'd0;
+    reg [7:0]  b5_latch = 8'd0, b6_latch = 8'd0;
     reg [24:0] wdog_cnt = 25'd0;
 
     always @(posedge clk) begin
@@ -131,6 +138,7 @@ module uart_joy_rx (
             uart_kb_dx       <= 3'sd0; uart_kb_dy <= 3'sd0; uart_kb_btn <= 3'b0;
             uart_kb_shoot    <= 1'b0;  uart_kb_start <= 1'b0; uart_kb_esc <= 1'b0;
             uart_kb_quiz_sel <= 2'd0;  uart_kb_quiz_hit <= 1'b0;
+            mouse_x          <= 9'd160; mouse_y <= 8'd120; mouse_lmb <= 1'b0;
             joy_link_ok      <= 1'b0;
             wdog_cnt         <= 25'd0;
         end else begin
@@ -145,6 +153,7 @@ module uart_joy_rx (
                 uart_kb_dx <= 3'sd0; uart_kb_dy <= 3'sd0; uart_kb_btn <= 3'b0;
                 uart_kb_shoot <= 1'b0; uart_kb_start <= 1'b0; uart_kb_esc <= 1'b0;
                 uart_kb_quiz_hit <= 1'b0;
+                mouse_lmb <= 1'b0;
             end
 
             if (rx_valid) begin
@@ -181,7 +190,20 @@ module uart_joy_rx (
                     uart_kb_esc      <= !rx_byte[6] ? rx_byte[5] : 1'b0;
                     joy_link_ok      <= 1'b1;
                     wdog_cnt         <= 25'd25000000;
-                    pkt_state        <= 3'd0;
+                    pkt_state        <= 3'd5;
+                end else if (pkt_state == 3'd5) begin
+                    b5_latch  <= rx_byte;
+                    pkt_state <= 3'd6;
+                end else if (pkt_state == 3'd6) begin
+                    b6_latch  <= rx_byte;
+                    pkt_state <= 3'd7;
+                end else if (pkt_state == 3'd7) begin
+                    mouse_x     <= ({b5_latch[5:0], b6_latch[6:4]} > 9'd319) ? 9'd319 : {b5_latch[5:0], b6_latch[6:4]};
+                    mouse_y     <= ({b6_latch[3:0], rx_byte[3:0]} > 8'd239) ? 8'd239 : {b6_latch[3:0], rx_byte[3:0]};
+                    mouse_lmb   <= b5_latch[6];
+                    joy_link_ok <= 1'b1;
+                    wdog_cnt    <= 25'd25000000;
+                    pkt_state   <= 3'd0;
                 end else begin
                     pkt_state <= 3'd0;
                 end
